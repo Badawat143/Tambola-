@@ -1,6 +1,6 @@
 import React from 'react';
 import { useTambola } from '../context/TambolaContext';
-import { Trophy, Sparkles, Award, Star, ArrowRight } from 'lucide-react';
+import { Trophy, Sparkles, Award, Star, ArrowRight, CheckCircle2, ShieldCheck } from 'lucide-react';
 
 export const PrizeSection: React.FC = () => {
   const { prizes, setActiveModal } = useTambola();
@@ -10,22 +10,22 @@ export const PrizeSection: React.FC = () => {
       <div className="text-center max-w-3xl mx-auto mb-10">
         <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-pink-500/15 border border-pink-500/30 text-pink-300 text-xs font-bold uppercase tracking-wider mb-3">
           <Trophy className="w-3.5 h-3.5 text-pink-400" />
-          <span>INSTANT WINNING PATTERNS</span>
+          <span>OFFICIAL GAME PATTERNS</span>
         </div>
         <h2 className="text-3xl sm:text-4xl lg:text-5xl font-black text-white tracking-tight">
-          🏆 EXCITING PRIZES
+          🏆 WINNING PATTERNS &amp; COMBINATIONS
         </h2>
         <p className="text-slate-300 text-sm sm:text-base mt-2">
-          Multiple ways to win in every single game! Claim your prize the moment your numbers match.
+          Multiple exciting ways to win in every match! Complete any of these classic patterns on your colourful ticket to claim victory.
         </p>
       </div>
 
-      {/* 6 Prize Cards Grid */}
+      {/* 6 Winning Pattern Cards Grid (NO PRIZE AMOUNTS / NO INTERNAL CALCULATIONS) */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
         {prizes.map((prize) => (
           <div
             key={prize.id}
-            className="glass-card glass-card-hover rounded-3xl p-6 sm:p-7 border border-white/10 relative overflow-hidden group"
+            className="glass-card glass-card-hover rounded-3xl p-6 sm:p-7 border-2 border-white/10 relative overflow-hidden group bg-gradient-to-br from-[#0e1338]/90 via-[#0a0d2a]/95 to-[#07091d]/95 hover:border-pink-500/50 shadow-xl"
           >
             {/* Background ambient gradient glow */}
             <div className={`absolute top-0 right-0 w-32 h-32 bg-gradient-to-br ${prize.color} opacity-15 rounded-full blur-2xl group-hover:opacity-30 transition-opacity`}></div>
@@ -45,40 +45,30 @@ export const PrizeSection: React.FC = () => {
                 </div>
               </div>
 
-              {/* Prize Badge */}
-              <span className="px-3 py-1 rounded-full bg-white/10 text-xs font-bold text-slate-200 border border-white/10">
-                Pattern
+              {/* Pattern Badge */}
+              <span className="px-3 py-1 rounded-full bg-emerald-500/15 text-xs font-black text-emerald-300 border border-emerald-500/30 flex items-center gap-1">
+                <CheckCircle2 className="w-3 h-3 text-emerald-400" />
+                <span>Verified</span>
               </span>
-            </div>
-
-            {/* Prize Amount */}
-            <div className="my-5 p-4 rounded-2xl bg-[#0a0b1d]/80 border border-white/10 group-hover:border-pink-500/30 transition-all">
-              <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">
-                Prize Amount
-              </p>
-              <div className="flex items-baseline gap-1 mt-0.5">
-                <span className="text-3xl sm:text-4xl font-black bg-gradient-to-r from-amber-300 via-pink-400 to-purple-300 bg-clip-text text-transparent font-['Space_Grotesk']">
-                  ₹{prize.amount.toLocaleString('en-IN')}
-                </span>
-                <span className="text-xs font-semibold text-emerald-400">+ Cash</span>
-              </div>
             </div>
 
             {/* Pattern Description */}
-            <p className="text-xs sm:text-sm text-slate-300 leading-relaxed min-h-[38px]">
-              {prize.description}
-            </p>
+            <div className="my-4 p-4 rounded-2xl bg-[#060818]/80 border border-white/10 group-hover:border-pink-500/30 transition-all">
+              <p className="text-xs font-semibold text-slate-200 leading-relaxed">
+                {prize.description}
+              </p>
+            </div>
 
             {/* Card Footer Action */}
-            <div className="mt-5 pt-4 border-t border-white/10 flex items-center justify-between">
-              <span className="text-[11px] font-semibold text-pink-400 flex items-center gap-1">
-                <Sparkles className="w-3.5 h-3.5" /> Instant Claim
+            <div className="pt-3 border-t border-white/10 flex items-center justify-between">
+              <span className="text-[11px] font-bold text-pink-400 flex items-center gap-1">
+                <Sparkles className="w-3.5 h-3.5" /> Instant Claim Ready
               </span>
               <button
                 onClick={() => setActiveModal('playLive')}
-                className="text-xs font-bold text-white hover:text-pink-300 flex items-center gap-1 group/btn cursor-pointer"
+                className="text-xs font-black text-white hover:text-pink-300 flex items-center gap-1 group/btn cursor-pointer"
               >
-                <span>Play Now</span>
+                <span>Play Live</span>
                 <ArrowRight className="w-3.5 h-3.5 group-hover/btn:translate-x-1 transition-transform" />
               </button>
             </div>
@@ -86,15 +76,15 @@ export const PrizeSection: React.FC = () => {
         ))}
       </div>
 
-      {/* Button: VIEW PRIZES */}
+      {/* Button: HOW TO PLAY & RULES */}
       <div className="text-center mt-10">
         <button
-          id="btn-view-prizes"
+          id="btn-view-rules"
           onClick={() => setActiveModal('prizes')}
-          className="px-8 py-3.5 rounded-2xl bg-white/10 hover:bg-white/20 border border-white/20 text-white font-extrabold text-sm sm:text-base shadow-lg hover:scale-105 active:scale-95 transition-all duration-200 cursor-pointer inline-flex items-center gap-2"
+          className="px-8 py-3.5 rounded-2xl bg-gradient-to-r from-pink-600 via-purple-600 to-indigo-600 hover:brightness-110 text-white font-extrabold text-sm sm:text-base shadow-xl shadow-pink-500/25 hover:scale-105 active:scale-95 transition-all duration-200 cursor-pointer inline-flex items-center gap-2"
         >
-          <Award className="w-5 h-5 text-amber-400" />
-          <span>VIEW PRIZES &amp; RULES</span>
+          <Award className="w-5 h-5 text-amber-300" />
+          <span>VIEW HOW TO PLAY &amp; WINNING RULES</span>
         </button>
       </div>
     </section>

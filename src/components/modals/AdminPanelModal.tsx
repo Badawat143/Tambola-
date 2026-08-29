@@ -269,7 +269,8 @@ export const AdminPanelModal: React.FC = () => {
   const handleWalletAdjustSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedUserForDetail || walletAdjAmount === 0 || !walletAdjReason) {
-      alert('Please specify amount and a mandatory audit reason.');
+      setSaveSuccessMsg('Please specify amount and a mandatory audit reason.');
+      setTimeout(() => setSaveSuccessMsg(null), 3000);
       return;
     }
     adjustUserWallet(selectedUserForDetail.id, walletAdjType, walletAdjAmount, walletAdjReason);

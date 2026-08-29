@@ -19,243 +19,216 @@ import {
   ArrowUpFromLine,
   LayoutDashboard,
   Gift,
+  Crown,
+  Lock,
 } from 'lucide-react';
 
-export const Header: React.FC = () => {
+interface HeaderProps {
+  onNavigate?: (path: string) => void;
+}
+
+export const Header: React.FC<HeaderProps> = ({ onNavigate }) => {
   const {
     currentUser,
     settings,
     setActiveModal,
     openUserDashboard,
-    setSelectedGameForPurchase,
-    upcomingGames,
     isSoundMuted,
     toggleSound,
   } = useTambola();
 
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
-  const navItems = [
-    { name: 'HOME', action: () => window.scrollTo({ top: 0, behavior: 'smooth' }) },
-    { name: 'LIVE GAMES', action: () => setActiveModal('playLive') },
-    { name: 'HOW TO PLAY', action: () => {
-      const el = document.getElementById('how-to-play');
-      if (el) el.scrollIntoView({ behavior: 'smooth' });
-    }},
-    { name: 'WINNERS', action: () => setActiveModal('winners') },
-    { name: 'LOGIN', action: () => openUserDashboard('dashboard') },
-    { name: 'REGISTER', action: () => setActiveModal('userSwitcher') },
-  ];
+  const handleRoute = (path: string) => {
+    setMobileMenuOpen(false);
+    if (onNavigate) {
+      onNavigate(path);
+    } else if (typeof window !== 'undefined') {
+      try {
+        window.history.pushState({}, '', path);
+      } catch {
+        // ignore
+      }
+      try {
+        window.location.href = path;
+      } catch {
+        // ignore
+      }
+    }
+  };
+
+  const scrollToSection = (sectionId: string) => {
+    setMobileMenuOpen(false);
+    const el = document.getElementById(sectionId);
+    if (el) {
+      el.scrollIntoView({ behavior: 'smooth' });
+    }
+  };
 
   return (
-    <header className="sticky top-0 z-40 w-full border-b border-indigo-500/20 bg-[#0c0d23]/90 backdrop-blur-xl transition-all duration-300">
-      {/* Top Announcement Bar */}
-      {settings.announcements && settings.announcements.length > 0 && (
-        <div className="bg-gradient-to-r from-amber-500 via-pink-500 to-purple-600 px-4 py-1 text-center text-xs font-semibold tracking-wide text-white shadow-inner flex items-center justify-center gap-2 overflow-hidden">
-          <Sparkles className="h-3.5 w-3.5 animate-spin text-yellow-200" style={{ animationDuration: '4s' }} />
-          <span className="truncate">{settings.announcements[0]}</span>
-          <span className="hidden md:inline-block bg-white/25 px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider">
-            Live
-          </span>
-        </div>
-      )}
-
+    <header className="sticky top-0 z-40 w-full border-b border-sky-400/20 bg-[#041d38]/90 backdrop-blur-xl transition-all duration-300 shadow-lg shadow-sky-950/20">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-20">
-          {/* Logo Left */}
+          {/* Logo Left: 🎱 APNA TAMBOLA with Crown */}
           <div
-            className="flex items-center gap-3 cursor-pointer"
-            onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
+            className="flex items-center gap-3 cursor-pointer group"
+            onClick={() => handleRoute('/')}
           >
-            <div className="relative flex items-center justify-center w-12 h-12 rounded-2xl bg-gradient-to-tr from-blue-600 via-purple-600 to-pink-500 p-[2px] shadow-lg shadow-purple-500/25">
-              <div className="w-full h-full bg-[#0d0e24] rounded-2xl flex items-center justify-center relative overflow-hidden">
-                <span className="font-extrabold text-xl tracking-tighter bg-gradient-to-r from-amber-300 via-pink-400 to-purple-300 bg-clip-text text-transparent">
-                  AT
-                </span>
-                <span className="absolute -bottom-1 -right-1 w-4 h-4 bg-emerald-500 rounded-full border-2 border-[#0d0e24]"></span>
+            {/* 3D 8-Ball Icon */}
+            <div className="relative flex items-center justify-center w-12 h-12 rounded-full bg-gradient-to-br from-indigo-900 via-black to-slate-900 p-[2px] shadow-lg shadow-purple-500/30 group-hover:scale-105 transition-transform">
+              <div className="w-full h-full rounded-full bg-gradient-to-br from-slate-900 to-black flex items-center justify-center relative overflow-hidden border border-white/20">
+                <div className="absolute top-1 left-2 w-3 h-2 bg-white/50 rounded-full rotate-[-30deg]"></div>
+                {/* 8 Ball Center White Circle */}
+                <div className="w-6 h-6 rounded-full bg-white flex items-center justify-center shadow-inner">
+                  <span className="font-black text-xs text-black font-['Space_Grotesk']">8</span>
+                </div>
               </div>
             </div>
-            <div>
-              <div className="flex items-center gap-1.5">
-                <span className="text-2xl font-black tracking-tight bg-gradient-to-r from-amber-300 via-pink-400 to-purple-300 bg-clip-text text-transparent font-['Outfit']">
-                  {settings.websiteName || 'APNA TAMBOLA'}
-                </span>
-                <span className="text-[10px] uppercase font-extrabold bg-gradient-to-r from-pink-500 to-purple-500 text-white px-1.5 py-0.5 rounded shadow">
-                  PRO
-                </span>
+
+            {/* Brand Text with Crown */}
+            <div className="relative">
+              <div className="flex items-center gap-1">
+                <div className="relative flex flex-col">
+                  {/* Golden Crown */}
+                  <Crown className="w-4 h-4 text-amber-400 fill-amber-400 absolute -top-3.5 left-1/2 -translate-x-1/2 filter drop-shadow-[0_0_8px_rgba(251,191,36,0.6)]" />
+                  <span className="text-xl sm:text-2xl font-black tracking-tight text-white font-['Outfit'] drop-shadow-[0_2px_10px_rgba(234,179,8,0.3)]">
+                    APNA <span className="bg-gradient-to-r from-amber-300 via-amber-400 to-yellow-500 bg-clip-text text-transparent">TAMBOLA</span>
+                  </span>
+                </div>
               </div>
-              <p className="text-[10px] tracking-widest font-semibold uppercase text-slate-400">
-                {settings.tagline || 'PLAY MORE • WIN MORE • SMILE MORE'}
-              </p>
             </div>
           </div>
 
-          {/* Desktop Navigation */}
-          <nav className="hidden lg:flex items-center space-x-1">
-            {navItems.map((item) => (
-              <button
-                key={item.name}
-                onClick={item.action}
-                className="px-3 py-2 text-xs font-bold text-slate-200 hover:text-white hover:bg-white/10 rounded-xl transition-all duration-200 cursor-pointer whitespace-nowrap"
-              >
-                {item.name}
-              </button>
-            ))}
+          {/* Center Navigation Links: HOME | LIVE GAMES | HOW TO PLAY | WINNERS */}
+          <nav className="hidden lg:flex items-center space-x-1 sm:space-x-4">
+            <button
+              onClick={() => handleRoute('/')}
+              className="px-3 py-2 text-xs sm:text-sm font-extrabold text-slate-200 hover:text-white hover:bg-white/10 rounded-xl transition-all duration-200 cursor-pointer uppercase tracking-wider"
+            >
+              HOME
+            </button>
+            <button
+              onClick={() => handleRoute('/live')}
+              className="px-3 py-2 text-xs sm:text-sm font-extrabold text-slate-200 hover:text-white hover:bg-white/10 rounded-xl transition-all duration-200 cursor-pointer uppercase tracking-wider flex items-center gap-1.5"
+            >
+              <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse"></span>
+              <span>LIVE GAMES</span>
+            </button>
+            <button
+              onClick={() => scrollToSection('how-to-play')}
+              className="px-3 py-2 text-xs sm:text-sm font-extrabold text-slate-200 hover:text-white hover:bg-white/10 rounded-xl transition-all duration-200 cursor-pointer uppercase tracking-wider"
+            >
+              HOW TO PLAY
+            </button>
+            <button
+              onClick={() => scrollToSection('winners-section')}
+              className="px-3 py-2 text-xs sm:text-sm font-extrabold text-slate-200 hover:text-white hover:bg-white/10 rounded-xl transition-all duration-200 cursor-pointer uppercase tracking-wider"
+            >
+              WINNERS
+            </button>
           </nav>
 
-          {/* Right Action Buttons */}
-          <div className="hidden sm:flex items-center space-x-2.5">
-            {/* Join Now Prominent Button */}
-            <button
-              onClick={() => {
-                setSelectedGameForPurchase(upcomingGames[0]);
-                setActiveModal('buyTicket');
-              }}
-              className="px-4 py-2 rounded-xl bg-gradient-to-r from-amber-400 via-pink-500 to-purple-600 text-white text-xs font-black tracking-wide flex items-center gap-1.5 shadow-lg shadow-pink-500/25 hover:scale-105 transition-all cursor-pointer animate-pulse"
-            >
-              <Sparkles className="w-3.5 h-3.5" />
-              <span>JOIN NOW</span>
-            </button>
-
+          {/* Right Buttons: LOGIN (Royal Blue) & REGISTER (Pink) */}
+          <div className="hidden sm:flex items-center space-x-3">
             {/* Audio toggle */}
             <button
               onClick={toggleSound}
               title={isSoundMuted ? 'Unmute Sound' : 'Mute Sound'}
-              className="p-2 rounded-xl bg-white/5 hover:bg-white/10 text-slate-300 hover:text-white border border-white/10 transition-colors"
+              className="p-2 rounded-xl bg-white/5 hover:bg-white/10 text-slate-300 hover:text-white border border-white/10 transition-colors cursor-pointer"
             >
               {isSoundMuted ? <VolumeX className="w-4 h-4 text-red-400" /> : <Volume2 className="w-4 h-4 text-emerald-400" />}
             </button>
 
-            {/* Wallet Balance / Quick Deposit */}
-            <div
-              onClick={() => openUserDashboard('wallet')}
-              className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-gradient-to-r from-emerald-500/20 to-teal-500/10 border border-emerald-500/40 text-emerald-300 cursor-pointer hover:border-emerald-400 transition-all shadow-sm"
-              title="Click to view Wallet & Transactions"
-            >
-              <Wallet className="w-4 h-4 text-emerald-400" />
-              <span className="text-xs font-bold text-emerald-400 font-mono">₹{currentUser.walletBalance.toLocaleString('en-IN')}</span>
-            </div>
-
-            {/* Quick Deposit Button */}
+            {/* 🔵 LOGIN Button (Royal Blue Pill) */}
             <button
-              onClick={() => openUserDashboard('deposit')}
-              className="px-3 py-1.5 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-600 text-black text-xs font-extrabold flex items-center gap-1 shadow-md shadow-emerald-500/20 hover:scale-105 transition-transform"
+              onClick={() => handleRoute('/login')}
+              className="px-6 py-2.5 rounded-full bg-gradient-to-r from-blue-600 via-blue-500 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white text-xs sm:text-sm font-black tracking-wider uppercase shadow-lg shadow-blue-600/30 hover:scale-105 active:scale-95 transition-all cursor-pointer border border-blue-400/30"
             >
-              <ArrowDownToLine className="w-3.5 h-3.5" />
-              <span>Deposit</span>
+              LOGIN
             </button>
 
-            {/* User Dashboard & Profile */}
+            {/* 🩷 REGISTER Button (Pink/Rose Pill) */}
             <button
-              onClick={() => openUserDashboard('dashboard')}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-purple-500/15 hover:bg-purple-500/25 border border-purple-500/30 text-purple-200 transition-all cursor-pointer text-xs font-bold"
+              onClick={() => handleRoute('/register')}
+              className="px-6 py-2.5 rounded-full bg-gradient-to-r from-pink-500 via-rose-500 to-fuchsia-600 hover:from-pink-400 hover:to-fuchsia-500 text-white text-xs sm:text-sm font-black tracking-wider uppercase shadow-lg shadow-pink-500/30 hover:scale-105 active:scale-95 transition-all cursor-pointer border border-pink-400/30"
             >
-              <LayoutDashboard className="w-3.5 h-3.5 text-pink-400" />
-              <span className="max-w-[80px] truncate">{currentUser.name}</span>
+              REGISTER
             </button>
 
-            {/* Admin Switcher */}
+            {/* 🔐 Admin Access Shortcut */}
             <button
-              onClick={() => setActiveModal('admin')}
-              title="Open Admin Settings"
-              className="p-2 rounded-xl bg-amber-500/20 hover:bg-amber-500/30 border border-amber-500/40 text-amber-300 transition-all cursor-pointer"
+              onClick={() => handleRoute('/admin/login')}
+              title="Admin Dashboard Portal"
+              className="p-2.5 rounded-full bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/30 text-amber-400 transition-colors cursor-pointer"
             >
-              <Settings className="w-4 h-4" />
+              <Lock className="w-4 h-4" />
             </button>
           </div>
 
           {/* Mobile Menu Button */}
           <div className="flex items-center gap-2 sm:hidden">
-            <div
-              onClick={() => openUserDashboard('wallet')}
-              className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-emerald-500/20 border border-emerald-500/40 text-emerald-400 text-xs font-black font-mono"
+            <button
+              onClick={() => handleRoute('/login')}
+              className="px-3.5 py-1.5 rounded-full bg-blue-600 text-white text-xs font-black uppercase shadow"
             >
-              ₹{currentUser.walletBalance}
-            </div>
+              LOGIN
+            </button>
+            <button
+              onClick={() => handleRoute('/register')}
+              className="px-3.5 py-1.5 rounded-full bg-pink-500 text-white text-xs font-black uppercase shadow"
+            >
+              REGISTER
+            </button>
             <button
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-              className="p-2 rounded-xl bg-white/10 text-slate-200 hover:text-white"
+              className="p-2 rounded-xl bg-white/5 border border-white/10 text-slate-300"
             >
-              {mobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
+              {mobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
             </button>
           </div>
         </div>
       </div>
 
-      {/* Mobile Dropdown Drawer */}
+      {/* Mobile Drawer Navigation */}
       {mobileMenuOpen && (
-        <div className="lg:hidden border-b border-indigo-500/20 bg-[#0b0d23] px-4 pt-2 pb-6 space-y-3 animate-fade-in">
-          {/* Prominent Join Now Button */}
+        <div className="lg:hidden bg-[#0a0b22] border-b border-indigo-500/20 px-4 py-4 space-y-2">
           <button
-            onClick={() => {
-              setMobileMenuOpen(false);
-              setSelectedGameForPurchase(upcomingGames[0]);
-              setActiveModal('buyTicket');
-            }}
-            className="w-full py-3 rounded-xl bg-gradient-to-r from-amber-400 via-pink-500 to-purple-600 text-white font-black text-xs flex items-center justify-center gap-2 shadow-lg shadow-pink-500/25 animate-pulse"
+            onClick={() => handleRoute('/')}
+            className="w-full text-left px-3 py-2 rounded-xl text-sm font-bold text-white hover:bg-white/10"
           >
-            <Sparkles className="w-4 h-4" />
-            <span>JOIN NOW — PLAY LIVE TAMBOLA</span>
+            HOME
           </button>
-
-          <div className="grid grid-cols-2 gap-2 pb-3 border-b border-white/10">
+          <button
+            onClick={() => handleRoute('/live')}
+            className="w-full text-left px-3 py-2 rounded-xl text-sm font-bold text-white hover:bg-white/10 flex items-center justify-between"
+          >
+            <span>LIVE GAMES</span>
+            <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse"></span>
+          </button>
+          <button
+            onClick={() => scrollToSection('how-to-play')}
+            className="w-full text-left px-3 py-2 rounded-xl text-sm font-bold text-white hover:bg-white/10"
+          >
+            HOW TO PLAY
+          </button>
+          <button
+            onClick={() => scrollToSection('winners-section')}
+            className="w-full text-left px-3 py-2 rounded-xl text-sm font-bold text-white hover:bg-white/10"
+          >
+            WINNERS
+          </button>
+          <div className="pt-2 border-t border-white/10 flex gap-2">
             <button
-              onClick={() => {
-                setMobileMenuOpen(false);
-                openUserDashboard('deposit');
-              }}
-              className="py-2.5 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-600 text-black font-extrabold text-xs flex items-center justify-center gap-1.5"
+              onClick={() => handleRoute('/dashboard')}
+              className="flex-1 py-2 text-center rounded-xl bg-indigo-600 text-white text-xs font-bold"
             >
-              <ArrowDownToLine className="w-4 h-4" />
-              <span>+ Deposit Money</span>
+              MEMBER DASHBOARD
             </button>
             <button
-              onClick={() => {
-                setMobileMenuOpen(false);
-                openUserDashboard('withdraw');
-              }}
-              className="py-2.5 rounded-xl bg-purple-600 text-white font-extrabold text-xs flex items-center justify-center gap-1.5"
+              onClick={() => handleRoute('/admin/login')}
+              className="flex-1 py-2 text-center rounded-xl bg-amber-600 text-white text-xs font-bold"
             >
-              <ArrowUpFromLine className="w-4 h-4" />
-              <span>Withdraw</span>
-            </button>
-          </div>
-
-          <div className="space-y-1">
-            {navItems.map((item) => (
-              <button
-                key={item.name}
-                onClick={() => {
-                  setMobileMenuOpen(false);
-                  item.action();
-                }}
-                className="w-full text-left px-3 py-2.5 rounded-xl text-xs font-bold text-slate-200 hover:bg-white/10 flex items-center justify-between"
-              >
-                <span>{item.name}</span>
-              </button>
-            ))}
-          </div>
-
-          <div className="pt-3 border-t border-white/10 flex items-center justify-between">
-            <button
-              onClick={() => {
-                setMobileMenuOpen(false);
-                setActiveModal('admin');
-              }}
-              className="px-3 py-1.5 rounded-xl bg-amber-500/20 text-amber-300 text-xs font-bold border border-amber-500/30 flex items-center gap-1.5"
-            >
-              <Settings className="w-3.5 h-3.5" />
-              <span>Admin Panel</span>
-            </button>
-            <button
-              onClick={() => {
-                setMobileMenuOpen(false);
-                setActiveModal('userSwitcher');
-              }}
-              className="px-3 py-1.5 rounded-xl bg-purple-500/20 text-purple-300 text-xs font-bold border border-purple-500/30 flex items-center gap-1.5"
-            >
-              <User className="w-3.5 h-3.5" />
-              <span>Switch User</span>
+              ADMIN PANEL
             </button>
           </div>
         </div>
@@ -263,3 +236,4 @@ export const Header: React.FC = () => {
     </header>
   );
 };
+

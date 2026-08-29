@@ -33,12 +33,14 @@ export const AuthModal: React.FC = () => {
   // Check URL referral parameter
   useEffect(() => {
     if (typeof window !== 'undefined') {
-      const params = new URLSearchParams(window.location.search);
-      const ref = params.get('ref');
-      if (ref) {
-        setReferralCode(ref);
-        setMode('register');
-      }
+      try {
+        const params = new URLSearchParams(window.location.search);
+        const ref = params.get('ref');
+        if (ref) {
+          setReferralCode(ref);
+          setMode('register');
+        }
+      } catch {}
     }
   }, []);
 

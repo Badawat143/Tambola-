@@ -1,4 +1,14 @@
 export type TicketColorId =
+  | 'green'
+  | 'blue'
+  | 'yellow'
+  | 'red'
+  | 'pink'
+  | 'orange'
+  | 'purple'
+  | 'sky_blue'
+  | 'gold'
+  | 'rainbow'
   | 'emerald'
   | 'sapphire'
   | 'amber'
@@ -6,9 +16,7 @@ export type TicketColorId =
   | 'neon_pink'
   | 'sunset_orange'
   | 'royal_purple'
-  | 'sky_blue'
-  | 'jade'
-  | 'rainbow';
+  | 'jade';
 
 export interface TicketStyleConfig {
   id: TicketColorId;
@@ -20,6 +28,7 @@ export interface TicketStyleConfig {
   accentColor: string;
   cellBg: string;
   cellBorder: string;
+  cellText: string;
   cellActiveGradient: string;
   badgeBg: string;
   isEnabled: boolean;
@@ -49,20 +58,24 @@ export interface User {
   name: string;
   phone: string;
   email: string;
+  password?: string;
+  passwordHash?: string;
   referralCode: string;
   referredBy: string | null;
   // 3 Separate Wallets
-  depositWallet: number; // Main/Deposit wallet (approved deposits, transfers)
-  ticketWallet: number; // For ticket purchases only (cannot withdraw, cannot transfer)
+  depositWallet: number; // Main/Deposit wallet (approved deposits, add money)
+  ticketWallet: number; // For ticket purchases & User-to-User transfers ONLY (cannot withdraw)
   winningWallet: number; // Winnings from verified claims (eligible for withdrawal)
-  walletBalance: number; // Total / Main wallet balance
+  walletBalance: number; // Total eligible funds
   referralEarnings: number;
   directIncomeEarnings: number;
   gameWinnings: number;
   totalDeposited: number;
   totalWithdrawn: number;
   freeTicketsAvailable: number;
-  role: 'user' | 'admin';
+  role: 'user' | 'admin' | 'superadmin';
+  adminPin?: string;
+  twoFactorEnabled?: boolean;
   createdAt: string;
   ageVerified: boolean;
   stateOfResidence: string;
@@ -77,6 +90,24 @@ export interface User {
   isKycVerified?: boolean;
 }
 
+export interface AuthSession {
+  token: string;
+  userId: string;
+  userEmail: string;
+  userName: string;
+  role: 'user' | 'admin' | 'superadmin';
+  expiresAt: string;
+}
+
+export interface AuthResult {
+  success: boolean;
+  message: string;
+  user?: User;
+  token?: string;
+  redirect?: string;
+  error?: string;
+}
+
 export interface TransferRecord {
   id: string;
   senderUserId: string;
@@ -89,7 +120,8 @@ export interface TransferRecord {
   status: 'completed' | 'failed';
   transactionId: string;
   createdAt: string;
-  sourceWallet: 'depositWallet';
+  sourceWallet: 'ticketWallet' | 'depositWallet';
+  destinationWallet?: 'ticketWallet';
 }
 
 export interface PlatformFeeLedgerItem {

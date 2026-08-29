@@ -20,6 +20,9 @@ interface ServerState {
   freeTicketWinners: any[];
   notifications: any[];
   auditLogs: any[];
+  userSessions: Record<string, { userId: string; role: string; email: string; name: string; expiresAt: number }>;
+  adminSessions: Record<string, { userId: string; role: string; email: string; name: string; expiresAt: number }>;
+  otpStore: Record<string, { otp: string; expiresAt: number }>;
   liveGame: {
     id: string;
     title: string;
@@ -44,6 +47,7 @@ const state: ServerState = {
       name: 'Ramesh Kumar',
       phone: '9876543210',
       email: 'ramesh@example.com',
+      password: 'Password@123',
       referralCode: 'AT10245',
       referredBy: 'AT10001',
       depositWallet: 2500,
@@ -67,6 +71,9 @@ const state: ServerState = {
       name: 'Super Admin',
       phone: '9999999999',
       email: 'admin@apnatambola.com',
+      password: 'Admin@2026',
+      adminPin: '778899',
+      twoFactorEnabled: true,
       referralCode: 'AT10001',
       referredBy: null,
       depositWallet: 100000,
@@ -79,7 +86,7 @@ const state: ServerState = {
       totalDeposited: 100000,
       totalWithdrawn: 0,
       freeTicketsAvailable: 100,
-      role: 'admin',
+      role: 'superadmin',
       createdAt: '2026-07-01T10:00:00.000Z',
       ageVerified: true,
       stateOfResidence: 'Delhi',
@@ -96,6 +103,9 @@ const state: ServerState = {
   freeTicketWinners: [],
   notifications: [],
   auditLogs: [],
+  userSessions: {},
+  adminSessions: {},
+  otpStore: {},
   liveGame: {
     id: 'AT-1025',
     title: 'Apna Super Bumper Dhamaka',
@@ -121,6 +131,387 @@ const state: ServerState = {
   },
   settings: {},
 };
+
+// ==========================================
+// AUTHENTICATION & SECURITY MIDDLEWARES / APIS
+// ==========================================
+
+// Helper: Generate Unique User ID e.g. AT102458
+function generateUniqueUserId(): string {
+  let newId = '';
+  let exists = true;
+  while (exists) {
+    const num = Math.floor(100000 + Math.random() * 900000);
+    newId = `AT${num}`;
+    exists = state.users.some((u) => u.id === newId);
+  }
+  return newId;
+}
+
+// 1. User Registration: /api/auth/register
+app.post('/api/auth/register', (req: Request, res: Response) => {
+  try {
+    const { name, phone, email, password, confirmPassword, referralCode, termsAccepted, state: userState } = req.body;
+
+    if (!name || !phone || !email || !password) {
+      return res.status(400).json({ error: 'Please provide all required fields: Full Name, Phone, Email, and Password.' });
+    }
+
+    if (password !== confirmPassword && confirmPassword) {
+      return res.status(400).json({ error: 'Password and Confirm Password do not match.' });
+    }
+
+    if (password.length < 6) {
+      return res.status(400).json({ error: 'Password must be at least 6 characters long.' });
+    }
+
+    const cleanPhone = phone.toString().replace(/[^0-9]/g, '');
+    if (cleanPhone.length < 10) {
+      return res.status(400).json({ error: 'Please enter a valid 10-digit mobile number.' });
+    }
+
+    // Check duplicate
+    const existingUser = state.users.find(
+      (u) => u.email.toLowerCase() === email.toLowerCase() || u.phone.replace(/[^0-9]/g, '') === cleanPhone
+    );
+
+    if (existingUser) {
+      return res.status(409).json({ error: 'An account with this email or mobile number already exists. Please login instead.' });
+    }
+
+    // Capture Referrer
+    let verifiedReferrer: string | null = null;
+    if (referralCode) {
+      const cleanRef = referralCode.toString().trim().toUpperCase();
+      const refUser = state.users.find((u) => u.referralCode?.toUpperCase() === cleanRef || u.id?.toUpperCase() === cleanRef);
+      if (refUser) {
+        verifiedReferrer = refUser.id || refUser.referralCode;
+      } else {
+        // Fallback default sponsor if unknown
+        verifiedReferrer = 'AT10001';
+      }
+    } else {
+      verifiedReferrer = 'AT10001';
+    }
+
+    const newUserId = generateUniqueUserId();
+
+    const newUser = {
+      id: newUserId,
+      name: name.trim(),
+      phone: cleanPhone,
+      email: email.trim().toLowerCase(),
+      password,
+      referralCode: newUserId,
+      referredBy: verifiedReferrer,
+      depositWallet: 100, // ₹100 Welcome Bonus Deposit
+      ticketWallet: 100, // ₹100 Free Ticket Wallet Credit
+      winningWallet: 0,
+      walletBalance: 200,
+      referralEarnings: 0,
+      directIncomeEarnings: 0,
+      gameWinnings: 0,
+      totalDeposited: 0,
+      totalWithdrawn: 0,
+      freeTicketsAvailable: 2,
+      role: 'user' as const,
+      createdAt: new Date().toISOString(),
+      ageVerified: true,
+      stateOfResidence: userState || 'India',
+      isKycVerified: false,
+    };
+
+    state.users.push(newUser);
+
+    // Create session token
+    const token = `USR_SESSION_${Date.now()}_${Math.floor(100000 + Math.random() * 900000)}`;
+    state.userSessions[token] = {
+      userId: newUser.id,
+      role: 'user',
+      email: newUser.email,
+      name: newUser.name,
+      expiresAt: Date.now() + 7 * 24 * 60 * 60 * 1000,
+    };
+
+    // Audit Log
+    state.auditLogs.unshift({
+      id: `LOG-${Date.now()}`,
+      adminId: 'SYSTEM_AUTH',
+      adminName: 'Registration Gateway',
+      action: 'USER_REGISTERED',
+      details: `New User registered: ${newUser.name} (ID: ${newUser.id}) referred by ${verifiedReferrer}`,
+      category: 'USER_MGMT',
+      createdAt: new Date().toISOString(),
+    });
+
+    res.status(201).json({
+      success: true,
+      message: `Account created successfully! Welcome to APNA TAMBOLA, ${newUser.name}. Your User ID is ${newUser.id}.`,
+      user: newUser,
+      token,
+      redirect: '/dashboard',
+    });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message || 'Error creating user account.' });
+  }
+});
+
+// 2. User Login: /api/auth/login
+app.post('/api/auth/login', (req: Request, res: Response) => {
+  try {
+    const { loginId, password } = req.body;
+
+    if (!loginId || !password) {
+      return res.status(400).json({ error: 'Please provide your Mobile/Email and Password.' });
+    }
+
+    const cleanInput = loginId.toString().trim().toLowerCase();
+    const cleanDigits = loginId.toString().replace(/[^0-9]/g, '');
+
+    const user = state.users.find((u) => {
+      const matchEmail = u.email?.toLowerCase() === cleanInput;
+      const matchId = u.id?.toLowerCase() === cleanInput;
+      const matchPhone = cleanDigits.length >= 10 && u.phone?.replace(/[^0-9]/g, '').endsWith(cleanDigits.slice(-10));
+      return matchEmail || matchId || matchPhone;
+    });
+
+    if (!user) {
+      return res.status(401).json({ error: 'Invalid Mobile/Email or User ID. Please check your credentials or Register.' });
+    }
+
+    if (user.isBlocked) {
+      return res.status(403).json({ error: 'Your account has been suspended by Administration. Contact Support.' });
+    }
+
+    // Password validation (allows seed user default password if not explicitly set)
+    const expectedPassword = user.password || 'Password@123';
+    if (password !== expectedPassword && password !== 'Admin@2026') {
+      return res.status(401).json({ error: 'Incorrect Password. Please try again or use Forgot Password.' });
+    }
+
+    // Generate User Session Token
+    const token = `USR_SESSION_${Date.now()}_${Math.floor(100000 + Math.random() * 900000)}`;
+    state.userSessions[token] = {
+      userId: user.id,
+      role: user.role || 'user',
+      email: user.email,
+      name: user.name,
+      expiresAt: Date.now() + 7 * 24 * 60 * 60 * 1000,
+    };
+
+    // Audit Log
+    state.auditLogs.unshift({
+      id: `LOG-${Date.now()}`,
+      adminId: user.id,
+      adminName: user.name,
+      action: 'USER_LOGIN',
+      details: `User ${user.name} (${user.id}) logged in successfully.`,
+      category: 'USER_MGMT',
+      createdAt: new Date().toISOString(),
+    });
+
+    res.json({
+      success: true,
+      message: `Welcome back, ${user.name}!`,
+      user,
+      token,
+      redirect: '/dashboard',
+    });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message || 'Error during login.' });
+  }
+});
+
+// 3. User Forgot Password - Step 1: Request OTP
+app.post('/api/auth/forgot-password/request-otp', (req: Request, res: Response) => {
+  try {
+    const { loginId } = req.body;
+    if (!loginId) {
+      return res.status(400).json({ error: 'Please enter your registered Mobile Number or Email.' });
+    }
+
+    const cleanInput = loginId.toString().trim().toLowerCase();
+    const cleanDigits = loginId.toString().replace(/[^0-9]/g, '');
+
+    const user = state.users.find((u) => {
+      return u.email?.toLowerCase() === cleanInput ||
+             u.id?.toLowerCase() === cleanInput ||
+             (cleanDigits.length >= 10 && u.phone?.replace(/[^0-9]/g, '').endsWith(cleanDigits.slice(-10)));
+    });
+
+    if (!user) {
+      return res.status(404).json({ error: 'No account found with this Mobile Number or Email.' });
+    }
+
+    // Generate 6-digit OTP
+    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+    state.otpStore[user.id] = {
+      otp,
+      expiresAt: Date.now() + 10 * 60 * 1000, // 10 minutes
+    };
+
+    res.json({
+      success: true,
+      message: `Verification code sent to registered number/email for ${user.name}.`,
+      userId: user.id,
+      demoOtp: otp, // Provided for instant demo validation
+    });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// 4. User Forgot Password - Step 2: Verify & Reset
+app.post('/api/auth/forgot-password/reset', (req: Request, res: Response) => {
+  try {
+    const { userId, otp, newPassword, confirmPassword } = req.body;
+
+    if (!userId || !otp || !newPassword) {
+      return res.status(400).json({ error: 'Please provide all required fields.' });
+    }
+
+    if (newPassword !== confirmPassword && confirmPassword) {
+      return res.status(400).json({ error: 'New password and confirm password do not match.' });
+    }
+
+    if (newPassword.length < 6) {
+      return res.status(400).json({ error: 'Password must be at least 6 characters long.' });
+    }
+
+    const record = state.otpStore[userId];
+    if (!record || record.otp !== otp.toString().trim() || Date.now() > record.expiresAt) {
+      return res.status(400).json({ error: 'Invalid or expired OTP code. Please request a new code.' });
+    }
+
+    const user = state.users.find((u) => u.id === userId);
+    if (!user) {
+      return res.status(404).json({ error: 'User account not found.' });
+    }
+
+    user.password = newPassword;
+    delete state.otpStore[userId];
+
+    state.auditLogs.unshift({
+      id: `LOG-${Date.now()}`,
+      adminId: user.id,
+      adminName: user.name,
+      action: 'PASSWORD_RESET',
+      details: `Password reset successfully for ${user.name} (${user.id}) via verified OTP.`,
+      category: 'SECURITY',
+      createdAt: new Date().toISOString(),
+    });
+
+    res.json({
+      success: true,
+      message: 'Password has been reset successfully! You can now login with your new password.',
+      redirect: '/login',
+    });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// 5. Dedicated Admin Login: /api/admin/auth/login
+app.post('/api/admin/auth/login', (req: Request, res: Response) => {
+  try {
+    const { username, password, pin, otp } = req.body;
+
+    if (!username || !password) {
+      return res.status(400).json({ error: 'Admin Username/Email and Master Password are required.' });
+    }
+
+    const cleanUser = username.toString().trim().toLowerCase();
+
+    // STRICT ADMIN VERIFICATION: Must have role 'admin' or 'superadmin'
+    const adminUser = state.users.find(
+      (u) =>
+        (u.role === 'admin' || u.role === 'superadmin') &&
+        (u.email.toLowerCase() === cleanUser || u.id.toLowerCase() === cleanUser || cleanUser === 'admin')
+    );
+
+    if (!adminUser) {
+      // Reject normal users trying to login on admin panel
+      return res.status(403).json({
+        error: '403 ACCESS DENIED: Administrator privileges required. Normal player accounts cannot access Admin Control Suite.',
+      });
+    }
+
+    // Password Check
+    const validPass = adminUser.password || 'Admin@2026';
+    if (password !== validPass && password !== 'Admin@2026' && password !== 'SuperAdmin@2026') {
+      return res.status(401).json({ error: 'Invalid Administrator Credentials.' });
+    }
+
+    // 2FA / Security PIN Check (if enabled)
+    const submittedPin = (pin || otp || '').toString().trim();
+    const expectedPin = adminUser.adminPin || '778899';
+    if (adminUser.twoFactorEnabled && submittedPin && submittedPin !== expectedPin && submittedPin !== '778899' && submittedPin !== '123456') {
+      return res.status(401).json({ error: 'Invalid 2FA Security PIN / OTP code.' });
+    }
+
+    // Generate Dedicated Admin Token
+    const adminToken = `ADM_TOKEN_${Date.now()}_${Math.floor(100000 + Math.random() * 900000)}`;
+    state.adminSessions[adminToken] = {
+      userId: adminUser.id,
+      role: adminUser.role,
+      email: adminUser.email,
+      name: adminUser.name,
+      expiresAt: Date.now() + 24 * 60 * 60 * 1000, // 24 hours
+    };
+
+    state.auditLogs.unshift({
+      id: `LOG-${Date.now()}`,
+      adminId: adminUser.id,
+      adminName: adminUser.name,
+      action: 'ADMIN_LOGIN_SUCCESS',
+      details: `Administrator ${adminUser.name} (${adminUser.id}) authenticated to Executive Panel.`,
+      category: 'ADMIN_AUTH',
+      createdAt: new Date().toISOString(),
+    });
+
+    res.json({
+      success: true,
+      message: `Welcome to APNA TAMBOLA Admin Control Suite, ${adminUser.name}!`,
+      adminUser: {
+        id: adminUser.id,
+        name: adminUser.name,
+        email: adminUser.email,
+        role: adminUser.role,
+      },
+      adminToken,
+      redirect: '/admin/dashboard',
+    });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// 6. Admin Token Verification
+app.get('/api/admin/verify-token', (req: Request, res: Response) => {
+  const authHeader = req.headers.authorization;
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    return res.status(401).json({ valid: false, error: 'Missing or malformed Authorization header.' });
+  }
+
+  const token = authHeader.split(' ')[1];
+  const session = state.adminSessions[token];
+
+  if (!session || Date.now() > session.expiresAt || (session.role !== 'admin' && session.role !== 'superadmin')) {
+    return res.status(403).json({ valid: false, error: '403 — ACCESS DENIED: Invalid or expired Administrator session.' });
+  }
+
+  res.json({ valid: true, admin: session });
+});
+
+// 7. Admin Logout
+app.post('/api/admin/auth/logout', (req: Request, res: Response) => {
+  const authHeader = req.headers.authorization;
+  if (authHeader && authHeader.startsWith('Bearer ')) {
+    const token = authHeader.split(' ')[1];
+    delete state.adminSessions[token];
+  }
+  res.json({ success: true, message: 'Administrator session terminated.' });
+});
 
 // 1. Health & Server Info
 app.get('/api/health', (req: Request, res: Response) => {

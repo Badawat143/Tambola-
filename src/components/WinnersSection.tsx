@@ -1,104 +1,111 @@
 import React from 'react';
 import { useTambola } from '../context/TambolaContext';
-import { Trophy, Sparkles, Award, MapPin, Clock, ArrowRight } from 'lucide-react';
+import { Trophy, Sparkles, Award, Clock, ArrowRight } from 'lucide-react';
 
 export const WinnersSection: React.FC = () => {
-  const { winners, setActiveModal } = useTambola();
+  const { setActiveModal } = useTambola();
+
+  const verifiedWinners = [
+    {
+      name: 'Rahul Verma',
+      userId: 'AT100234',
+      pattern: 'Full House',
+      amount: '₹5,000',
+      avatar: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150&auto=format&fit=crop&q=80',
+    },
+    {
+      name: 'Pooja Singh',
+      userId: 'AT100567',
+      pattern: 'First Line',
+      amount: '₹1,000',
+      avatar: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=150&auto=format&fit=crop&q=80',
+    },
+    {
+      name: 'Amit Kumar',
+      userId: 'AT100789',
+      pattern: 'Second Line',
+      amount: '₹1,000',
+      avatar: 'https://images.unsplash.com/photo-1570295999919-56ceb5ecca61?w=150&auto=format&fit=crop&q=80',
+    },
+    {
+      name: 'Neha Patel',
+      userId: 'AT100890',
+      pattern: 'Early Five',
+      amount: '₹500',
+      avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80',
+    },
+  ];
 
   return (
     <section id="winners-section" className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-      <div className="text-center max-w-3xl mx-auto mb-10">
-        <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-yellow-500/15 border border-yellow-500/30 text-yellow-300 text-xs font-bold uppercase tracking-wider mb-3">
-          <Trophy className="w-3.5 h-3.5 text-yellow-400" />
-          <span>HALL OF FAME</span>
+      {/* Header with VERIFIED WINNERS & VIEW ALL button */}
+      <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mb-10">
+        <div>
+          <h2 className="text-3xl sm:text-4xl lg:text-5xl font-black text-white tracking-tight uppercase font-['Outfit']">
+            VERIFIED WINNERS
+          </h2>
+          <p className="text-slate-300 text-sm sm:text-base mt-1 font-medium">
+            Real players winning instant real cash rewards every 15 minutes
+          </p>
         </div>
-        <h2 className="text-3xl sm:text-4xl lg:text-5xl font-black text-white tracking-tight">
-          🏆 RECENT WINNERS
-        </h2>
-        <p className="text-slate-300 text-sm sm:text-base mt-2">
-          Real players winning real cash every 15 minutes on APNA TAMBOLA.
-        </p>
+
+        <button
+          id="btn-view-all-winners-top"
+          onClick={() => setActiveModal('winners')}
+          className="px-6 py-2.5 rounded-full bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white text-xs sm:text-sm font-black uppercase tracking-wider shadow-lg shadow-purple-600/30 hover:scale-105 active:scale-95 transition-all cursor-pointer border border-purple-400/40 whitespace-nowrap"
+        >
+          VIEW ALL
+        </button>
       </div>
 
-      {/* Winners Carousel/Grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-        {winners.slice(0, 6).map((win, idx) => {
-          const maskedUserId = `AT-USR-***${(idx + 1) * 23 + 12}`;
-          const sampleTicketNo = `TKT-99${idx + 24}`;
-          return (
-            <div
-              key={win.id}
-              className="glass-card glass-card-hover rounded-3xl p-5 sm:p-6 border border-white/10 relative overflow-hidden group bg-gradient-to-br from-[#131433] via-[#0d0e26] to-[#181238]"
-            >
-              {/* Ambient glow */}
-              <div className="absolute top-0 right-0 w-24 h-24 bg-yellow-500/10 rounded-full blur-xl group-hover:bg-yellow-500/20 transition-all"></div>
+      {/* 4 Verified Winners Cards */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5 sm:gap-6">
+        {verifiedWinners.map((win) => (
+          <div
+            key={win.userId}
+            className="rounded-3xl bg-gradient-to-br from-[#101236] via-[#0d0e29] to-[#151740] p-5 sm:p-6 border border-indigo-500/30 shadow-xl relative overflow-hidden group hover:border-yellow-400/50 hover:scale-105 transition-all duration-300 flex flex-col justify-between"
+          >
+            {/* Ambient Gold Glow */}
+            <div className="absolute top-0 right-0 w-28 h-28 bg-yellow-500/10 rounded-full blur-2xl group-hover:bg-yellow-500/20 transition-all pointer-events-none"></div>
 
-              <div className="flex items-center justify-between mb-4">
-                <div className="flex items-center gap-3.5">
-                  <img
-                    src={win.avatar}
-                    alt={win.winnerName}
-                    className="w-12 h-12 rounded-full object-cover border-2 border-yellow-400/60 shadow-md group-hover:scale-105 transition-transform"
-                  />
-                  <div>
-                    <h3 className="text-base font-black text-white tracking-tight">
-                      {win.winnerName}
-                    </h3>
-                    <p className="text-xs text-amber-300/90 font-mono font-bold">
-                      {maskedUserId}
-                    </p>
-                  </div>
+            <div>
+              {/* User Avatar & Name */}
+              <div className="flex items-center gap-3.5 mb-4">
+                <img
+                  src={win.avatar}
+                  alt={win.name}
+                  className="w-12 h-12 rounded-full object-cover border-2 border-yellow-400/80 shadow-md group-hover:scale-105 transition-transform"
+                />
+                <div>
+                  <h3 className="text-base font-black text-white tracking-tight">
+                    {win.name}
+                  </h3>
+                  <p className="text-xs text-amber-300 font-mono font-bold">
+                    {win.userId}
+                  </p>
                 </div>
-
-                <span className="px-2.5 py-1 rounded-full bg-emerald-500/20 text-emerald-300 text-[10px] font-bold border border-emerald-500/30 flex items-center gap-1">
-                  <Sparkles className="w-3 h-3 text-emerald-400" /> Verified
-                </span>
               </div>
 
-              {/* Winning Pattern & Prize Details */}
-              <div className="bg-black/40 border border-white/10 rounded-2xl p-3.5 space-y-2">
+              {/* Winning Pattern */}
+              <div className="bg-black/40 border border-white/10 rounded-2xl p-3 mb-4 space-y-1.5">
                 <div className="flex items-center justify-between">
-                  <span className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">
-                    Winning Pattern
+                  <span className="text-[10px] uppercase font-bold text-slate-400">
+                    Pattern
                   </span>
                   <span className="text-xs font-black text-pink-400 bg-pink-500/10 px-2 py-0.5 rounded-lg border border-pink-500/20">
-                    {win.prizeCategory}
+                    {win.pattern}
                   </span>
                 </div>
-                <div className="flex items-center justify-between pt-1 border-t border-white/5">
-                  <span className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">
-                    Prize Result
-                  </span>
-                  <span className="text-sm font-black text-emerald-400 font-mono">
-                    Won ₹{win.prizeAmount.toLocaleString('en-IN')}
-                  </span>
-                </div>
-              </div>
-
-              {/* Footer Metadata: Game ID, Ticket Number, Date */}
-              <div className="flex items-center justify-between mt-3 text-[11px] text-slate-400 pt-2 border-t border-white/5 font-mono">
-                <span className="text-purple-300 font-semibold">Game #{win.gameId}</span>
-                <span className="text-slate-400">Tkt #{sampleTicketNo}</span>
-                <span className="flex items-center gap-1 text-slate-400">
-                  <Clock className="w-3 h-3 text-slate-500" />
-                  <span>{win.date}</span>
-                </span>
               </div>
             </div>
-          );
-        })}
-      </div>
 
-      {/* VIEW ALL WINNERS BUTTON */}
-      <div className="text-center mt-10">
-        <button
-          id="btn-view-all-winners"
-          onClick={() => setActiveModal('winners')}
-          className="px-8 py-3.5 rounded-2xl bg-gradient-to-r from-amber-500 to-yellow-500 hover:from-amber-600 hover:to-yellow-600 text-slate-950 font-black text-sm sm:text-base shadow-lg shadow-amber-500/25 hover:scale-105 active:scale-95 transition-all duration-200 cursor-pointer inline-flex items-center gap-2"
-        >
-          <Award className="w-5 h-5 text-slate-950" />
-          <span>VIEW ALL WINNERS</span>
-        </button>
+            {/* Won Amount in Gold Badge */}
+            <div className="w-full py-2.5 rounded-2xl bg-gradient-to-r from-amber-400 via-yellow-400 to-amber-500 text-slate-950 font-black text-center text-sm sm:text-base shadow-md font-mono flex items-center justify-center gap-1.5">
+              <Trophy className="w-4 h-4 text-slate-950" />
+              <span>Won {win.amount}</span>
+            </div>
+          </div>
+        ))}
       </div>
     </section>
   );

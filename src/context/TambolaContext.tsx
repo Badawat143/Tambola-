@@ -53,7 +53,6 @@ import {
 } from '../utils/referralEngine';
 import { createNewTicket, getRandomTicketColor } from '../utils/ticketGenerator';
 import { soundFx } from '../utils/soundEffects';
-import confetti from 'canvas-confetti';
 
 export { type DashboardTab, type AdminTab };
 
@@ -459,11 +458,13 @@ export const TambolaProvider: React.FC<{ children: React.ReactNode }> = ({ child
   // URL referral detection
   useEffect(() => {
     if (typeof window !== 'undefined') {
-      const params = new URLSearchParams(window.location.search);
-      const ref = params.get('ref');
-      if (ref) {
-        setActiveModal('register');
-      }
+      try {
+        const params = new URLSearchParams(window.location.search);
+        const ref = params.get('ref');
+        if (ref) {
+          setActiveModal('register');
+        }
+      } catch {}
     }
   }, []);
 
@@ -493,12 +494,21 @@ export const TambolaProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
   const triggerConfetti = () => {
     try {
-      confetti({
-        particleCount: 120,
-        spread: 80,
-        origin: { y: 0.6 },
-        colors: ['#ec4899', '#3b82f6', '#eab308', '#22c55e', '#a855f7', '#fbbf24'],
-      });
+      if (typeof window !== 'undefined') {
+        import('canvas-confetti')
+          .then((mod) => {
+            const confettiFn = mod.default || mod;
+            if (typeof confettiFn === 'function') {
+              confettiFn({
+                particleCount: 120,
+                spread: 80,
+                origin: { y: 0.6 },
+                colors: ['#ec4899', '#3b82f6', '#eab308', '#22c55e', '#a855f7', '#fbbf24'],
+              });
+            }
+          })
+          .catch(() => {});
+      }
       soundFx.playWinFanfare();
     } catch {}
   };
@@ -507,13 +517,20 @@ export const TambolaProvider: React.FC<{ children: React.ReactNode }> = ({ child
   const speakNumber = (num: number) => {
     if (!speechCallerEnabled || typeof window === 'undefined' || !window.speechSynthesis) return;
     try {
-      window.speechSynthesis.cancel();
+      if (typeof window.speechSynthesis?.cancel === 'function') {
+        window.speechSynthesis.cancel();
+      }
+      const UtteranceClass = (window as any).SpeechSynthesisUtterance;
+      if (typeof UtteranceClass !== 'function') return;
+
       const text = `Number ${num}. Only number ${num}.`;
-      const utterance = new SpeechSynthesisUtterance(text);
+      const utterance = new UtteranceClass(text);
       utterance.rate = 1.0;
       utterance.pitch = 1.05;
       utterance.lang = 'en-IN';
-      window.speechSynthesis.speak(utterance);
+      if (typeof window.speechSynthesis?.speak === 'function') {
+        window.speechSynthesis.speak(utterance);
+      }
     } catch {}
   };
 
@@ -874,22 +891,27 @@ export const TambolaProvider: React.FC<{ children: React.ReactNode }> = ({ child
     return { success: true, message: 'Deposit rejected successfully.' };
   };
 
-  // Wallet-to-Wallet Transfer with 5% Platform Fee
+  // User-to-User Transfer Engine (STRICTLY TICKET WALLET ONLY with 5% Fee)
   const transferMoney = (recipientQuery: string, amount: number) => {
     const num = Number(amount);
-    if (isNaN(num) || num < 100 || num > 2000) {
-      return { success: false, message: 'Transfer amount must be between ₹100 and ₹2,000.' };
+    if (isNaN(num) || num < 10) {
+      return { success: false, message: 'Transfer amount must be at least ₹10.' };
     }
 
-    const senderDepositWallet = currentUser.depositWallet || 0;
-    if (senderDepositWallet < num) {
+    // 🔒 STRICT RULE: User-to-User transfers are ONLY permitted from TICKET WALLET
+    const senderTicketWallet = currentUser.ticketWallet || 0;
+    if (senderTicketWallet < num) {
       return {
         success: false,
-        message: `Insufficient Main/Deposit Wallet balance! Available: ₹${senderDepositWallet}. Only funds in your Main/Deposit wallet can be transferred to other users.`,
+        message: `Insufficient Ticket Wallet balance! Available: ₹${senderTicketWallet}. Only funds in your Ticket Wallet can be transferred to other players. (Main Wallet and Withdrawal Wallet transfers are strictly blocked).`,
       };
     }
 
     const cleanQuery = recipientQuery.trim().toLowerCase();
+    if (!cleanQuery) {
+      return { success: false, message: 'Please enter a valid Recipient User ID, Phone, or Referral Code.' };
+    }
+
     const recipient = allUsers.find(
       (u) =>
         u.id.toLowerCase() === cleanQuery ||
@@ -899,48 +921,51 @@ export const TambolaProvider: React.FC<{ children: React.ReactNode }> = ({ child
     );
 
     if (!recipient) {
-      return { success: false, message: 'Recipient not found! Please check User ID, Referral Code, or Mobile Number.' };
+      return { success: false, message: 'Recipient not found! Please verify the User ID, Referral Code, or Mobile Number.' };
     }
 
     if (recipient.id === currentUser.id) {
-      return { success: false, message: 'You cannot transfer funds to yourself!' };
+      return { success: false, message: 'Self-transfers are not allowed! You cannot transfer funds to yourself.' };
     }
 
     const feePercent = settings.transferFeePercent !== undefined ? settings.transferFeePercent : 5;
     const feeAmount = Math.round(((num * feePercent) / 100) * 100) / 100;
     const recipientCredited = Math.round((num - feeAmount) * 100) / 100;
 
-    // Update sender
-    const updatedSenderDeposit = Math.round((senderDepositWallet - num) * 100) / 100;
+    // Deduct from Sender's Ticket Wallet
+    const updatedSenderTicket = Math.round((senderTicketWallet - num) * 100) / 100;
     const updatedSenderBal = Math.round(
-      (updatedSenderDeposit + (currentUser.ticketWallet || 0) + (currentUser.winningWallet || 0)) * 100
+      ((currentUser.depositWallet || 0) + updatedSenderTicket + (currentUser.winningWallet || 0)) * 100
     ) / 100;
 
     const updatedCurrentUser: User = {
       ...currentUser,
-      depositWallet: updatedSenderDeposit,
+      ticketWallet: updatedSenderTicket,
       walletBalance: updatedSenderBal,
     };
 
-    // Update all users (sender and recipient)
+    // Credit to Recipient's Ticket Wallet
     const updatedAll = allUsers.map((u) => {
       if (u.id === currentUser.id) {
         return updatedCurrentUser;
       }
       if (u.id === recipient.id) {
-        const recDep = Math.round(((u.depositWallet || 0) + recipientCredited) * 100) / 100;
-        const recBal = Math.round((recDep + (u.ticketWallet || 0) + (u.winningWallet || 0)) * 100) / 100;
-        return {
+        const recTicket = Math.round(((u.ticketWallet || 0) + recipientCredited) * 100) / 100;
+        const recBal = Math.round(((u.depositWallet || 0) + recTicket + (u.winningWallet || 0)) * 100) / 100;
+        const updatedRecipient: User = {
           ...u,
-          depositWallet: recDep,
+          ticketWallet: recTicket,
           walletBalance: recBal,
         };
+        syncUserToFirestore(updatedRecipient);
+        return updatedRecipient;
       }
       return u;
     });
 
     setAllUsers(updatedAll);
     setCurrentUser(updatedCurrentUser);
+    syncUserToFirestore(updatedCurrentUser);
 
     // Create Transfer Record
     const transferRecord: TransferRecord = {
@@ -952,10 +977,11 @@ export const TambolaProvider: React.FC<{ children: React.ReactNode }> = ({ child
       amount: num,
       feeAmount: feeAmount,
       recipientAmount: recipientCredited,
-      transactionId: `TXN-TRF-${Math.floor(1000000 + Math.random() * 9000000)}`,
+      transactionId: `TXN-TKT-${Math.floor(1000000 + Math.random() * 9000000)}`,
       status: 'completed',
       createdAt: new Date().toISOString(),
-      sourceWallet: 'depositWallet',
+      sourceWallet: 'ticketWallet',
+      destinationWallet: 'ticketWallet',
     };
     setTransfers((prev) => [transferRecord, ...prev]);
 
@@ -967,7 +993,7 @@ export const TambolaProvider: React.FC<{ children: React.ReactNode }> = ({ child
       sourceUserId: currentUser.id,
       referenceId: transferRecord.id,
       createdAt: new Date().toISOString(),
-      description: `5% platform transfer fee on ₹${num} transfer to ${recipient.name}`,
+      description: `5% platform transfer fee on ₹${num} Ticket Wallet transfer to ${recipient.name} (${recipient.id})`,
     };
     setPlatformFeeLedger((prev) => [feeItem, ...prev]);
 
@@ -975,10 +1001,10 @@ export const TambolaProvider: React.FC<{ children: React.ReactNode }> = ({ child
     setAuditLogs((prev) => [
       {
         id: `LOG-${Date.now()}`,
-        adminId: 'SYSTEM_WALLET',
-        adminName: 'Wallet Transfer Engine',
+        adminId: 'SYSTEM_TICKET_WALLET',
+        adminName: 'Ticket Transfer Engine',
         action: 'WALLET_TRANSFER',
-        details: `${currentUser.name} transferred ₹${num} to ${recipient.name}. 5% Platform Fee: ₹${feeAmount}, Credited: ₹${recipientCredited}`,
+        details: `${currentUser.name} transferred ₹${num} from Ticket Wallet to ${recipient.name}. 5% Platform Fee: ₹${feeAmount}, Credited: ₹${recipientCredited}`,
         category: 'FINANCE',
         createdAt: new Date().toISOString(),
       },
@@ -987,15 +1013,15 @@ export const TambolaProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
     // Notifications
     addNotification(
-      '💸 Transfer Sent',
-      `₹${num} sent to ${recipient.name} (${recipient.id}). Platform fee (5%): ₹${feeAmount}.`,
+      '🎟️ Ticket Wallet Transfer Sent',
+      `₹${num} transferred from your Ticket Wallet to ${recipient.name} (${recipient.id}). Platform fee (5%): ₹${feeAmount}.`,
       'transfer',
       currentUser.id
     );
 
     addNotification(
-      '💰 Money Received!',
-      `You received ₹${recipientCredited} from ${currentUser.name} (${currentUser.id}) into your Main/Deposit wallet.`,
+      '🎟️ Ticket Wallet Recharged!',
+      `You received ₹${recipientCredited} into your Ticket Wallet from ${currentUser.name} (${currentUser.id}). You can use this to purchase game tickets!`,
       'transfer',
       recipient.id
     );
@@ -1003,7 +1029,7 @@ export const TambolaProvider: React.FC<{ children: React.ReactNode }> = ({ child
     soundFx.playNumberCalled();
     return {
       success: true,
-      message: `₹${recipientCredited} successfully transferred to ${recipient.name}! (5% Platform fee: ₹${feeAmount})`,
+      message: `₹${recipientCredited} successfully transferred from your Ticket Wallet to ${recipient.name}! (5% Platform fee: ₹${feeAmount})`,
       transfer: transferRecord,
     };
   };

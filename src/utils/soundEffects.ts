@@ -285,10 +285,14 @@ class SoundController {
 
   private initCtx() {
     if (!this.audioCtx && typeof window !== 'undefined') {
-      const AudioContextClass =
-        window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
-      if (AudioContextClass) {
-        this.audioCtx = new AudioContextClass();
+      try {
+        const AudioContextClass =
+          (window as any).AudioContext || (window as any).webkitAudioContext;
+        if (typeof AudioContextClass === 'function') {
+          this.audioCtx = new AudioContextClass();
+        }
+      } catch {
+        this.audioCtx = null;
       }
     }
   }
@@ -410,20 +414,29 @@ class SoundController {
    * E.g. "Number 47. सैंतालीस. Forty Seven."
    */
   public speakNumber(num: number) {
-    if (this.isMuted || typeof window === 'undefined' || !('speechSynthesis' in window)) return;
+    if (this.isMuted || typeof window === 'undefined' || !('speechSynthesis' in window)) {
+      return;
+    }
     try {
-      window.speechSynthesis.cancel();
+      if (typeof window.speechSynthesis?.cancel === 'function') {
+        window.speechSynthesis.cancel();
+      }
+      const UtteranceClass = (window as any).SpeechSynthesisUtterance;
+      if (typeof UtteranceClass !== 'function') return;
+
       const hindi = TAMBOLA_HINDI_NAMES[num]?.split(' ')[0] || '';
       const eng = TAMBOLA_ENGLISH_NAMES[num] || `${num}`;
       const speechPhrase = `Number ${num}. ${hindi}. ${eng}.`;
 
-      const utterance = new SpeechSynthesisUtterance(speechPhrase);
+      const utterance = new UtteranceClass(speechPhrase);
       utterance.rate = 0.95;
       utterance.pitch = 1.05;
       utterance.volume = 1.0;
-      window.speechSynthesis.speak(utterance);
+      if (typeof window.speechSynthesis?.speak === 'function') {
+        window.speechSynthesis.speak(utterance);
+      }
     } catch {
-      // Speech synthesis fallback
+      // Speech synthesis fallback in restricted environments
     }
   }
 }

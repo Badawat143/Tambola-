@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { TambolaProvider, useTambola } from './context/TambolaContext';
 import { Header } from './components/Header';
 import { HeroSection } from './components/HeroSection';
@@ -18,6 +18,18 @@ import { UpcomingGamesSection } from './components/UpcomingGamesSection';
 import { MobileAppSection } from './components/MobileAppSection';
 import { Footer } from './components/Footer';
 import { ModalManager } from './components/modals/ModalManager';
+
+// Dedicated Auth & Page Components
+import { UserRegisterPage } from './components/auth/UserRegisterPage';
+import { UserLoginPage } from './components/auth/UserLoginPage';
+import { UserForgotPasswordPage } from './components/auth/UserForgotPasswordPage';
+import { AdminLoginPage } from './components/auth/AdminLoginPage';
+import { AdminRegisterBlocker } from './components/auth/AdminRegisterBlocker';
+import { AccessDeniedPage } from './components/auth/AccessDeniedPage';
+import { UserDashboardPage } from './components/dashboard/UserDashboardPage';
+import { AdminDashboardPage } from './components/admin/AdminDashboardPage';
+import { getAdminSession, getUserSession, clearUserSession, clearAdminSession } from './services/authService';
+
 import {
   Sparkles,
   Ticket,
@@ -30,10 +42,113 @@ import {
 } from 'lucide-react';
 
 const MainAppContent: React.FC = () => {
-  const { settings, setActiveModal, setSelectedGameForPurchase, upcomingGames } = useTambola();
+  const { settings, setActiveModal, setSelectedGameForPurchase, upcomingGames, openUserDashboard } = useTambola();
 
+  // URL Path State
+  const [currentPath, setCurrentPath] = useState<string>(() => {
+    if (typeof window !== 'undefined') {
+      return window.location.pathname || '/';
+    }
+    return '/';
+  });
+
+  // Sync with browser history & URL changes
+  useEffect(() => {
+    const handlePopState = () => {
+      if (typeof window !== 'undefined') {
+        setCurrentPath(window.location.pathname || '/');
+      }
+    };
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, []);
+
+  const navigate = (path: string) => {
+    if (typeof window !== 'undefined') {
+      window.history.pushState({}, '', path);
+      setCurrentPath(path.split('?')[0]);
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+  };
+
+  const normalizedPath = currentPath.toLowerCase();
+
+  // Route 1: User Registration (/register)
+  if (normalizedPath === '/register') {
+    return <UserRegisterPage onNavigate={navigate} />;
+  }
+
+  // Route 2: User Login (/login)
+  if (normalizedPath === '/login') {
+    return <UserLoginPage onNavigate={navigate} />;
+  }
+
+  // Route 3: Forgot Password (/forgot-password)
+  if (normalizedPath === '/forgot-password') {
+    return <UserForgotPasswordPage onNavigate={navigate} />;
+  }
+
+  // Route 4: User Logout (/logout)
+  if (normalizedPath === '/logout') {
+    clearUserSession();
+    navigate('/login');
+    return <UserLoginPage onNavigate={navigate} />;
+  }
+
+  // Route 5: Admin Register (Blocked / Disallowed by Prompt)
+  if (normalizedPath === '/admin/register') {
+    return <AdminRegisterBlocker onNavigate={navigate} />;
+  }
+
+  // Route 6: Admin Login (/admin/login)
+  if (normalizedPath === '/admin/login') {
+    return <AdminLoginPage onNavigate={navigate} />;
+  }
+
+  // Route 7: Admin Logout (/admin/logout)
+  if (normalizedPath === '/admin/logout') {
+    clearAdminSession();
+    navigate('/admin/login');
+    return <AdminLoginPage onNavigate={navigate} />;
+  }
+
+  // Route 8: Admin Dashboard & Protected Admin Routes (/admin/*)
+  if (normalizedPath.startsWith('/admin')) {
+    const adminSession = getAdminSession();
+    // Role-based access protection: Only authenticated admins/superadmins can access
+    if (adminSession && (adminSession.admin.role === 'admin' || adminSession.admin.role === 'superadmin')) {
+      return <AdminDashboardPage onNavigate={navigate} />;
+    }
+    // Normal users / unauthenticated trying to access /admin/* get 403 Forbidden
+    return <AccessDeniedPage onNavigate={navigate} onLogout={clearAdminSession} />;
+  }
+
+  // Route 9: User Dashboard & Member Subroutes (/dashboard, /wallet, /deposit, etc.)
+  if (
+    normalizedPath === '/dashboard' ||
+    normalizedPath === '/wallet' ||
+    normalizedPath === '/deposit' ||
+    normalizedPath === '/withdraw' ||
+    normalizedPath === '/transfer' ||
+    normalizedPath === '/tickets' ||
+    normalizedPath === '/games' ||
+    normalizedPath === '/referral' ||
+    normalizedPath === '/passbook' ||
+    normalizedPath === '/profile'
+  ) {
+    return <UserDashboardPage onNavigate={navigate} />;
+  }
+
+  // Route 10: Public Home Page (with separate Login, Register, Admin Login buttons)
   return (
-    <div className="min-h-screen bg-[#070817] text-slate-100 selection:bg-pink-500 selection:text-white font-['Plus_Jakarta_Sans',sans-serif] relative overflow-x-hidden">
+    <div className="min-h-screen bg-gradient-to-b from-[#021b36] via-[#062c52] via-[#093c6e] to-[#031a33] text-slate-100 selection:bg-sky-500 selection:text-white font-['Plus_Jakarta_Sans',sans-serif] relative overflow-x-hidden">
+      {/* Sky Blue Ambient Atmospheric Glows */}
+      <div className="fixed inset-0 pointer-events-none overflow-hidden -z-10">
+        <div className="absolute -top-40 left-1/2 -translate-x-1/2 w-[900px] h-[600px] bg-sky-400/15 rounded-full blur-[160px]"></div>
+        <div className="absolute top-1/3 -left-40 w-[600px] h-[600px] bg-cyan-500/15 rounded-full blur-[150px]"></div>
+        <div className="absolute top-2/3 -right-40 w-[600px] h-[600px] bg-blue-600/15 rounded-full blur-[150px]"></div>
+      </div>
+
       {/* Maintenance Mode Banner (Admin Controlled) */}
       {settings.maintenanceMode && (
         <div className="bg-gradient-to-r from-amber-600 to-red-600 text-white py-2.5 px-4 text-center text-xs font-black tracking-wide flex items-center justify-center gap-2 sticky top-0 z-50 shadow-md">
@@ -43,34 +158,34 @@ const MainAppContent: React.FC = () => {
       )}
 
       {/* Top Announcement Bar */}
-      <div className="bg-gradient-to-r from-purple-900/60 via-pink-900/60 to-indigo-900/60 border-b border-white/10 text-xs py-1.5 px-4">
+      <div className="bg-gradient-to-r from-sky-950/80 via-blue-900/80 to-cyan-950/80 border-b border-sky-400/20 text-xs py-1.5 px-4 backdrop-blur-md">
         <div className="max-w-7xl mx-auto flex items-center justify-between gap-4">
           <div className="flex items-center gap-2 overflow-hidden whitespace-nowrap">
-            <span className="px-2 py-0.5 rounded-full bg-pink-500 text-white text-[10px] font-black uppercase flex items-center gap-1">
+            <span className="px-2 py-0.5 rounded-full bg-gradient-to-r from-sky-500 to-blue-600 text-white text-[10px] font-black uppercase flex items-center gap-1 shadow">
               <Flame className="w-3 h-3 fill-current" /> MEGA OFFER
             </span>
-            <span className="text-slate-200 text-xs font-semibold truncate">
+            <span className="text-sky-100 text-xs font-semibold truncate">
               {settings.announcements[0] || '🎉 Welcome Bonus: Get ₹200 Free Game Credits on First Sign Up!'}
             </span>
           </div>
 
-          <div className="hidden sm:flex items-center gap-4 text-slate-300 text-xs">
-            <span className="flex items-center gap-1 text-emerald-400 font-mono font-bold">
+          <div className="hidden sm:flex items-center gap-4 text-sky-200 text-xs">
+            <span className="flex items-center gap-1 text-emerald-300 font-mono font-bold">
               <Radio className="w-3.5 h-3.5 animate-pulse text-red-500" />
               Live Caller #AT-{settings.liveGameId}
             </span>
             <button
-              onClick={() => setActiveModal('admin')}
-              className="text-[11px] font-bold text-amber-300 hover:text-amber-200 flex items-center gap-1 cursor-pointer bg-white/10 px-2 py-0.5 rounded"
+              onClick={() => navigate('/admin/login')}
+              className="text-[11px] font-bold text-amber-300 hover:text-amber-200 flex items-center gap-1 cursor-pointer bg-sky-900/40 hover:bg-sky-900/70 border border-sky-400/30 px-2.5 py-0.5 rounded-lg transition-all"
             >
-              <Shield className="w-3 h-3" /> Admin CMS
+              <Shield className="w-3 h-3" /> Admin Portal
             </button>
           </div>
         </div>
       </div>
 
-      {/* Sticky Responsive Navigation Header */}
-      <Header />
+      {/* Sticky Responsive Navigation Header with separate 🔵 Login, 🟢 Register, 🔐 Admin Login buttons */}
+      <Header onNavigate={navigate} />
 
       {/* Hero Section */}
       <HeroSection />
@@ -132,11 +247,11 @@ const MainAppContent: React.FC = () => {
         </button>
 
         <button
-          onClick={() => setActiveModal('referral')}
-          className="flex flex-col items-center gap-0.5 text-slate-300 hover:text-purple-400 text-[10px] font-bold"
+          onClick={() => navigate('/register')}
+          className="flex flex-col items-center gap-0.5 text-slate-300 hover:text-emerald-400 text-[10px] font-bold"
         >
-          <Users className="w-5 h-5 text-purple-400" />
-          <span>Referral</span>
+          <Sparkles className="w-5 h-5 text-emerald-400" />
+          <span>Join Free</span>
         </button>
       </div>
     </div>

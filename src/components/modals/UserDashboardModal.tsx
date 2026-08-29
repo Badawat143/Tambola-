@@ -238,7 +238,7 @@ export const UserDashboardModal: React.FC = () => {
         verCode: res.ticket.verificationCode || `VER-${Math.floor(100000 + Math.random() * 900000)}`,
       });
     } else {
-      alert(res.message);
+      setClaimFeedback({ type: 'error', message: res.message });
     }
   };
 
@@ -282,10 +282,8 @@ export const UserDashboardModal: React.FC = () => {
 
   const navigateToTab = (tab: DashboardTab) => {
     if (tab === 'logout') {
-      if (window.confirm('Are you sure you want to logout?')) {
-        logoutUser();
-        setActiveModal(null);
-      }
+      logoutUser();
+      setActiveModal(null);
       return;
     }
     setUserDashboardTab(tab);
@@ -865,50 +863,50 @@ export const UserDashboardModal: React.FC = () => {
             {/* ================================================================= */}
             {activeTab === 'mainWallet' && (
               <div className="max-w-3xl mx-auto space-y-6 animate-fade-in">
-                <div className="p-6 sm:p-8 rounded-3xl bg-gradient-to-br from-emerald-950/60 via-[#0e112d] to-black border border-emerald-500/40 shadow-2xl space-y-6">
+                <div className="p-6 sm:p-8 rounded-3xl bg-gradient-to-br from-[#0c1a3b] via-[#102454] to-[#08122c] border-2 border-blue-500/40 shadow-2xl space-y-6">
                   <div className="flex items-center justify-between pb-4 border-b border-white/10">
                     <div>
-                      <h3 className="text-xl font-black text-emerald-400">💰 MAIN WALLET</h3>
-                      <p className="text-xs text-slate-400">Holds your approved deposits and transferable funds</p>
+                      <h3 className="text-xl font-black text-blue-300">💰 MAIN WALLET</h3>
+                      <p className="text-xs text-slate-300">Holds your approved deposits and self-funded recharge balance</p>
                     </div>
-                    <Wallet className="w-8 h-8 text-emerald-400" />
+                    <Wallet className="w-8 h-8 text-blue-400" />
                   </div>
 
-                  <div className="p-6 rounded-2xl bg-black/60 border border-emerald-500/30 text-center space-y-2">
-                    <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">Available Balance</p>
+                  <div className="p-6 rounded-2xl bg-black/60 border border-blue-500/30 text-center space-y-2">
+                    <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">Available Deposit Balance</p>
                     <p className="text-4xl font-black text-white font-mono">
-                      ₹{(currentUser.depositWallet ?? currentUser.walletBalance).toLocaleString('en-IN')}
+                      ₹{(currentUser.depositWallet ?? currentUser.walletBalance).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
                     </p>
-                    <p className="text-xs text-emerald-400">100% Secure & Transferable</p>
+                    <p className="text-xs text-emerald-400 font-bold">100% Safe &amp; Verified</p>
                   </div>
 
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  {/* Main Wallet Buttons: ADD MONEY & HISTORY (No User-to-User Transfer button) */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <button
                       onClick={() => navigateToTab('deposit')}
-                      className="py-3 rounded-2xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black text-xs shadow-lg shadow-emerald-500/30 cursor-pointer"
+                      className="py-3 rounded-2xl bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-slate-950 font-black text-xs shadow-lg shadow-emerald-500/30 cursor-pointer flex items-center justify-center gap-2"
                     >
-                      ➕ ADD MONEY
-                    </button>
-                    <button
-                      onClick={() => navigateToTab('transfer')}
-                      className="py-3 rounded-2xl bg-gradient-to-r from-blue-500 to-indigo-600 hover:opacity-95 text-white font-black text-xs shadow-lg shadow-blue-500/30 cursor-pointer"
-                    >
-                      🔄 TRANSFER
+                      <ArrowDownToLine className="w-4 h-4" />
+                      <span>➕ ADD MONEY</span>
                     </button>
                     <button
                       onClick={() => navigateToTab('transactions')}
-                      className="py-3 rounded-2xl bg-white/10 hover:bg-white/20 text-white font-bold text-xs cursor-pointer"
+                      className="py-3 rounded-2xl bg-white/10 hover:bg-white/20 text-white font-bold text-xs cursor-pointer flex items-center justify-center gap-2 border border-white/15"
                     >
-                      📜 TRANSACTION HISTORY
+                      <History className="w-4 h-4 text-blue-300" />
+                      <span>📜 TRANSACTION HISTORY</span>
                     </button>
                   </div>
 
-                  <div className="p-4 rounded-2xl bg-white/5 border border-white/5 space-y-2 text-xs text-slate-300">
-                    <p className="font-bold text-white">Main Wallet Rules:</p>
+                  <div className="p-4 rounded-2xl bg-white/5 border border-white/10 space-y-2 text-xs text-slate-300">
+                    <p className="font-black text-blue-300 flex items-center gap-1.5">
+                      <ShieldCheck className="w-4 h-4 text-blue-400" />
+                      <span>Main Wallet Usage Rules:</span>
+                    </p>
                     <ul className="list-disc list-inside space-y-1 text-slate-400">
-                      <li>Use for depositing funds via UPI/QR code.</li>
-                      <li>Can be transferred to your Ticket Wallet at 0% fee.</li>
-                      <li>Can be sent to other players via P2P transfer (5% platform fee applies).</li>
+                      <li>Use for depositing funds securely via UPI apps or QR code scan.</li>
+                      <li>Can be transferred to your Ticket Wallet at 0% fee to join matches.</li>
+                      <li><strong className="text-amber-300">Note:</strong> User-to-User transfers are strictly processed through the Ticket Wallet only.</li>
                     </ul>
                   </div>
                 </div>
@@ -920,46 +918,57 @@ export const UserDashboardModal: React.FC = () => {
             {/* ================================================================= */}
             {activeTab === 'ticketWallet' && (
               <div className="max-w-3xl mx-auto space-y-6 animate-fade-in">
-                <div className="p-6 sm:p-8 rounded-3xl bg-gradient-to-br from-pink-950/60 via-[#0e112d] to-black border border-pink-500/40 shadow-2xl space-y-6">
+                <div className="p-6 sm:p-8 rounded-3xl bg-gradient-to-br from-[#2f0d3a] via-[#441154] to-[#1c0624] border-2 border-pink-500/40 shadow-2xl space-y-6">
                   <div className="flex items-center justify-between pb-4 border-b border-white/10">
                     <div>
-                      <h3 className="text-xl font-black text-pink-400">🎟️ TICKET WALLET</h3>
-                      <p className="text-xs text-slate-400">Dedicated exclusively for booking tournament game tickets</p>
+                      <h3 className="text-xl font-black text-pink-300">🎟️ TICKET WALLET</h3>
+                      <p className="text-xs text-pink-200/80">Used for Tambola ticket purchases &amp; User-to-User transfers</p>
                     </div>
                     <Ticket className="w-8 h-8 text-pink-400" />
                   </div>
 
                   <div className="p-6 rounded-2xl bg-black/60 border border-pink-500/30 text-center space-y-2">
                     <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">Available Ticket Balance</p>
-                    <p className="text-4xl font-black text-pink-400 font-mono">
-                      ₹{(currentUser.ticketWallet ?? 0).toLocaleString('en-IN')}
+                    <p className="text-4xl font-black text-pink-300 font-mono">
+                      ₹{(currentUser.ticketWallet ?? 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
                     </p>
-                    <div className="inline-block px-3 py-1 rounded-full bg-amber-400/10 border border-amber-400/40 text-amber-300 text-[11px] font-black tracking-wider uppercase">
-                      ⚠️ TICKET WALLET IS ONLY FOR TICKET PURCHASES
+                    <div className="inline-block px-3 py-1 rounded-full bg-pink-500/20 border border-pink-400/40 text-pink-200 text-[11px] font-black tracking-wider uppercase">
+                      ✓ ELIGIBLE FOR TICKET BUYING &amp; USER TRANSFERS
                     </div>
                   </div>
 
-                  <div className="space-y-3">
+                  {/* Ticket Wallet Buttons: BUY TICKET, TRANSFER, HISTORY */}
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                     <button
                       onClick={() => navigateToTab('buyTicket')}
-                      className="w-full py-3.5 rounded-2xl bg-gradient-to-r from-pink-500 via-purple-600 to-indigo-600 hover:opacity-95 text-white font-black text-sm shadow-xl shadow-pink-500/30 cursor-pointer flex items-center justify-center gap-2"
+                      className="py-3 rounded-2xl bg-gradient-to-r from-pink-500 via-rose-500 to-purple-600 hover:brightness-110 text-white font-black text-xs shadow-xl shadow-pink-500/30 cursor-pointer flex items-center justify-center gap-1.5"
                     >
-                      <Ticket className="w-5 h-5" />
-                      <span>BUY TICKET NOW</span>
+                      <Ticket className="w-4 h-4" />
+                      <span>BUY TICKET</span>
                     </button>
                     <button
                       onClick={() => navigateToTab('transfer')}
-                      className="w-full py-2.5 rounded-xl bg-white/10 hover:bg-white/20 text-slate-300 text-xs font-bold"
+                      className="py-3 rounded-2xl bg-gradient-to-r from-blue-500 to-indigo-600 hover:brightness-110 text-white font-black text-xs shadow-lg shadow-blue-500/30 cursor-pointer flex items-center justify-center gap-1.5"
                     >
-                      Transfer from Main Wallet (0% Fee)
+                      <Send className="w-4 h-4" />
+                      <span>TRANSFER</span>
+                    </button>
+                    <button
+                      onClick={() => navigateToTab('transactions')}
+                      className="py-3 rounded-2xl bg-white/10 hover:bg-white/20 text-white font-bold text-xs cursor-pointer flex items-center justify-center gap-1.5 border border-white/15"
+                    >
+                      <History className="w-4 h-4 text-pink-300" />
+                      <span>HISTORY</span>
                     </button>
                   </div>
 
-                  <div className="p-4 rounded-2xl bg-red-950/20 border border-red-500/30 text-xs text-slate-300">
-                    <p className="font-bold text-red-400">Strict Non-Withdrawal Policy:</p>
-                    <p className="text-slate-400 mt-1">
-                      Ticket wallet funds are non-withdrawable and non-transferable to other users. They are solely meant for participating in Tambola matches.
-                    </p>
+                  <div className="p-4 rounded-2xl bg-pink-950/30 border border-pink-500/30 text-xs text-slate-300 space-y-2">
+                    <p className="font-bold text-pink-300">Ticket Wallet Policy:</p>
+                    <ul className="list-disc list-inside space-y-1 text-slate-400">
+                      <li>Can be used to purchase tickets for all live games &amp; tournaments.</li>
+                      <li>Can be transferred to other registered players (5% platform fee applies).</li>
+                      <li>Cannot be directly withdrawn to bank/UPI. To withdraw winnings, play matches and win prizes!</li>
+                    </ul>
                   </div>
                 </div>
               </div>
@@ -1340,7 +1349,7 @@ export const UserDashboardModal: React.FC = () => {
             )}
 
             {/* ================================================================= */}
-            {/* TAB 8: 🔄 WALLET TRANSFER */}
+            {/* TAB 8: 🔄 TICKET WALLET TRANSFER */}
             {/* ================================================================= */}
             {activeTab === 'transfer' && (
               <div className="max-w-4xl mx-auto space-y-6 animate-fade-in">
@@ -1358,19 +1367,26 @@ export const UserDashboardModal: React.FC = () => {
                 )}
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  {/* Deposit to Ticket Wallet Form (0% Fee) */}
-                  <div className="p-6 rounded-3xl bg-[#0e112d] border border-pink-500/30 space-y-4">
+                  {/* Form 1: Main/Deposit Wallet ➔ Ticket Wallet (0% Fee Self Top-up) */}
+                  <div className="p-6 rounded-3xl bg-gradient-to-br from-[#0e1738] to-[#070c24] border-2 border-pink-500/30 space-y-4 shadow-xl">
                     <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-2xl bg-pink-500/20 text-pink-400 flex items-center justify-center font-bold">
+                      <div className="w-10 h-10 rounded-2xl bg-pink-500/20 text-pink-300 flex items-center justify-center font-bold border border-pink-500/30">
                         🎟
                       </div>
                       <div>
-                        <h4 className="text-base font-black text-white">Deposit ➔ Ticket Wallet</h4>
-                        <p className="text-xs text-emerald-400">0% Platform Fee Instant Recharge</p>
+                        <h4 className="text-base font-black text-white">Recharge Ticket Wallet</h4>
+                        <p className="text-xs text-emerald-400 font-bold">From Main Wallet (0% Platform Fee)</p>
                       </div>
                     </div>
 
-                    <form onSubmit={handleDepositToTicketTransfer} className="space-y-4 pt-2">
+                    <div className="p-3 rounded-xl bg-black/50 border border-white/10 flex justify-between text-xs">
+                      <span className="text-slate-400">Main Wallet Available:</span>
+                      <span className="font-mono text-emerald-400 font-bold">
+                        ₹{(currentUser.depositWallet || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                      </span>
+                    </div>
+
+                    <form onSubmit={handleDepositToTicketTransfer} className="space-y-4 pt-1">
                       <div>
                         <label className="text-xs font-bold text-slate-300">Amount to Transfer (₹)</label>
                         <input
@@ -1379,7 +1395,7 @@ export const UserDashboardModal: React.FC = () => {
                           max={currentUser.depositWallet || 10000}
                           value={toTicketAmount}
                           onChange={(e) => setToTicketAmount(Number(e.target.value))}
-                          className="w-full mt-1 px-4 py-2.5 rounded-xl bg-black/50 border border-pink-500/30 text-pink-300 text-lg font-black font-mono focus:outline-none focus:border-pink-400"
+                          className="w-full mt-1 px-4 py-2.5 rounded-xl bg-black/60 border border-pink-500/40 text-pink-300 text-lg font-black font-mono focus:outline-none focus:border-pink-400"
                         />
                       </div>
                       <div className="flex gap-2">
@@ -1396,35 +1412,42 @@ export const UserDashboardModal: React.FC = () => {
                       </div>
                       <button
                         type="submit"
-                        disabled={(currentUser.depositWallet || 0) < toTicketAmount}
-                        className="w-full py-3 rounded-xl bg-gradient-to-r from-pink-500 to-purple-600 text-white text-xs font-black shadow-lg shadow-pink-500/25 cursor-pointer"
+                        disabled={(currentUser.depositWallet || 0) < toTicketAmount || toTicketAmount <= 0}
+                        className="w-full py-3 rounded-xl bg-gradient-to-r from-pink-500 to-purple-600 hover:brightness-110 text-white text-xs font-black shadow-lg shadow-pink-500/25 cursor-pointer disabled:opacity-40"
                       >
-                        TRANSFER TO TICKET WALLET
+                        CONVERT TO TICKET WALLET (0% FEE)
                       </button>
                     </form>
                   </div>
 
-                  {/* P2P Transfer Form (5% Transfer Fee calculation) */}
-                  <div className="p-6 rounded-3xl bg-[#0e112d] border border-blue-500/30 space-y-4">
+                  {/* Form 2: P2P Ticket Wallet ➔ Player Transfer (5% Fee) */}
+                  <div className="p-6 rounded-3xl bg-gradient-to-br from-[#101b44] to-[#080e2a] border-2 border-blue-500/40 space-y-4 shadow-xl">
                     <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-2xl bg-blue-500/20 text-blue-400 flex items-center justify-center font-bold">
-                        👥
+                      <div className="w-10 h-10 rounded-2xl bg-blue-500/20 text-blue-300 flex items-center justify-center font-bold border border-blue-500/30">
+                        🔄
                       </div>
                       <div>
-                        <h4 className="text-base font-black text-white">Peer-to-Peer (P2P) Transfer</h4>
-                        <p className="text-xs text-slate-400">Send money to any player via ID or Phone</p>
+                        <h4 className="text-base font-black text-white">Player Ticket Transfer</h4>
+                        <p className="text-xs text-blue-300">Ticket Wallet ➔ Recipient Ticket Wallet</p>
                       </div>
                     </div>
 
-                    <form onSubmit={handleP2PSubmit} className="space-y-4 pt-2">
+                    <div className="p-3 rounded-xl bg-black/50 border border-white/10 flex justify-between text-xs">
+                      <span className="text-slate-400">Ticket Wallet Available:</span>
+                      <span className="font-mono text-pink-300 font-bold">
+                        ₹{(currentUser.ticketWallet || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                      </span>
+                    </div>
+
+                    <form onSubmit={handleP2PSubmit} className="space-y-4 pt-1">
                       <div>
-                        <label className="text-xs font-bold text-slate-300">Recipient (User ID / Phone)</label>
+                        <label className="text-xs font-bold text-slate-300">Recipient (User ID / Referral / Phone)</label>
                         <input
                           type="text"
                           placeholder="e.g. user_rajesh or 9876543210"
                           value={p2pRecipient}
                           onChange={(e) => setP2pRecipient(e.target.value)}
-                          className="w-full mt-1 px-3.5 py-2.5 rounded-xl bg-black/50 border border-blue-500/30 text-white text-xs font-mono focus:outline-none focus:border-blue-400"
+                          className="w-full mt-1 px-3.5 py-2.5 rounded-xl bg-black/60 border border-blue-500/40 text-white text-xs font-mono focus:outline-none focus:border-blue-400"
                           required
                         />
                       </div>
@@ -1433,16 +1456,20 @@ export const UserDashboardModal: React.FC = () => {
                         <input
                           type="number"
                           min="10"
-                          max={currentUser.walletBalance}
+                          max={currentUser.ticketWallet || 0}
                           value={p2pAmount}
                           onChange={(e) => setP2pAmount(Number(e.target.value))}
-                          className="w-full mt-1 px-4 py-2.5 rounded-xl bg-black/50 border border-blue-500/30 text-blue-300 text-lg font-black font-mono focus:outline-none focus:border-blue-400"
+                          className="w-full mt-1 px-4 py-2.5 rounded-xl bg-black/60 border border-blue-500/40 text-blue-300 text-lg font-black font-mono focus:outline-none focus:border-blue-400"
                           required
                         />
                       </div>
 
                       {/* 5% Transfer Fee Breakdown Box */}
-                      <div className="p-3.5 rounded-xl bg-black/60 border border-blue-500/20 text-xs space-y-1.5">
+                      <div className="p-3.5 rounded-xl bg-black/70 border border-blue-500/30 text-xs space-y-1.5">
+                        <div className="flex justify-between text-slate-400">
+                          <span>Source Wallet:</span>
+                          <span className="font-mono text-pink-300 font-bold">Ticket Wallet</span>
+                        </div>
                         <div className="flex justify-between text-slate-400">
                           <span>Transfer Amount:</span>
                           <span className="font-mono text-white">₹{p2pAmount}</span>
@@ -1452,52 +1479,52 @@ export const UserDashboardModal: React.FC = () => {
                           <span className="font-mono">- ₹{(p2pAmount * 0.05).toFixed(2)}</span>
                         </div>
                         <div className="flex justify-between text-emerald-400 font-bold pt-1.5 border-t border-white/10">
-                          <span>Recipient Receives:</span>
+                          <span>Recipient Receives (Ticket Wallet):</span>
                           <span className="font-mono text-sm">₹{(p2pAmount * 0.95).toFixed(2)}</span>
                         </div>
                       </div>
 
                       <button
                         type="submit"
-                        disabled={currentUser.walletBalance < p2pAmount}
-                        className="w-full py-3 rounded-xl bg-gradient-to-r from-blue-500 to-indigo-600 text-white text-xs font-black shadow-lg shadow-blue-500/25 cursor-pointer"
+                        disabled={(currentUser.ticketWallet || 0) < p2pAmount || p2pAmount <= 0}
+                        className="w-full py-3 rounded-xl bg-gradient-to-r from-blue-500 to-indigo-600 hover:brightness-110 text-white text-xs font-black shadow-lg shadow-blue-500/25 cursor-pointer disabled:opacity-40"
                       >
-                        CONFIRM P2P TRANSFER
+                        CONFIRM TICKET WALLET TRANSFER
                       </button>
                     </form>
                   </div>
                 </div>
 
                 {/* Important Wallet Rules Banner */}
-                <div className="p-5 rounded-2xl bg-amber-500/10 border border-amber-500/30 text-xs text-slate-300 space-y-2">
+                <div className="p-5 rounded-3xl bg-gradient-to-r from-[#141b3d] to-[#121330] border-2 border-indigo-500/30 text-xs text-slate-200 space-y-3 shadow-xl">
                   <div className="flex items-center gap-2 font-black text-amber-300 uppercase tracking-wide">
-                    <ShieldCheck className="w-4 h-4" />
-                    <span>Official Wallet Transfer Rules & Compliance</span>
+                    <ShieldCheck className="w-5 h-5 text-amber-400" />
+                    <span>Official Apna Tambola Wallet Transfer Rules</span>
                   </div>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1 text-[11px]">
-                    <div className="space-y-1">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1 text-xs">
+                    <div className="space-y-2 bg-black/40 p-3 rounded-2xl border border-white/5">
                       <p className="flex items-center gap-1.5 text-emerald-400 font-bold">
-                        <Check className="w-3.5 h-3.5" />
-                        <span>Withdrawal/Main Wallet ➔ P2P Transfer: Allowed</span>
+                        <Check className="w-4 h-4 text-emerald-400 shrink-0" />
+                        <span>Ticket Wallet ➔ Player Ticket Wallet: Allowed (5% Fee)</span>
                       </p>
                       <p className="flex items-center gap-1.5 text-emerald-400 font-bold">
-                        <Check className="w-3.5 h-3.5" />
-                        <span>Withdrawal/Main Wallet ➔ Ticket Wallet: Allowed (0% Fee)</span>
+                        <Check className="w-4 h-4 text-emerald-400 shrink-0" />
+                        <span>Main/Deposit Wallet ➔ Ticket Wallet: Allowed (0% Fee)</span>
                       </p>
                     </div>
-                    <div className="space-y-1">
+                    <div className="space-y-2 bg-black/40 p-3 rounded-2xl border border-white/5">
                       <p className="flex items-center gap-1.5 text-rose-400 font-bold">
-                        <X className="w-3.5 h-3.5" />
+                        <X className="w-4 h-4 text-rose-400 shrink-0" />
+                        <span>Main Wallet ➔ Other Users: Blocked</span>
+                      </p>
+                      <p className="flex items-center gap-1.5 text-rose-400 font-bold">
+                        <X className="w-4 h-4 text-rose-400 shrink-0" />
                         <span>Ticket Wallet ➔ Withdrawal: Blocked</span>
                       </p>
-                      <p className="flex items-center gap-1.5 text-rose-400 font-bold">
-                        <X className="w-3.5 h-3.5" />
-                        <span>Ticket Wallet ➔ Other Users: Blocked</span>
-                      </p>
                     </div>
                   </div>
-                  <p className="text-[11px] text-amber-200/90 font-medium italic border-t border-amber-500/20 pt-2">
-                    “Ticket Wallet can only be used to purchase Tambola tickets.”
+                  <p className="text-[11px] text-amber-300/90 font-medium italic border-t border-white/10 pt-2 text-center">
+                    “User-to-User transfer is strictly supported only via the Ticket Wallet with a 5% system maintenance fee.”
                   </p>
                 </div>
               </div>

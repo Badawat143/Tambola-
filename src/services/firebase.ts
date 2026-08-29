@@ -16,18 +16,57 @@ import {
 import { getAuth, GoogleAuthProvider } from 'firebase/auth';
 import firebaseConfig from '../../firebase-applet-config.json';
 
-// Initialize Firebase App singleton
-export const firebaseApp =
-  getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
+let _firebaseApp: any = null;
+let _db: any = null;
+let _auth: any = null;
 
-// Initialize Firestore with default or specific database ID if configured
-const customDbId = (firebaseConfig as any).firestoreDatabaseId;
-export const db = customDbId
-  ? getFirestore(firebaseApp, customDbId)
-  : getFirestore(firebaseApp);
+export function getFirebaseApp() {
+  if (!_firebaseApp && typeof window !== 'undefined') {
+    try {
+      _firebaseApp = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
+    } catch (err) {
+      console.warn('Firebase App initialization warning:', err);
+    }
+  }
+  return _firebaseApp;
+}
 
-export const auth = getAuth(firebaseApp);
-export const googleProvider = new GoogleAuthProvider();
+export function getDb() {
+  if (!_db) {
+    try {
+      const app = getFirebaseApp();
+      if (app) {
+        const customDbId = (firebaseConfig as any).firestoreDatabaseId;
+        _db = customDbId ? getFirestore(app, customDbId) : getFirestore(app);
+      }
+    } catch (err) {
+      console.warn('Firestore initialization warning:', err);
+    }
+  }
+  return _db;
+}
+
+export function getFirebaseAuth() {
+  if (!_auth) {
+    try {
+      const app = getFirebaseApp();
+      if (app) {
+        _auth = getAuth(app);
+      }
+    } catch (err) {
+      console.warn('Firebase Auth initialization warning:', err);
+    }
+  }
+  return _auth;
+}
+
+export const getGoogleProvider = () => {
+  try {
+    return new GoogleAuthProvider();
+  } catch {
+    return null;
+  }
+};
 
 export {
   collection,
@@ -61,7 +100,9 @@ export const COLLECTIONS = {
 export async function syncUserToFirestore(user: any) {
   try {
     if (!user || !user.id) return;
-    const userRef = doc(db, COLLECTIONS.USERS, user.id);
+    const firestoreDb = getDb();
+    if (!firestoreDb) return;
+    const userRef = doc(firestoreDb, COLLECTIONS.USERS, user.id);
     await setDoc(userRef, {
       ...user,
       updatedAt: serverTimestamp(),
@@ -77,7 +118,9 @@ export async function syncUserToFirestore(user: any) {
 export async function syncTicketToFirestore(ticket: any) {
   try {
     if (!ticket || !ticket.id) return;
-    const ticketRef = doc(db, COLLECTIONS.TICKETS, ticket.id);
+    const firestoreDb = getDb();
+    if (!firestoreDb) return;
+    const ticketRef = doc(firestoreDb, COLLECTIONS.TICKETS, ticket.id);
     await setDoc(ticketRef, {
       ...ticket,
       createdAt: serverTimestamp(),
@@ -93,7 +136,9 @@ export async function syncTicketToFirestore(ticket: any) {
 export async function syncGameToFirestore(game: any) {
   try {
     if (!game || !game.id) return;
-    const gameRef = doc(db, COLLECTIONS.GAMES, game.id);
+    const firestoreDb = getDb();
+    if (!firestoreDb) return;
+    const gameRef = doc(firestoreDb, COLLECTIONS.GAMES, game.id);
     await setDoc(gameRef, {
       ...game,
       updatedAt: serverTimestamp(),
@@ -109,7 +154,9 @@ export async function syncGameToFirestore(game: any) {
 export async function recordTransactionToFirestore(transaction: any) {
   try {
     if (!transaction || !transaction.id) return;
-    const txRef = doc(db, COLLECTIONS.TRANSACTIONS, transaction.id);
+    const firestoreDb = getDb();
+    if (!firestoreDb) return;
+    const txRef = doc(firestoreDb, COLLECTIONS.TRANSACTIONS, transaction.id);
     await setDoc(txRef, {
       ...transaction,
       timestamp: serverTimestamp(),
@@ -125,7 +172,9 @@ export async function recordTransactionToFirestore(transaction: any) {
 export async function recordWinnerToFirestore(winner: any) {
   try {
     if (!winner || !winner.id) return;
-    const winRef = doc(db, COLLECTIONS.WINNERS, winner.id);
+    const firestoreDb = getDb();
+    if (!firestoreDb) return;
+    const winRef = doc(firestoreDb, COLLECTIONS.WINNERS, winner.id);
     await setDoc(winRef, {
       ...winner,
       createdAt: serverTimestamp(),

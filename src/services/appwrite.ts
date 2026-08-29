@@ -7,14 +7,32 @@ export const APPWRITE_ENDPOINT: string =
 export const APPWRITE_PROJECT_ID: string =
   (import.meta as any).env?.VITE_APPWRITE_PROJECT_ID || 'fra-6a9237fe0029724b3e69';
 
-// Initialize the Appwrite Client
-export const appwriteClient = new Client()
-  .setEndpoint(APPWRITE_ENDPOINT)
-  .setProject(APPWRITE_PROJECT_ID);
+let _appwriteClient: Client | null = null;
+let _appwriteAccount: Account | null = null;
+let _appwriteDatabases: Databases | null = null;
 
-// Initialize Appwrite Services
-export const appwriteAccount = new Account(appwriteClient);
-export const appwriteDatabases = new Databases(appwriteClient);
+export function getAppwriteClient(): Client {
+  if (!_appwriteClient) {
+    _appwriteClient = new Client()
+      .setEndpoint(APPWRITE_ENDPOINT)
+      .setProject(APPWRITE_PROJECT_ID);
+  }
+  return _appwriteClient;
+}
+
+export function getAppwriteAccount(): Account {
+  if (!_appwriteAccount) {
+    _appwriteAccount = new Account(getAppwriteClient());
+  }
+  return _appwriteAccount;
+}
+
+export function getAppwriteDatabases(): Databases {
+  if (!_appwriteDatabases) {
+    _appwriteDatabases = new Databases(getAppwriteClient());
+  }
+  return _appwriteDatabases;
+}
 
 export interface AppwriteAuthResult {
   success: boolean;
@@ -32,10 +50,11 @@ export async function appwriteRegister(
   name: string
 ): Promise<AppwriteAuthResult> {
   try {
+    const account = getAppwriteAccount();
     const userId = ID.unique();
-    const user = await appwriteAccount.create(userId, email, password, name);
+    const user = await account.create(userId, email, password, name);
     // Automatically log in after registration
-    const session = await appwriteAccount.createEmailPasswordSession(email, password);
+    const session = await account.createEmailPasswordSession(email, password);
     return { success: true, user, session };
   } catch (error: any) {
     return {
@@ -53,8 +72,9 @@ export async function appwriteLogin(
   password: string
 ): Promise<AppwriteAuthResult> {
   try {
-    const session = await appwriteAccount.createEmailPasswordSession(email, password);
-    const user = await appwriteAccount.get();
+    const account = getAppwriteAccount();
+    const session = await account.createEmailPasswordSession(email, password);
+    const user = await account.get();
     return { success: true, user, session };
   } catch (error: any) {
     return {
@@ -69,8 +89,9 @@ export async function appwriteLogin(
  */
 export async function appwriteAnonymousLogin(): Promise<AppwriteAuthResult> {
   try {
-    const session = await appwriteAccount.createAnonymousSession();
-    const user = await appwriteAccount.get();
+    const account = getAppwriteAccount();
+    const session = await account.createAnonymousSession();
+    const user = await account.get();
     return { success: true, user, session };
   } catch (error: any) {
     return {
@@ -85,7 +106,8 @@ export async function appwriteAnonymousLogin(): Promise<AppwriteAuthResult> {
  */
 export async function appwriteGetCurrentUser(): Promise<any | null> {
   try {
-    return await appwriteAccount.get();
+    const account = getAppwriteAccount();
+    return await account.get();
   } catch {
     return null;
   }
@@ -96,7 +118,8 @@ export async function appwriteGetCurrentUser(): Promise<any | null> {
  */
 export async function appwriteLogout(): Promise<boolean> {
   try {
-    await appwriteAccount.deleteSession('current');
+    const account = getAppwriteAccount();
+    await account.deleteSession('current');
     return true;
   } catch {
     return false;
@@ -107,11 +130,12 @@ export async function appwriteLogout(): Promise<boolean> {
  * OAuth Login (Google, GitHub, etc.)
  */
 export function appwriteLoginOAuth(provider: 'google' | 'github' = 'google') {
+  const account = getAppwriteAccount();
   const targetProvider = provider === 'google' ? OAuthProvider.Google : OAuthProvider.Github;
   const redirectSuccess = `${window.location.origin}/?auth=appwrite_success`;
   const redirectFailure = `${window.location.origin}/?auth=appwrite_failed`;
   
-  return appwriteAccount.createOAuth2Session(targetProvider, redirectSuccess, redirectFailure);
+  return account.createOAuth2Session(targetProvider, redirectSuccess, redirectFailure);
 }
 
 /**
@@ -119,7 +143,8 @@ export function appwriteLoginOAuth(provider: 'google' | 'github' = 'google') {
  */
 export async function checkAppwriteHealth(): Promise<{ connected: boolean; message: string }> {
   try {
-    await appwriteAccount.get();
+    const account = getAppwriteAccount();
+    await account.get();
     return { connected: true, message: 'Appwrite connected & active session detected' };
   } catch (err: any) {
     if (err?.code === 401) {
@@ -132,3 +157,4 @@ export async function checkAppwriteHealth(): Promise<{ connected: boolean; messa
     };
   }
 }
+
