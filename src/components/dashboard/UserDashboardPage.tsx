@@ -1,27 +1,17 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useTambola, DashboardTab } from '../../context/TambolaContext';
-import { clearUserSession } from '../../services/authService';
+import { clearUserSession, getUserSession } from '../../services/authService';
 import { UserDashboardModal } from '../modals/UserDashboardModal';
+import { ErrorBoundary } from '../ErrorBoundary';
 import {
   Wallet,
-  ArrowDownToLine,
-  ArrowUpFromLine,
-  Ticket,
-  Users,
-  Trophy,
-  History,
-  ShieldCheck,
-  Headphones,
-  UserCheck,
   LogOut,
-  Sparkles,
-  Radio,
   ArrowLeft,
-  Share2,
-  DollarSign,
-  Percent,
-  CheckCircle2,
-  Lock,
+  Radio,
+  RefreshCw,
+  AlertTriangle,
+  ShieldCheck,
+  Sparkles,
 } from 'lucide-react';
 
 interface UserDashboardPageProps {
@@ -35,7 +25,22 @@ export const UserDashboardPage: React.FC<UserDashboardPageProps> = ({ onNavigate
     userDashboardTab,
     setUserDashboardTab,
     logoutUser,
+    authState,
   } = useTambola();
+
+  const [isLoading, setIsLoading] = useState<boolean>(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  useEffect(() => {
+    // Safety check session
+    const session = getUserSession();
+    if (!session && !currentUser) {
+      const timer = setTimeout(() => {
+        setIsLoading(false);
+      }, 500);
+      return () => clearTimeout(timer);
+    }
+  }, [currentUser]);
 
   const handleLogout = () => {
     clearUserSession();
@@ -43,70 +48,85 @@ export const UserDashboardPage: React.FC<UserDashboardPageProps> = ({ onNavigate
     onNavigate('/login');
   };
 
-  return (
-    <div className="min-h-screen bg-[#070817] text-slate-100 flex flex-col font-['Plus_Jakarta_Sans',sans-serif]">
-      {/* Top User Bar Header */}
-      <header className="sticky top-0 z-40 bg-[#0c0d28]/95 backdrop-blur-xl border-b border-indigo-500/20 px-4 sm:px-6 py-3">
-        <div className="max-w-7xl mx-auto flex items-center justify-between gap-3">
-          {/* Brand & Return */}
-          <div className="flex items-center gap-3">
-            <button
-              onClick={() => onNavigate('/')}
-              className="p-1.5 rounded-xl bg-white/5 hover:bg-white/10 text-slate-300 hover:text-white border border-white/10 transition-colors cursor-pointer"
-              title="Return to Public Homepage"
-            >
-              <ArrowLeft className="w-4 h-4" />
-            </button>
+  const handleRetry = () => {
+    setIsLoading(true);
+    setLoadError(null);
+    setTimeout(() => {
+      setIsLoading(false);
+    }, 600);
+  };
 
-            <div>
-              <div className="flex items-center gap-2">
-                <span className="text-sm sm:text-base font-black tracking-tight text-white font-['Outfit']">
-                  APNA TAMBOLA
-                </span>
-                <span className="px-2 py-0.5 rounded-full bg-pink-500/20 text-pink-300 border border-pink-500/30 text-[10px] font-black uppercase">
-                  PLAYER DASHBOARD
-                </span>
-              </div>
-              <p className="text-[11px] text-slate-400 hidden sm:block">
-                User ID: <span className="text-amber-400 font-mono font-bold">{currentUser.id}</span> • Sponsor: <span className="text-purple-300 font-mono">{currentUser.referredBy || 'Direct SuperAdmin'}</span>
-              </p>
-            </div>
-          </div>
+  // Safe fallback user data so nothing crashes
+  const safeUser = currentUser || {
+    id: 'USR-101',
+    name: 'Player',
+    walletBalance: 0,
+    depositWallet: 0,
+    ticketWallet: 0,
+    winningWallet: 0,
+    referralCode: 'APNA100',
+    referredBy: 'Direct Admin',
+    role: 'user',
+  };
 
-          {/* Quick Wallets & Logout */}
-          <div className="flex items-center gap-2 sm:gap-3">
-            {/* Main Balance Chip */}
-            <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-xs font-bold font-mono">
-              <Wallet className="w-3.5 h-3.5" />
-              <span>Total: ₹{currentUser.walletBalance.toLocaleString('en-IN')}</span>
-            </div>
-
-            {/* Quick Live Game Button */}
-            <button
-              onClick={() => onNavigate('/live')}
-              className="px-3 py-1.5 rounded-xl bg-gradient-to-r from-red-600 to-pink-600 hover:from-red-500 hover:to-pink-500 text-white text-xs font-black uppercase tracking-wider flex items-center gap-1.5 shadow-md shadow-red-500/20 cursor-pointer animate-pulse"
-            >
-              <Radio className="w-3.5 h-3.5" />
-              <span className="hidden sm:inline">LIVE CALLER</span>
-            </button>
-
-            {/* Logout Button */}
-            <button
-              onClick={handleLogout}
-              className="px-3 py-1.5 rounded-xl bg-red-500/10 hover:bg-red-500/20 border border-red-500/30 text-red-400 text-xs font-bold uppercase tracking-wider flex items-center gap-1.5 transition-colors cursor-pointer"
-              title="Logout from Account"
-            >
-              <LogOut className="w-3.5 h-3.5" />
-              <span className="hidden sm:inline">LOGOUT</span>
-            </button>
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-[#070817] flex flex-col items-center justify-center p-4 text-center">
+        <div className="w-16 h-16 rounded-2xl bg-gradient-to-tr from-amber-400 via-pink-500 to-purple-600 p-[2px] mb-6 shadow-2xl shadow-pink-500/30 animate-spin">
+          <div className="w-full h-full bg-[#080a1c] rounded-[14px] flex items-center justify-center font-black text-amber-400 text-xl">
+            🎱
           </div>
         </div>
-      </header>
+        <h2 className="text-2xl sm:text-3xl font-black text-white font-['Outfit'] mb-2">
+          APNA TAMBOLA
+        </h2>
+        <p className="text-slate-400 text-sm flex items-center gap-2">
+          <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+          Loading Dashboard...
+        </p>
+      </div>
+    );
+  }
 
-      {/* Main Dashboard Content Layout */}
-      <main className="flex-1 max-w-7xl w-full mx-auto p-3 sm:p-6">
-        <UserDashboardModal />
-      </main>
-    </div>
+  if (loadError) {
+    return (
+      <div className="min-h-screen bg-[#070817] flex flex-col items-center justify-center p-6 text-center">
+        <div className="w-16 h-16 rounded-2xl bg-red-500/10 border border-red-500/30 flex items-center justify-center text-red-400 mb-4 shadow-xl">
+          <AlertTriangle className="w-8 h-8" />
+        </div>
+        <h2 className="text-xl sm:text-2xl font-bold text-white mb-2">
+          ⚠️ Unable to Load Dashboard
+        </h2>
+        <p className="text-slate-400 text-sm max-w-md mb-6">
+          {loadError || 'An error occurred while loading your player dashboard. Please try again.'}
+        </p>
+        <div className="flex items-center gap-3">
+          <button
+            onClick={handleRetry}
+            className="px-6 py-2.5 rounded-xl bg-gradient-to-r from-amber-500 to-yellow-600 hover:from-amber-400 hover:to-yellow-500 text-slate-950 font-black text-sm flex items-center gap-2 shadow-lg shadow-amber-500/20 cursor-pointer"
+          >
+            <RefreshCw className="w-4 h-4" />
+            RETRY
+          </button>
+          <button
+            onClick={() => onNavigate('/')}
+            className="px-6 py-2.5 rounded-xl bg-white/10 hover:bg-white/20 text-white font-bold text-sm transition-colors cursor-pointer"
+          >
+            Go Home
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <ErrorBoundary fallbackTitle="Player Dashboard encountered an error" onReset={handleRetry}>
+      <div className="min-h-screen bg-[#070817] text-slate-100 flex flex-col font-['Plus_Jakarta_Sans',sans-serif]">
+        {/* Main Dashboard Content Layout with embedded UserDashboardModal */}
+        <main className="flex-1 w-full flex flex-col p-2 sm:p-4">
+          <UserDashboardModal isPageMode={true} onNavigate={onNavigate} />
+        </main>
+      </div>
+    </ErrorBoundary>
   );
 };

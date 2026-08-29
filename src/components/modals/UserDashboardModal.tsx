@@ -46,8 +46,14 @@ import {
 } from 'lucide-react';
 import { TAMBOLA_CALLS } from '../../utils/soundEffects';
 import { WinningPatternCode } from '../../types/tambola';
+import { clearUserSession } from '../../services/authService';
 
-export const UserDashboardModal: React.FC = () => {
+interface UserDashboardModalProps {
+  isPageMode?: boolean;
+  onNavigate?: (path: string) => void;
+}
+
+export const UserDashboardModal: React.FC<UserDashboardModalProps> = ({ isPageMode = false, onNavigate }) => {
   const {
     activeModal,
     setActiveModal,
@@ -83,7 +89,9 @@ export const UserDashboardModal: React.FC = () => {
     buyTicket,
   } = useTambola();
 
-  if (activeModal !== 'userDashboard') return null;
+  if (!isPageMode && activeModal !== 'userDashboard' && activeModal !== 'deposit' && activeModal !== 'withdraw') {
+    return null;
+  }
 
   const activeTab: DashboardTab = userDashboardTab || 'dashboard';
 
@@ -229,13 +237,14 @@ export const UserDashboardModal: React.FC = () => {
   };
 
   const handleBuyTicketSubmit = (gameId: string, price: number) => {
-    const res = buyTicket(gameId, price);
-    if (res.success && res.ticket) {
+    const res = buyTicket(gameId, 1, price);
+    const firstTicket = res.tickets?.[0];
+    if (res.success && firstTicket) {
       setBuySuccessTicket({
-        ticketNumber: res.ticket.ticketNumber,
-        gameId: res.ticket.gameId,
-        color: res.ticket.colorTheme || 'rainbow',
-        verCode: res.ticket.verificationCode || `VER-${Math.floor(100000 + Math.random() * 900000)}`,
+        ticketNumber: firstTicket.ticketNumber,
+        gameId: firstTicket.gameId,
+        color: firstTicket.colorTheme || 'rainbow',
+        verCode: firstTicket.verificationCode || `VER-${Math.floor(100000 + Math.random() * 900000)}`,
       });
     } else {
       setClaimFeedback({ type: 'error', message: res.message });
@@ -282,100 +291,109 @@ export const UserDashboardModal: React.FC = () => {
 
   const navigateToTab = (tab: DashboardTab) => {
     if (tab === 'logout') {
+      clearUserSession();
       logoutUser();
-      setActiveModal(null);
+      if (isPageMode && onNavigate) {
+        onNavigate('/login');
+      } else {
+        setActiveModal(null);
+      }
       return;
     }
     setUserDashboardTab(tab);
     setMobileDrawerOpen(false);
   };
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-0 sm:p-3 bg-black/85 backdrop-blur-md animate-fade-in text-slate-100">
-      <div className="relative w-full max-w-7xl h-full sm:h-[94vh] flex flex-col bg-[#080a1c] border-0 sm:border-2 border-indigo-500/30 rounded-none sm:rounded-3xl shadow-2xl overflow-hidden">
-        
-        {/* ========================================================================= */}
-        {/* TOP HEADER */}
-        {/* ========================================================================= */}
-        <header className="h-16 shrink-0 px-4 sm:px-6 bg-[#0c0e27] border-b border-indigo-500/20 flex items-center justify-between z-30">
-          {/* Logo & Mobile Menu Toggle */}
-          <div className="flex items-center gap-3">
-            <button
-              onClick={() => setMobileDrawerOpen(!mobileDrawerOpen)}
-              className="lg:hidden p-2 rounded-xl bg-white/10 text-slate-300 hover:text-white"
-              title="Toggle Menu"
-            >
-              <Menu className="w-5 h-5" />
-            </button>
+  const containerContent = (
+    <div className={`relative w-full ${isPageMode ? 'flex-1 min-h-[calc(100vh-100px)] rounded-2xl' : 'max-w-7xl h-full sm:h-[94vh] rounded-none sm:rounded-3xl'} flex flex-col bg-[#080a1c] border-0 sm:border-2 border-indigo-500/30 shadow-2xl overflow-hidden`}>
+      {/* ========================================================================= */}
+      {/* TOP HEADER */}
+      {/* ========================================================================= */}
+      <header className="h-16 shrink-0 px-4 sm:px-6 bg-[#0c0e27] border-b border-indigo-500/20 flex items-center justify-between z-30">
+        {/* Logo & Mobile Menu Toggle */}
+        <div className="flex items-center gap-3">
+          <button
+            onClick={() => setMobileDrawerOpen(!mobileDrawerOpen)}
+            className="lg:hidden p-2 rounded-xl bg-white/10 text-slate-300 hover:text-white"
+            title="Toggle Menu"
+          >
+            <Menu className="w-5 h-5" />
+          </button>
 
-            <div className="flex items-center gap-2.5 cursor-pointer" onClick={() => navigateToTab('dashboard')}>
-              <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-amber-400 via-pink-500 to-purple-600 p-[2px] shadow-md shadow-pink-500/30">
-                <div className="w-full h-full bg-[#080a1c] rounded-[10px] flex items-center justify-center font-black text-transparent bg-clip-text bg-gradient-to-r from-amber-300 to-pink-400 text-sm">
-                  AT
-                </div>
-              </div>
-              <div>
-                <div className="flex items-center gap-1.5">
-                  <span className="font-black text-base tracking-tight bg-gradient-to-r from-amber-300 via-pink-400 to-purple-300 bg-clip-text text-transparent">
-                    {settings.websiteName || 'APNA TAMBOLA'}
-                  </span>
-                  <span className="text-[9px] font-black uppercase px-1.5 py-0.2 bg-gradient-to-r from-emerald-500 to-teal-500 text-slate-950 rounded">
-                    USER
-                  </span>
-                </div>
-                <p className="hidden sm:block text-[9px] tracking-wider text-slate-400 uppercase font-bold">
-                  {settings.tagline || 'PLAY MORE • WIN MORE • SMILE MORE'}
-                </p>
+          <div className="flex items-center gap-2.5 cursor-pointer" onClick={() => navigateToTab('dashboard')}>
+            <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-amber-400 via-pink-500 to-purple-600 p-[2px] shadow-md shadow-pink-500/30">
+              <div className="w-full h-full bg-[#080a1c] rounded-[10px] flex items-center justify-center font-black text-transparent bg-clip-text bg-gradient-to-r from-amber-300 to-pink-400 text-sm">
+                AT
               </div>
             </div>
-          </div>
-
-          {/* Quick Actions & User Info */}
-          <div className="flex items-center gap-2 sm:gap-4">
-            {/* Online Status & ID */}
-            <div className="hidden md:flex items-center gap-2 px-3 py-1 rounded-full bg-black/40 border border-white/10 text-xs">
-              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
-              <span className="text-slate-300 font-medium">Online:</span>
-              <span className="text-amber-300 font-bold">{currentUser.name}</span>
-              <span className="text-slate-500 font-mono text-[10px]">({currentUser.id})</span>
-            </div>
-
-            {/* Notification Bell with Badge */}
-            <button
-              onClick={() => navigateToTab('notifications')}
-              className="relative p-2 rounded-xl bg-white/5 hover:bg-white/10 text-slate-300 hover:text-white transition-all cursor-pointer"
-              title="Notifications"
-            >
-              <Bell className="w-5 h-5 text-amber-400" />
-              {notifications.filter((n) => !n.isRead).length > 0 && (
-                <span className="absolute -top-1 -right-1 w-5 h-5 rounded-full bg-pink-500 text-white text-[10px] font-black flex items-center justify-center shadow-lg animate-bounce">
-                  {notifications.filter((n) => !n.isRead).length}
+            <div>
+              <div className="flex items-center gap-1.5">
+                <span className="font-black text-base tracking-tight bg-gradient-to-r from-amber-300 via-pink-400 to-purple-300 bg-clip-text text-transparent font-['Outfit']">
+                  {settings.websiteName || 'APNA TAMBOLA'}
                 </span>
-              )}
-            </button>
-
-            {/* Wallet Pill */}
-            <div
-              onClick={() => navigateToTab('mainWallet')}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-gradient-to-r from-emerald-500/20 to-teal-500/10 border border-emerald-500/40 text-emerald-300 cursor-pointer hover:border-emerald-400 transition-all shadow-sm"
-              title="Main Wallet Balance"
-            >
-              <Wallet className="w-4 h-4 text-emerald-400" />
-              <span className="text-xs font-mono font-black text-emerald-400">
-                ₹{currentUser.walletBalance.toLocaleString('en-IN')}
-              </span>
+                <span className="text-[9px] font-black uppercase px-1.5 py-0.2 bg-gradient-to-r from-emerald-500 to-teal-500 text-slate-950 rounded">
+                  USER
+                </span>
+              </div>
+              <p className="hidden sm:block text-[9px] tracking-wider text-slate-400 uppercase font-bold">
+                {settings.tagline || 'PLAY MORE • WIN MORE • SMILE MORE'}
+              </p>
             </div>
-
-            {/* Close Modal Button */}
-            <button
-              onClick={() => setActiveModal(null)}
-              className="p-2 rounded-xl bg-white/10 hover:bg-red-500/20 text-slate-300 hover:text-red-400 transition-colors"
-              title="Close Dashboard"
-            >
-              <X className="w-5 h-5" />
-            </button>
           </div>
-        </header>
+        </div>
+
+        {/* Quick Actions & User Info */}
+        <div className="flex items-center gap-2 sm:gap-4">
+          {/* Online Status & ID */}
+          <div className="hidden md:flex items-center gap-2 px-3 py-1 rounded-full bg-black/40 border border-white/10 text-xs">
+            <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+            <span className="text-slate-300 font-medium">Online:</span>
+            <span className="text-amber-300 font-bold">{currentUser?.name || 'Player'}</span>
+            <span className="text-slate-500 font-mono text-[10px]">({currentUser?.id || 'USR'})</span>
+          </div>
+
+          {/* Notification Bell with Badge */}
+          <button
+            onClick={() => navigateToTab('notifications')}
+            className="relative p-2 rounded-xl bg-white/5 hover:bg-white/10 text-slate-300 hover:text-white transition-all cursor-pointer"
+            title="Notifications"
+          >
+            <Bell className="w-5 h-5 text-amber-400" />
+            {notifications.filter((n) => !n.isRead).length > 0 && (
+              <span className="absolute -top-1 -right-1 w-5 h-5 rounded-full bg-pink-500 text-white text-[10px] font-black flex items-center justify-center shadow-lg animate-bounce">
+                {notifications.filter((n) => !n.isRead).length}
+              </span>
+            )}
+          </button>
+
+          {/* Wallet Pill */}
+          <div
+            onClick={() => navigateToTab('mainWallet')}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-gradient-to-r from-emerald-500/20 to-teal-500/10 border border-emerald-500/40 text-emerald-300 cursor-pointer hover:border-emerald-400 transition-all shadow-sm"
+            title="Main Wallet Balance"
+          >
+            <Wallet className="w-4 h-4 text-emerald-400" />
+            <span className="text-xs font-mono font-black text-emerald-400">
+              ₹{(currentUser?.walletBalance ?? (currentUser?.depositWallet ?? 0) + (currentUser?.ticketWallet ?? 0) + (currentUser?.winningWallet ?? 0)).toLocaleString('en-IN')}
+            </span>
+          </div>
+
+          {/* Close / Return Button */}
+          <button
+            onClick={() => {
+              if (isPageMode && onNavigate) {
+                onNavigate('/');
+              } else {
+                setActiveModal(null);
+              }
+            }}
+            className="p-2 rounded-xl bg-white/10 hover:bg-red-500/20 text-slate-300 hover:text-red-400 transition-colors cursor-pointer"
+            title={isPageMode ? 'Return to Home' : 'Close Dashboard'}
+          >
+            <X className="w-5 h-5" />
+          </button>
+        </div>
+      </header>
 
         {/* ========================================================================= */}
         {/* MAIN BODY: SIDEBAR + CONTENT AREA */}
@@ -2314,6 +2332,19 @@ export const UserDashboardModal: React.FC = () => {
         </div>
 
       </div>
+  );
+
+  if (isPageMode) {
+    return (
+      <div className="w-full flex-1 flex flex-col">
+        {containerContent}
+      </div>
+    );
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-0 sm:p-3 bg-black/85 backdrop-blur-md animate-fade-in text-slate-100">
+      {containerContent}
     </div>
   );
 };

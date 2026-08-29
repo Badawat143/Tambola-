@@ -139,7 +139,7 @@ export const AdminLoginPage: React.FC<AdminLoginPageProps> = ({ onNavigate }) =>
       }
 
       // Check 2FA / Security PIN if configured
-      const expectedPin = foundAdmin.adminPin || settings.adminSecurityPin || '778899';
+      const expectedPin = (foundAdmin as any).adminPin || (settings as any).adminSecurityPin || '778899';
       if (
         securityPin.trim() &&
         securityPin.trim() !== expectedPin &&

@@ -19,6 +19,8 @@ import { MobileAppSection } from './components/MobileAppSection';
 import { Footer } from './components/Footer';
 import { ModalManager } from './components/modals/ModalManager';
 
+import { ErrorBoundary } from './components/ErrorBoundary';
+
 // Dedicated Auth & Page Components
 import { UserRegisterPage } from './components/auth/UserRegisterPage';
 import { UserLoginPage } from './components/auth/UserLoginPage';
@@ -260,8 +262,10 @@ const MainAppContent: React.FC = () => {
 
 export default function App() {
   return (
-    <TambolaProvider>
-      <MainAppContent />
-    </TambolaProvider>
+    <ErrorBoundary fallbackTitle="Application encountered an unexpected error">
+      <TambolaProvider>
+        <MainAppContent />
+      </TambolaProvider>
+    </ErrorBoundary>
   );
 }

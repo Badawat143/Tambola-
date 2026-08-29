@@ -128,7 +128,7 @@ export const UpcomingGamesSection: React.FC = () => {
                       Available Tickets
                     </span>
                     <p className="text-lg font-black text-purple-300 font-mono mt-0.5">
-                      {(game.totalTickets - (game.ticketsSoldCount || 0) || 500).toLocaleString('en-IN')}
+                      {((game.totalTicketSales || 500) - (game.ticketsSoldCount || 0)).toLocaleString('en-IN')}
                     </p>
                   </div>
                 </div>

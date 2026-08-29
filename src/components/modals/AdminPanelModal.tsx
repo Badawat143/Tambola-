@@ -112,7 +112,12 @@ const ADMIN_TICKET_THEMES: Record<string, TicketThemeDisplay> = {
   },
 };
 
-export const AdminPanelModal: React.FC = () => {
+interface AdminPanelModalProps {
+  isPageMode?: boolean;
+  onNavigate?: (path: string) => void;
+}
+
+export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({ isPageMode = false, onNavigate }) => {
   const {
     activeModal,
     setActiveModal,
@@ -154,7 +159,7 @@ export const AdminPanelModal: React.FC = () => {
     myTickets,
   } = useTambola();
 
-  if (activeModal !== 'admin') return null;
+  if (!isPageMode && activeModal !== 'admin') return null;
 
   // Active Tab & Navigation
   const [activeTab, setActiveTab] = useState<AdminTab>('overview');
@@ -273,7 +278,7 @@ export const AdminPanelModal: React.FC = () => {
       setTimeout(() => setSaveSuccessMsg(null), 3000);
       return;
     }
-    adjustUserWallet(selectedUserForDetail.id, walletAdjType, walletAdjAmount, walletAdjReason);
+    adjustUserWallet(selectedUserForDetail.id, walletAdjAmount, walletAdjType, walletAdjReason);
     setWalletAdjAmount(0);
     setWalletAdjReason('');
     setSaveSuccessMsg(`Wallet adjustment of ₹${walletAdjAmount} recorded with immutable audit log.`);
@@ -454,59 +459,64 @@ export const AdminPanelModal: React.FC = () => {
     { tab: 'auditLogs', label: '23. 📝 Immutable Audit Logs', icon: Database, badge: auditLogs.length },
   ];
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-0 sm:p-3 bg-black/90 backdrop-blur-md animate-fade-in text-slate-100">
-      <div className="relative w-full max-w-7xl h-full sm:h-[95vh] flex flex-col bg-[#070818] border-0 sm:border-2 border-amber-500/40 rounded-none sm:rounded-3xl shadow-2xl overflow-hidden">
-        
-        {/* ========================================================================= */}
-        {/* ADMIN HEADER BAR */}
-        {/* ========================================================================= */}
-        <header className="h-16 shrink-0 px-4 sm:px-6 bg-[#0c0d24] border-b border-amber-500/30 flex items-center justify-between z-30">
-          <div className="flex items-center gap-3">
-            <button
-              onClick={() => setMobileDrawerOpen(!mobileDrawerOpen)}
-              className="lg:hidden p-2 rounded-xl bg-white/10 text-slate-300 hover:text-white cursor-pointer"
-            >
-              <Menu className="w-5 h-5" />
-            </button>
+  const adminContainerContent = (
+    <div className={`relative w-full ${isPageMode ? 'flex-1 min-h-[calc(100vh-100px)] rounded-2xl' : 'max-w-7xl h-full sm:h-[95vh] rounded-none sm:rounded-3xl'} flex flex-col bg-[#070818] border-0 sm:border-2 border-amber-500/40 shadow-2xl overflow-hidden`}>
+      
+      {/* ========================================================================= */}
+      {/* ADMIN HEADER BAR */}
+      {/* ========================================================================= */}
+      <header className="h-16 shrink-0 px-4 sm:px-6 bg-[#0c0d24] border-b border-amber-500/30 flex items-center justify-between z-30">
+        <div className="flex items-center gap-3">
+          <button
+            onClick={() => setMobileDrawerOpen(!mobileDrawerOpen)}
+            className="lg:hidden p-2 rounded-xl bg-white/10 text-slate-300 hover:text-white cursor-pointer"
+          >
+            <Menu className="w-5 h-5" />
+          </button>
 
-            <div className="flex items-center gap-2.5">
-              <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-amber-400 to-yellow-600 p-[2px] shadow-lg shadow-amber-500/30">
-                <div className="w-full h-full bg-[#070818] rounded-[10px] flex items-center justify-center font-black text-amber-400 text-sm">
-                  ⚡
-                </div>
-              </div>
-              <div>
-                <div className="flex items-center gap-2">
-                  <span className="font-black text-base tracking-tight text-white font-['Outfit']">
-                    APNA TAMBOLA <span className="text-amber-400">ADMIN SUITE</span>
-                  </span>
-                  <span className="text-[9px] font-black uppercase px-2 py-0.5 bg-amber-400 text-slate-950 rounded-full">
-                    SUPER ADMIN
-                  </span>
-                </div>
-                <p className="hidden sm:block text-[9px] tracking-wider text-slate-400 uppercase font-bold">
-                  MASTER CONTROL DASHBOARD • 70% POOL ENFORCED
-                </p>
+          <div className="flex items-center gap-2.5">
+            <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-amber-400 to-yellow-600 p-[2px] shadow-lg shadow-amber-500/30">
+              <div className="w-full h-full bg-[#070818] rounded-[10px] flex items-center justify-center font-black text-amber-400 text-sm">
+                ⚡
               </div>
             </div>
-          </div>
-
-          <div className="flex items-center gap-3">
-            <div className="hidden md:flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-xs font-mono font-bold">
-              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
-              70% Prize Pool Validator: ACTIVE
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="font-black text-base tracking-tight text-white font-['Outfit']">
+                  APNA TAMBOLA <span className="text-amber-400">ADMIN SUITE</span>
+                </span>
+                <span className="text-[9px] font-black uppercase px-2 py-0.5 bg-amber-400 text-slate-950 rounded-full">
+                  SUPER ADMIN
+                </span>
+              </div>
+              <p className="hidden sm:block text-[9px] tracking-wider text-slate-400 uppercase font-bold">
+                MASTER CONTROL DASHBOARD • 70% POOL ENFORCED
+              </p>
             </div>
-
-            <button
-              onClick={() => setActiveModal(null)}
-              className="p-2 rounded-xl bg-white/10 hover:bg-red-500/20 text-slate-300 hover:text-red-400 transition-colors cursor-pointer"
-              title="Close Admin Panel"
-            >
-              <X className="w-5 h-5" />
-            </button>
           </div>
-        </header>
+        </div>
+
+        <div className="flex items-center gap-3">
+          <div className="hidden md:flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-xs font-mono font-bold">
+            <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+            70% Prize Pool Validator: ACTIVE
+          </div>
+
+          <button
+            onClick={() => {
+              if (isPageMode && onNavigate) {
+                onNavigate('/');
+              } else {
+                setActiveModal(null);
+              }
+            }}
+            className="p-2 rounded-xl bg-white/10 hover:bg-red-500/20 text-slate-300 hover:text-red-400 transition-colors cursor-pointer"
+            title={isPageMode ? 'Return to Home' : 'Close Admin Panel'}
+          >
+            <X className="w-5 h-5" />
+          </button>
+        </div>
+      </header>
 
         {/* ========================================================================= */}
         {/* MAIN BODY: 23 TABS ADMIN SIDEBAR + WORKSPACE */}
@@ -2392,6 +2402,19 @@ export const AdminPanelModal: React.FC = () => {
         </div>
 
       </div>
+  );
+
+  if (isPageMode) {
+    return (
+      <div className="w-full flex-1 flex flex-col">
+        {adminContainerContent}
+      </div>
+    );
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-0 sm:p-3 bg-black/90 backdrop-blur-md animate-fade-in text-slate-100">
+      {adminContainerContent}
     </div>
   );
 };

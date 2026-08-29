@@ -53,7 +53,7 @@ import {
 } from '../utils/referralEngine';
 import { createNewTicket, getRandomTicketColor } from '../utils/ticketGenerator';
 import { soundFx } from '../utils/soundEffects';
-import { setUserSession, setAdminSession } from '../services/authService';
+import { setUserSession, setAdminSession, getUserSession, getAdminSession, clearUserSession, clearAdminSession } from '../services/authService';
 
 export { type DashboardTab, type AdminTab };
 
@@ -61,6 +61,7 @@ interface TambolaContextType {
   // State
   currentUser: User;
   allUsers: User[];
+  authState: 'loading' | 'authenticated' | 'unauthenticated';
   settings: SiteSettings;
   prizes: PrizeCategory[];
   upcomingGames: GameItem[];
@@ -210,6 +211,11 @@ interface TambolaContextType {
   drawFreeTicketWinnersForGame: (gameId: string) => { success: boolean; winners: FreeTicketWinner[]; message: string };
 
   // Admin & CMS Actions
+  adjustUserWallet: (userId: string, amount: number, walletType?: 'depositWallet' | 'ticketWallet' | 'winningWallet', reason?: string) => void;
+  verifyClaim: (
+    ticketId: string,
+    patternCode: WinningPatternCode
+  ) => { success: boolean; message: string; prizeAmount?: number; categoryName?: string };
   updateSettings: (newSettings: Partial<SiteSettings>) => void;
   updatePrizes: (newPrizes: PrizeCategory[]) => void;
   toggleTicketPrice: (price: number, enabled: boolean) => void;
@@ -255,6 +261,10 @@ export const TambolaProvider: React.FC<{ children: React.ReactNode }> = ({ child
   // Current Active User
   const [currentUser, setCurrentUser] = useState<User>(() => {
     try {
+      const userSession = getUserSession();
+      if (userSession && userSession.user) {
+        return userSession.user;
+      }
       const savedId = localStorage.getItem(ACTIVE_USER_KEY);
       if (savedId) {
         const found = allUsers.find((u) => u.id === savedId);
@@ -265,6 +275,22 @@ export const TambolaProvider: React.FC<{ children: React.ReactNode }> = ({ child
     }
     return allUsers[0] || INITIAL_SEED_USERS[0];
   });
+
+  // Auth State
+  const [authState, setAuthState] = useState<'loading' | 'authenticated' | 'unauthenticated'>('authenticated');
+
+  useEffect(() => {
+    try {
+      const userSession = getUserSession();
+      if (userSession && userSession.user) {
+        const fresh = allUsers.find((u) => u.id === userSession.user.id) || userSession.user;
+        setCurrentUser(fresh);
+        setAuthState('authenticated');
+      }
+    } catch (e) {
+      console.error('Session sync error', e);
+    }
+  }, [allUsers]);
 
   // 2. Site Settings
   const [settings, setSettings] = useState<SiteSettings>(() => {
@@ -2081,11 +2107,47 @@ export const TambolaProvider: React.FC<{ children: React.ReactNode }> = ({ child
     setNotifications((prev) => prev.map((n) => (n.id === id ? { ...n, isRead: true } : n)));
   };
 
+  const adjustUserWallet = (
+    userId: string,
+    amount: number,
+    walletType: 'depositWallet' | 'ticketWallet' | 'winningWallet' = 'depositWallet',
+    reason?: string
+  ) => {
+    setAllUsers((prev) =>
+      prev.map((u) => {
+        if (u.id === userId) {
+          const currentVal = u[walletType] || 0;
+          const newVal = Math.max(0, currentVal + amount);
+          const updatedUser = {
+            ...u,
+            [walletType]: newVal,
+            walletBalance:
+              (walletType === 'depositWallet' ? newVal : u.depositWallet || 0) +
+              (walletType === 'ticketWallet' ? newVal : u.ticketWallet || 0) +
+              (walletType === 'winningWallet' ? newVal : u.winningWallet || 0),
+          };
+          if (currentUser.id === userId) {
+            setCurrentUser(updatedUser);
+          }
+          return updatedUser;
+        }
+        return u;
+      })
+    );
+    addNotification(
+      'Wallet Balance Adjusted',
+      `Admin adjusted your ${walletType} by ₹${amount}. Reason: ${reason || 'Admin Adjustment'}`,
+      'system',
+      userId
+    );
+  };
+
   return (
     <TambolaContext.Provider
       value={{
         currentUser,
         allUsers,
+        authState,
         settings,
         prizes,
         upcomingGames,
@@ -2147,6 +2209,7 @@ export const TambolaProvider: React.FC<{ children: React.ReactNode }> = ({ child
         generateCustomTicket,
         toggleMarkNumberOnTicket,
         claimPrizeWithPattern,
+        verifyClaim: claimPrizeWithPattern,
 
         startLiveCaller,
         pauseLiveCaller,
@@ -2159,6 +2222,7 @@ export const TambolaProvider: React.FC<{ children: React.ReactNode }> = ({ child
         validateGamePrizePool,
         drawFreeTicketWinnersForGame,
 
+        adjustUserWallet,
         updateSettings,
         updatePrizes,
         toggleTicketPrice,
