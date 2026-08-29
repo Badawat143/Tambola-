@@ -982,19 +982,19 @@ export const TambolaProvider: React.FC<{ children: React.ReactNode }> = ({ child
     return { success: true, message: 'Deposit rejected successfully.' };
   };
 
-  // User-to-User Transfer Engine (STRICTLY TICKET WALLET ONLY with 5% Fee)
+  // User-to-User Transfer Engine (Deposit/Main Wallet -> Recipient's Ticket Wallet with 5% Fee)
   const transferMoney = (recipientQuery: string, amount: number) => {
     const num = Number(amount);
     if (isNaN(num) || num < 10) {
-      return { success: false, message: 'Transfer amount must be at least ₹10.' };
+      return { success: false, message: 'Transfer amount must be at least 10 VP.' };
     }
 
-    // 🔒 STRICT RULE: User-to-User transfers are ONLY permitted from TICKET WALLET
-    const senderTicketWallet = currentUser.ticketWallet || 0;
-    if (senderTicketWallet < num) {
+    // 🔒 STRICT RULE: User-to-User transfers are funded from sender's Main/Deposit Wallet and credit recipient's Ticket Wallet
+    const senderDepositWallet = currentUser.depositWallet || 0;
+    if (senderDepositWallet < num) {
       return {
         success: false,
-        message: `Insufficient Ticket Wallet balance! Available: ₹${senderTicketWallet}. Only funds in your Ticket Wallet can be transferred to other players. (Main Wallet and Withdrawal Wallet transfers are strictly blocked).`,
+        message: `Insufficient Main/Deposit Wallet balance! Available: ${senderDepositWallet} VP. (Ticket Wallet funds are non-transferable and restricted strictly for buying tickets).`,
       };
     }
 
@@ -1016,26 +1016,26 @@ export const TambolaProvider: React.FC<{ children: React.ReactNode }> = ({ child
     }
 
     if (recipient.id === currentUser.id) {
-      return { success: false, message: 'Self-transfers are not allowed! You cannot transfer funds to yourself.' };
+      return { success: false, message: 'Self-transfers are not allowed! Use the Recharge Ticket Wallet option for self conversions.' };
     }
 
     const feePercent = settings.transferFeePercent !== undefined ? settings.transferFeePercent : 5;
     const feeAmount = Math.round(((num * feePercent) / 100) * 100) / 100;
     const recipientCredited = Math.round((num - feeAmount) * 100) / 100;
 
-    // Deduct from Sender's Ticket Wallet
-    const updatedSenderTicket = Math.round((senderTicketWallet - num) * 100) / 100;
+    // Deduct from Sender's Deposit Wallet
+    const updatedSenderDeposit = Math.round((senderDepositWallet - num) * 100) / 100;
     const updatedSenderBal = Math.round(
-      ((currentUser.depositWallet || 0) + updatedSenderTicket + (currentUser.winningWallet || 0)) * 100
+      (updatedSenderDeposit + (currentUser.ticketWallet || 0) + (currentUser.winningWallet || 0)) * 100
     ) / 100;
 
     const updatedCurrentUser: User = {
       ...currentUser,
-      ticketWallet: updatedSenderTicket,
+      depositWallet: updatedSenderDeposit,
       walletBalance: updatedSenderBal,
     };
 
-    // Credit to Recipient's Ticket Wallet
+    // Credit to Recipient's Ticket Wallet (Restricted for tickets)
     const updatedAll = allUsers.map((u) => {
       if (u.id === currentUser.id) {
         return updatedCurrentUser;
@@ -1058,6 +1058,18 @@ export const TambolaProvider: React.FC<{ children: React.ReactNode }> = ({ child
     setCurrentUser(updatedCurrentUser);
     syncUserToFirestore(updatedCurrentUser);
 
+    // Call backend API asynchronously for sync
+    fetch('/api/wallet/transfer', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        senderUserId: currentUser.id,
+        recipientQuery: cleanQuery,
+        amount: num,
+        sourceWallet: 'depositWallet',
+      }),
+    }).catch((err) => console.warn('Backend transfer sync notice:', err));
+
     // Create Transfer Record
     const transferRecord: TransferRecord = {
       id: `TRF-${Math.floor(10000 + Math.random() * 90000)}`,
@@ -1068,10 +1080,10 @@ export const TambolaProvider: React.FC<{ children: React.ReactNode }> = ({ child
       amount: num,
       feeAmount: feeAmount,
       recipientAmount: recipientCredited,
-      transactionId: `TXN-TKT-${Math.floor(1000000 + Math.random() * 9000000)}`,
+      transactionId: `TXN-TRF-${Math.floor(1000000 + Math.random() * 9000000)}`,
       status: 'completed',
       createdAt: new Date().toISOString(),
-      sourceWallet: 'ticketWallet',
+      sourceWallet: 'depositWallet',
       destinationWallet: 'ticketWallet',
     };
     setTransfers((prev) => [transferRecord, ...prev]);
@@ -1084,7 +1096,7 @@ export const TambolaProvider: React.FC<{ children: React.ReactNode }> = ({ child
       sourceUserId: currentUser.id,
       referenceId: transferRecord.id,
       createdAt: new Date().toISOString(),
-      description: `5% platform transfer fee on ₹${num} Ticket Wallet transfer to ${recipient.name} (${recipient.id})`,
+      description: `5% platform transfer fee on ${num} VP transfer to ${recipient.name} (${recipient.id})`,
     };
     setPlatformFeeLedger((prev) => [feeItem, ...prev]);
 
@@ -1092,10 +1104,10 @@ export const TambolaProvider: React.FC<{ children: React.ReactNode }> = ({ child
     setAuditLogs((prev) => [
       {
         id: `LOG-${Date.now()}`,
-        adminId: 'SYSTEM_TICKET_WALLET',
-        adminName: 'Ticket Transfer Engine',
+        adminId: 'SYSTEM_WALLET_ENGINE',
+        adminName: 'Wallet Transfer Engine',
         action: 'WALLET_TRANSFER',
-        details: `${currentUser.name} transferred ₹${num} from Ticket Wallet to ${recipient.name}. 5% Platform Fee: ₹${feeAmount}, Credited: ₹${recipientCredited}`,
+        details: `${currentUser.name} transferred ${num} VP from Main Wallet to ${recipient.name}'s Ticket Wallet. 5% Fee: ${feeAmount} VP, Credited: ${recipientCredited} VP`,
         category: 'FINANCE',
         createdAt: new Date().toISOString(),
       },
@@ -1104,15 +1116,15 @@ export const TambolaProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
     // Notifications
     addNotification(
-      '🎟️ Ticket Wallet Transfer Sent',
-      `₹${num} transferred from your Ticket Wallet to ${recipient.name} (${recipient.id}). Platform fee (5%): ₹${feeAmount}.`,
+      '🔄 Transfer Sent',
+      `${num} VP transferred from your Main Wallet to ${recipient.name} (${recipient.id}). Recipient received ${recipientCredited} VP into Ticket Wallet (5% Fee: ${feeAmount} VP).`,
       'transfer',
       currentUser.id
     );
 
     addNotification(
       '🎟️ Ticket Wallet Recharged!',
-      `You received ₹${recipientCredited} into your Ticket Wallet from ${currentUser.name} (${currentUser.id}). You can use this to purchase game tickets!`,
+      `You received ${recipientCredited} VP into your Ticket Wallet from ${currentUser.name} (${currentUser.id}). You can use this to purchase game tickets!`,
       'transfer',
       recipient.id
     );
@@ -1120,7 +1132,7 @@ export const TambolaProvider: React.FC<{ children: React.ReactNode }> = ({ child
     soundFx.playNumberCalled();
     return {
       success: true,
-      message: `₹${recipientCredited} successfully transferred from your Ticket Wallet to ${recipient.name}! (5% Platform fee: ₹${feeAmount})`,
+      message: `${recipientCredited} VP successfully transferred to ${recipient.name}'s Ticket Wallet! (5% Platform fee: ${feeAmount} VP)`,
       transfer: transferRecord,
     };
   };
@@ -1376,12 +1388,21 @@ export const TambolaProvider: React.FC<{ children: React.ReactNode }> = ({ child
     const pricePerTicket = customPrice || settings.defaultTicketPrice || 20;
     const totalCost = pricePerTicket * quantity;
 
+    // Verify selected game is open for ticket sales
+    const targetGame = upcomingGames.find((g) => g.id === gameId) || activeLiveGame;
+    if (targetGame.status === 'completed' || targetGame.status === 'cancelled') {
+      return {
+        success: false,
+        message: 'This match is closed for ticket sales.',
+      };
+    }
+
     const availableForTickets = (currentUser.ticketWallet || 0) + (currentUser.depositWallet || 0) + (currentUser.winningWallet || 0);
 
     if (availableForTickets < totalCost) {
       return {
         success: false,
-        message: `Insufficient balance! Total required is ₹${totalCost}, but your available balance is ₹${availableForTickets}. Please deposit money to continue.`,
+        message: `Insufficient balance! Total required is ${totalCost} VP, but your available balance is ${availableForTickets} VP. Please recharge your wallet to continue.`,
       };
     }
 
@@ -1546,7 +1567,6 @@ export const TambolaProvider: React.FC<{ children: React.ReactNode }> = ({ child
     }
 
     // Create tickets with chosen or random colourful theme
-    const targetGame = upcomingGames.find((g) => g.id === gameId) || activeLiveGame;
     const generated: TambolaTicket[] = [];
     for (let i = 0; i < quantity; i++) {
       const ticketNum = Math.floor(10000 + Math.random() * 90000);
@@ -1569,6 +1589,19 @@ export const TambolaProvider: React.FC<{ children: React.ReactNode }> = ({ child
     generated.forEach((t) => syncTicketToFirestore(t));
     syncUserToFirestore(activeUpdated);
 
+    // Call backend API to record purchase in server authoritative state
+    fetch('/api/tickets/buy', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        userId: currentUser.id,
+        gameId,
+        quantity,
+        pricePerTicket,
+        colorTheme,
+      }),
+    }).catch((err) => console.warn('Backend ticket purchase sync notice:', err));
+
     // Update game sales & stats
     setUpcomingGames((prev) =>
       prev.map((g) =>
@@ -1586,7 +1619,7 @@ export const TambolaProvider: React.FC<{ children: React.ReactNode }> = ({ child
     soundFx.playNumberCalled();
     return {
       success: true,
-      message: `Successfully purchased ${quantity} colourful Tambola ticket(s) for ₹${totalCost}!`,
+      message: `Successfully purchased ${quantity} Tambola ticket(s) for ${totalCost} VP!`,
       tickets: generated,
     };
   };

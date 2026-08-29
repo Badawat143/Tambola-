@@ -136,6 +136,253 @@ const state: ServerState = {
 // AUTHENTICATION & SECURITY MIDDLEWARES / APIS
 // ==========================================
 
+// Helper: Generate Authentic 3x9 Tambola Grid
+function generateTambolaGrid(): (number | null)[][] {
+  const columnRanges: [number, number][] = [
+    [1, 9],
+    [10, 19],
+    [20, 29],
+    [30, 39],
+    [40, 49],
+    [50, 59],
+    [60, 69],
+    [70, 79],
+    [80, 90],
+  ];
+
+  let isValid = false;
+  let finalGrid: (number | null)[][] = [];
+
+  for (let attempt = 0; attempt < 100 && !isValid; attempt++) {
+    const grid: (number | null)[][] = [
+      Array(9).fill(null),
+      Array(9).fill(null),
+      Array(9).fill(null),
+    ];
+
+    const colCounts = Array(9).fill(1);
+    const remainingSlots = 6;
+    let added = 0;
+    while (added < remainingSlots) {
+      const c = Math.floor(Math.random() * 9);
+      if (colCounts[c] < 3) {
+        colCounts[c]++;
+        added++;
+      }
+    }
+
+    const rowCounts = [0, 0, 0];
+
+    for (let c = 0; c < 9; c++) {
+      if (colCounts[c] === 3) {
+        grid[0][c] = 1;
+        grid[1][c] = 1;
+        grid[2][c] = 1;
+        rowCounts[0]++;
+        rowCounts[1]++;
+        rowCounts[2]++;
+      }
+    }
+
+    for (let c = 0; c < 9; c++) {
+      if (colCounts[c] === 2) {
+        const rows = [0, 1, 2].sort((a, b) => rowCounts[a] - rowCounts[b]);
+        grid[rows[0]][c] = 1;
+        grid[rows[1]][c] = 1;
+        rowCounts[rows[0]]++;
+        rowCounts[rows[1]]++;
+      }
+    }
+
+    for (let c = 0; c < 9; c++) {
+      if (colCounts[c] === 1) {
+        const rows = [0, 1, 2]
+          .filter((r) => rowCounts[r] < 5)
+          .sort((a, b) => rowCounts[a] - rowCounts[b]);
+        if (rows.length > 0) {
+          grid[rows[0]][c] = 1;
+          rowCounts[rows[0]]++;
+        }
+      }
+    }
+
+    if (rowCounts[0] === 5 && rowCounts[1] === 5 && rowCounts[2] === 5) {
+      // Allocate numbers
+      for (let c = 0; c < 9; c++) {
+        const [min, max] = columnRanges[c];
+        const rangeSize = max - min + 1;
+        const availableNums: number[] = [];
+        for (let n = min; n <= max; n++) availableNums.push(n);
+
+        // Shuffle
+        for (let i = availableNums.length - 1; i > 0; i--) {
+          const j = Math.floor(Math.random() * (i + 1));
+          [availableNums[i], availableNums[j]] = [availableNums[j], availableNums[i]];
+        }
+
+        const needed = colCounts[c];
+        const chosen = availableNums.slice(0, needed).sort((a, b) => a - b);
+        let chosenIdx = 0;
+        for (let r = 0; r < 3; r++) {
+          if (grid[r][c] === 1) {
+            grid[r][c] = chosen[chosenIdx++];
+          }
+        }
+      }
+      finalGrid = grid;
+      isValid = true;
+    }
+  }
+
+  return isValid
+    ? finalGrid
+    : [
+        [4, null, 23, null, 42, 55, null, 71, null],
+        [null, 15, null, 36, null, 59, 64, null, 83],
+        [8, null, 29, null, 49, null, 68, 77, null],
+      ];
+}
+
+// Helper: Check Tambola Pattern on a Ticket Grid
+function evaluateTicketPattern(
+  grid: (number | null)[][],
+  markedNumbers: number[],
+  patternCode: string
+): boolean {
+  const markedSet = new Set(markedNumbers);
+
+  if (patternCode === 'EARLY5') {
+    const allNums = grid.flat().filter((n): n is number => n !== null && n > 0);
+    const markedCount = allNums.filter((n) => markedSet.has(n)).length;
+    return markedCount >= 5;
+  }
+
+  if (patternCode === 'TOPLINE') {
+    const row0 = grid[0].filter((n): n is number => n !== null && n > 0);
+    return row0.length === 5 && row0.every((n) => markedSet.has(n));
+  }
+
+  if (patternCode === 'MIDDLELINE') {
+    const row1 = grid[1].filter((n): n is number => n !== null && n > 0);
+    return row1.length === 5 && row1.every((n) => markedSet.has(n));
+  }
+
+  if (patternCode === 'BOTTOMLINE') {
+    const row2 = grid[2].filter((n): n is number => n !== null && n > 0);
+    return row2.length === 5 && row2.every((n) => markedSet.has(n));
+  }
+
+  if (patternCode === 'STAR') {
+    // 4 corners: top row first/last, bottom row first/last
+    const row0 = grid[0].filter((n): n is number => n !== null && n > 0);
+    const row2 = grid[2].filter((n): n is number => n !== null && n > 0);
+    if (row0.length < 2 || row2.length < 2) return false;
+    const corners = [row0[0], row0[row0.length - 1], row2[0], row2[row2.length - 1]];
+    return corners.every((n) => markedSet.has(n));
+  }
+
+  if (patternCode === 'FULLHOUSE1' || patternCode === 'FULLHOUSE2' || patternCode === 'FULLHOUSE3' || patternCode === 'FULLHOUSE') {
+    const allNums = grid.flat().filter((n): n is number => n !== null && n > 0);
+    return allNums.length === 15 && allNums.every((n) => markedSet.has(n));
+  }
+
+  return false;
+}
+
+// Helper: Process live game number call across ALL tickets (offline + online)
+function processNumberCallForTickets(gameId: string, calledNumber: number) {
+  const game = state.liveGame;
+  const gameTickets = state.tickets.filter((t) => (t.gameId === gameId || t.gameId === game.id) && t.status !== 'completed');
+
+  for (const ticket of gameTickets) {
+    const flatGrid = ticket.grid.flat().filter((n: any): n is number => n !== null && n > 0);
+    if (flatGrid.includes(calledNumber) && !ticket.markedNumbers.includes(calledNumber)) {
+      ticket.markedNumbers.push(calledNumber);
+    }
+
+    // Check winning patterns automatically
+    const patternsToCheck = ['EARLY5', 'TOPLINE', 'MIDDLELINE', 'BOTTOMLINE', 'STAR', 'FULLHOUSE1', 'FULLHOUSE2', 'FULLHOUSE3'];
+    for (const pat of patternsToCheck) {
+      const prize = game.prizes.find((p) => p.code === pat);
+      if (!prize) continue;
+
+      const currentClaims = prize.claimedBy || [];
+      const winnerCap = prize.winnerCount || 1;
+
+      if (currentClaims.length >= winnerCap) continue;
+      if (ticket.wonPrizes && ticket.wonPrizes.includes(prize.name)) continue;
+
+      const isWon = evaluateTicketPattern(ticket.grid, ticket.markedNumbers, pat);
+      if (isWon) {
+        // Record claim
+        const claimRecord = {
+          userId: ticket.userId,
+          userName: ticket.userName,
+          ticketId: ticket.id,
+          ticketNumber: ticket.ticketNumber,
+          claimedAt: new Date().toISOString(),
+          isAutomaticOfflineClaim: true,
+        };
+        prize.claimedBy.push(claimRecord);
+
+        if (!ticket.wonPrizes) ticket.wonPrizes = [];
+        ticket.wonPrizes.push(prize.name);
+        ticket.wonAmount = (ticket.wonAmount || 0) + prize.amount;
+        ticket.status = 'won';
+
+        // Add to game winners
+        const winnerItem = {
+          id: `WIN-${Date.now()}-${Math.floor(100 + Math.random() * 900)}`,
+          userId: ticket.userId,
+          userName: ticket.userName,
+          ticketNumber: ticket.ticketNumber,
+          ticketId: ticket.id,
+          prizeCategory: prize.name,
+          prizeCode: pat,
+          amount: prize.amount,
+          gameId: game.id,
+          gameTitle: game.title,
+          wonAt: claimRecord.claimedAt,
+        };
+        game.winners.unshift(winnerItem);
+
+        // Add to Prize Ledger
+        state.prizeLedger.unshift({
+          id: `PRZ-LEDGER-${Date.now()}`,
+          gameId: game.id,
+          gameTitle: game.title,
+          userId: ticket.userId,
+          userName: ticket.userName,
+          ticketId: ticket.id,
+          ticketNumber: ticket.ticketNumber,
+          prizeCategory: prize.name,
+          amount: prize.amount,
+          claimedAt: claimRecord.claimedAt,
+        });
+
+        // Credit user's Winning Wallet even if OFFLINE
+        const owner = state.users.find((u) => u.id === ticket.userId);
+        if (owner) {
+          owner.winningWallet = Math.round(((owner.winningWallet || 0) + prize.amount) * 100) / 100;
+          owner.gameWinnings = Math.round(((owner.gameWinnings || 0) + prize.amount) * 100) / 100;
+          owner.walletBalance = Math.round(((owner.depositWallet || 0) + (owner.ticketWallet || 0) + owner.winningWallet) * 100) / 100;
+        }
+
+        // Push notification for user
+        state.notifications.unshift({
+          id: `NOTIF-${Date.now()}`,
+          title: `🏆 YOU WON: ${prize.name}!`,
+          message: `Congratulations! Ticket #${ticket.ticketNumber} won ${prize.amount} Virtual Points for ${prize.name}. Credited to your Winning Wallet.`,
+          type: 'winner',
+          userId: ticket.userId,
+          isRead: false,
+          createdAt: new Date().toISOString(),
+        });
+      }
+    }
+  }
+}
+
 // Helper: Generate Unique User ID e.g. AT102458
 function generateUniqueUserId(): string {
   let newId = '';
@@ -567,6 +814,9 @@ app.post('/api/game/action', (req: Request, res: Response) => {
       game.calledNumbers.push(picked);
       game.currentNumber = picked;
 
+      // AUTOMATIC LIVE & OFFLINE TICKET TRACKING
+      processNumberCallForTickets(game.id, picked);
+
       state.auditLogs.unshift({
         id: `LOG-${Date.now()}`,
         adminId: adminId || 'USR-ADMIN',
@@ -583,6 +833,7 @@ app.post('/api/game/action', (req: Request, res: Response) => {
         calledNumbers: game.calledNumbers,
         currentNumber: game.currentNumber,
         remainingCount: 90 - game.calledNumbers.length,
+        winners: game.winners,
       });
     }
 
@@ -595,7 +846,7 @@ app.post('/api/game/action', (req: Request, res: Response) => {
       // STRICT DUPLICATE REJECTION
       if (game.calledNumbers.includes(num)) {
         return res.status(400).json({
-          error: 'This number has already been called.',
+          error: `Number ${num} has already been called in this game!`,
           alreadyCalled: true,
           number: num,
         });
@@ -603,6 +854,9 @@ app.post('/api/game/action', (req: Request, res: Response) => {
 
       game.calledNumbers.push(num);
       game.currentNumber = num;
+
+      // AUTOMATIC LIVE & OFFLINE TICKET TRACKING
+      processNumberCallForTickets(game.id, num);
 
       state.auditLogs.unshift({
         id: `LOG-${Date.now()}`,
@@ -620,6 +874,7 @@ app.post('/api/game/action', (req: Request, res: Response) => {
         calledNumbers: game.calledNumbers,
         currentNumber: game.currentNumber,
         remainingCount: 90 - game.calledNumbers.length,
+        winners: game.winners,
       });
     }
 
@@ -784,16 +1039,18 @@ app.post('/api/game/claim-prize', (req: Request, res: Response) => {
 // 6. Ticket Purchase with Dedicated Ticket Wallet Validation & 8-Level Commission
 app.post('/api/tickets/buy', (req: Request, res: Response) => {
   try {
-    const { userId, gameId, quantity, pricePerTicket, colorTheme } = req.body;
+    const { userId, userName, gameId, quantity, pricePerTicket, colorTheme } = req.body;
     const qty = Number(quantity) || 1;
     const price = Number(pricePerTicket) || 20;
     const totalCost = qty * price;
+    const activeGame = state.liveGame;
+    const targetGameId = gameId || activeGame.id;
 
     let user = state.users.find((u) => u.id === userId);
     if (!user) {
       user = {
         id: userId,
-        name: 'Player',
+        name: userName || 'Player',
         ticketWallet: 1000,
         depositWallet: 1000,
         winningWallet: 0,
@@ -803,10 +1060,10 @@ app.post('/api/tickets/buy', (req: Request, res: Response) => {
       state.users.push(user);
     }
 
-    // STRICT TICKET WALLET CHECK
+    // STRICT TICKET WALLET CHECK (Never allow negative balance)
     if ((user.ticketWallet || 0) < totalCost) {
       return res.status(400).json({
-        error: `Insufficient Ticket Wallet Balance. Required: ₹${totalCost}, Available: ₹${user.ticketWallet || 0}. Please transfer from Deposit Wallet or recharge.`,
+        error: `Insufficient Ticket Wallet Balance. Required: ${totalCost} Virtual Points, Available: ${user.ticketWallet || 0} Virtual Points. Please transfer from Main Wallet or recharge.`,
         required: totalCost,
         available: user.ticketWallet || 0,
       });
@@ -815,6 +1072,37 @@ app.post('/api/tickets/buy', (req: Request, res: Response) => {
     // Deduct Ticket Wallet
     user.ticketWallet = Math.round((user.ticketWallet - totalCost) * 100) / 100;
     user.walletBalance = Math.round(((user.depositWallet || 0) + user.ticketWallet + (user.winningWallet || 0)) * 100) / 100;
+
+    // Generate Tickets
+    const createdTickets: any[] = [];
+    for (let i = 0; i < qty; i++) {
+      const ticketNum = Math.floor(10000 + Math.random() * 90000);
+      const ticketId = `AT${ticketNum}`;
+      const grid = generateTambolaGrid();
+
+      // If game has already started / called numbers, mark them immediately
+      const flatNumbers = grid.flat().filter((n): n is number => n !== null && n > 0);
+      const initialMarked = activeGame.calledNumbers.filter((n) => flatNumbers.includes(n));
+
+      const newTicket = {
+        id: ticketId,
+        gameId: targetGameId,
+        userId: user.id,
+        userName: user.name || userName || `Player ${user.id}`,
+        ticketNumber: ticketNum,
+        ticketPrice: price,
+        grid,
+        markedNumbers: initialMarked,
+        status: 'active',
+        wonPrizes: [],
+        wonAmount: 0,
+        colorTheme: colorTheme || 'emerald',
+        createdAt: new Date().toISOString(),
+      };
+
+      state.tickets.unshift(newTicket);
+      createdTickets.push(newTicket);
+    }
 
     // Distribute 8-Level Referral Commissions strictly from ticket gameplay
     const levelRates: Record<number, number> = { 1: 2.0, 2: 1.0, 3: 0.5, 4: 0.4, 5: 0.3, 6: 0.2, 7: 0.1, 8: 0.1 };
@@ -843,7 +1131,7 @@ app.post('/api/tickets/buy', (req: Request, res: Response) => {
           sourceUserName: user.name,
           targetUserId: uplineUser.id,
           targetUserName: uplineUser.name,
-          gameId: gameId || 'AT-1025',
+          gameId: targetGameId,
           ticketPrice: price,
           quantity: qty,
           level: lvl,
@@ -860,11 +1148,220 @@ app.post('/api/tickets/buy', (req: Request, res: Response) => {
       lvl++;
     }
 
+    state.auditLogs.unshift({
+      id: `LOG-${Date.now()}`,
+      adminId: 'USER_ACTION',
+      adminName: user.name,
+      action: 'TICKET_PURCHASE',
+      details: `Purchased ${qty} ticket(s) for Game ${targetGameId} at ${price} VP each. Total: ${totalCost} VP`,
+      category: 'GAME',
+      createdAt: new Date().toISOString(),
+    });
+
     res.json({
       success: true,
-      message: `Successfully purchased ${qty} ticket(s) for ₹${totalCost}!`,
+      message: `Successfully purchased ${qty} ticket(s) for ${totalCost} Virtual Points!`,
+      tickets: createdTickets,
       remainingTicketWallet: user.ticketWallet,
       commissionDistributed: commissionEntries.length,
+    });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// 6b. Get User Tickets (Restores full state for reconnecting/offline users)
+app.get('/api/tickets/user/:userId', (req: Request, res: Response) => {
+  const { userId } = req.params;
+  const userTickets = state.tickets.filter((t) => t.userId === userId);
+  res.json({ success: true, tickets: userTickets });
+});
+
+// 6c. Get All Game Tickets
+app.get('/api/tickets/game/:gameId', (req: Request, res: Response) => {
+  const { gameId } = req.params;
+  const gameTickets = state.tickets.filter((t) => t.gameId === gameId || t.gameId === state.liveGame.id);
+  res.json({ success: true, tickets: gameTickets, count: gameTickets.length });
+});
+
+// 6d. Admin Live Tickets Monitor Endpoint
+app.get('/api/admin/tickets/live', (req: Request, res: Response) => {
+  const game = state.liveGame;
+  const gameTickets = state.tickets.filter((t) => t.gameId === game.id);
+  const onlineUserIds = new Set(Object.values(state.userSessions).map((s) => s.userId));
+
+  const enrichedTickets = gameTickets.map((t) => ({
+    id: t.id,
+    ticketNumber: t.ticketNumber,
+    userId: t.userId,
+    userName: t.userName,
+    isOwnerOnline: onlineUserIds.has(t.userId),
+    ticketPrice: t.ticketPrice,
+    status: t.status,
+    markedCount: t.markedNumbers ? t.markedNumbers.length : 0,
+    markedNumbers: t.markedNumbers || [],
+    wonPrizes: t.wonPrizes || [],
+    wonAmount: t.wonAmount || 0,
+    grid: t.grid,
+    createdAt: t.createdAt,
+  }));
+
+  res.json({
+    success: true,
+    gameId: game.id,
+    gameTitle: game.title,
+    calledNumbersCount: game.calledNumbers.length,
+    totalTickets: enrichedTickets.length,
+    activeTickets: enrichedTickets.filter((t) => t.status === 'active').length,
+    winningTickets: enrichedTickets.filter((t) => t.status === 'won').length,
+    tickets: enrichedTickets,
+  });
+});
+
+// 6e. User-to-User Transfer: Sender (Deposit/Main Wallet) -> Recipient (🎟️ TICKET WALLET ONLY)
+app.post('/api/wallet/transfer', (req: Request, res: Response) => {
+  try {
+    const { senderUserId, recipientQuery, amount, sourceWallet } = req.body;
+    const num = Number(amount);
+
+    if (isNaN(num) || num <= 0) {
+      return res.status(400).json({ error: 'Please enter a valid transfer amount.' });
+    }
+
+    // STRICT SOURCE WALLET ENFORCEMENT: Ticket Wallet is non-transferable
+    if (sourceWallet === 'ticketWallet') {
+      return res.status(400).json({
+        error: 'Ticket Wallet funds are strictly restricted to ticket purchases only and CANNOT be transferred to other users.',
+      });
+    }
+
+    const sender = state.users.find((u) => u.id === senderUserId);
+    if (!sender) {
+      return res.status(404).json({ error: 'Sender user not found.' });
+    }
+
+    const availableTransferable = sender.depositWallet || 0;
+    if (availableTransferable < num) {
+      return res.status(400).json({
+        error: `Insufficient Transferable / Main Wallet balance. Available: ${availableTransferable} VP, Requested: ${num} VP`,
+      });
+    }
+
+    const cleanQuery = (recipientQuery || '').trim().toLowerCase();
+    const recipient = state.users.find(
+      (u) =>
+        u.id.toLowerCase() === cleanQuery ||
+        (u.phone && u.phone.toLowerCase() === cleanQuery) ||
+        (u.referralCode && u.referralCode.toLowerCase() === cleanQuery) ||
+        (u.email && u.email.toLowerCase() === cleanQuery)
+    );
+
+    if (!recipient) {
+      return res.status(404).json({ error: 'Recipient user not found! Please verify User ID, Phone, or Referral code.' });
+    }
+
+    if (recipient.id === sender.id) {
+      return res.status(400).json({ error: 'Self-transfers are not allowed. You cannot transfer funds to yourself.' });
+    }
+
+    const feePercent = 5;
+    const feeAmount = Math.round(((num * feePercent) / 100) * 100) / 100;
+    const recipientCredited = Math.round((num - feeAmount) * 100) / 100;
+
+    // Deduct from Sender's Transferable / Deposit Wallet
+    sender.depositWallet = Math.round((sender.depositWallet - num) * 100) / 100;
+    sender.walletBalance = Math.round((sender.depositWallet + (sender.ticketWallet || 0) + (sender.winningWallet || 0)) * 100) / 100;
+
+    // CRITICAL: Recipient ALWAYS receives funds in TICKET WALLET
+    recipient.ticketWallet = Math.round(((recipient.ticketWallet || 0) + recipientCredited) * 100) / 100;
+    recipient.walletBalance = Math.round(((recipient.depositWallet || 0) + recipient.ticketWallet + (recipient.winningWallet || 0)) * 100) / 100;
+
+    const transferRecord = {
+      id: `TRF-${Math.floor(10000 + Math.random() * 90000)}`,
+      senderUserId: sender.id,
+      senderUserName: sender.name,
+      recipientUserId: recipient.id,
+      recipientUserName: recipient.name,
+      amount: num,
+      feeAmount,
+      recipientAmount: recipientCredited,
+      sourceWallet: 'depositWallet',
+      destinationWallet: 'ticketWallet',
+      transactionId: `TXN-TRF-${Math.floor(1000000 + Math.random() * 9000000)}`,
+      status: 'completed',
+      createdAt: new Date().toISOString(),
+    };
+
+    state.transfers.unshift(transferRecord);
+
+    state.auditLogs.unshift({
+      id: `LOG-${Date.now()}`,
+      adminId: 'SYSTEM_WALLET',
+      adminName: 'Wallet Transfer Engine',
+      action: 'USER_TRANSFER',
+      details: `${sender.name} transferred ${num} VP to ${recipient.name}'s Ticket Wallet (5% Fee: ${feeAmount} VP, Credited: ${recipientCredited} VP)`,
+      category: 'FINANCE',
+      createdAt: new Date().toISOString(),
+    });
+
+    // Send notifications
+    state.notifications.unshift({
+      id: `NOTIF-${Date.now()}-S`,
+      title: '🔄 Transfer Sent',
+      message: `Transferred ${num} Virtual Points to ${recipient.name} (${recipient.id}). Credited to their Ticket Wallet.`,
+      type: 'transfer',
+      userId: sender.id,
+      isRead: false,
+      createdAt: new Date().toISOString(),
+    });
+
+    state.notifications.unshift({
+      id: `NOTIF-${Date.now()}-R`,
+      title: '🎟️ Ticket Wallet Recharged!',
+      message: `You received ${recipientCredited} Virtual Points in your Ticket Wallet from ${sender.name} (${sender.id}). Use this to purchase Tambola tickets!`,
+      type: 'transfer',
+      userId: recipient.id,
+      isRead: false,
+      createdAt: new Date().toISOString(),
+    });
+
+    res.json({
+      success: true,
+      message: `Successfully transferred ${recipientCredited} Virtual Points to ${recipient.name}'s Ticket Wallet! (5% Fee: ${feeAmount} VP)`,
+      transfer: transferRecord,
+      senderBalance: sender.depositWallet,
+    });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// 6f. Self Deposit ➔ Ticket Wallet Transfer (0% Fee)
+app.post('/api/wallet/deposit-to-ticket', (req: Request, res: Response) => {
+  try {
+    const { userId, amount } = req.body;
+    const num = Number(amount);
+
+    if (isNaN(num) || num <= 0) {
+      return res.status(400).json({ error: 'Please enter a valid amount to convert.' });
+    }
+
+    const user = state.users.find((u) => u.id === userId);
+    if (!user) return res.status(404).json({ error: 'User not found.' });
+
+    if ((user.depositWallet || 0) < num) {
+      return res.status(400).json({ error: `Insufficient Deposit Wallet balance. Available: ${user.depositWallet || 0} VP` });
+    }
+
+    user.depositWallet = Math.round((user.depositWallet - num) * 100) / 100;
+    user.ticketWallet = Math.round(((user.ticketWallet || 0) + num) * 100) / 100;
+    user.walletBalance = Math.round((user.depositWallet + user.ticketWallet + (user.winningWallet || 0)) * 100) / 100;
+
+    res.json({
+      success: true,
+      message: `Converted ${num} VP to Ticket Wallet (0% fee). Total Ticket Wallet: ${user.ticketWallet} VP`,
+      ticketWallet: user.ticketWallet,
+      depositWallet: user.depositWallet,
     });
   } catch (err: any) {
     res.status(500).json({ error: err.message });

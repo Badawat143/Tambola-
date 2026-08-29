@@ -160,12 +160,11 @@ export const INITIAL_TICKET_COLORS: TicketStyleConfig[] = [
 ];
 
 export const INITIAL_TICKET_PRICES: TicketPriceOption[] = [
-  { price: 5, label: '₹5 Micro', isEnabled: true, description: 'Quick fun entry for everyone' },
-  { price: 10, label: '₹10 Mini', isEnabled: true, description: 'Popular budget ticket' },
-  { price: 15, label: '₹15 Regular', isEnabled: true, description: 'Standard gameplay' },
-  { price: 20, label: '₹20 Classic', isEnabled: true, description: 'High engagement tournament' },
-  { price: 50, label: '₹50 Pro Jackpot', isEnabled: true, description: 'Mega prize pool tournament' },
-  { price: 100, label: '₹100 Bumper VIP', isEnabled: true, description: 'High roller VIP room' },
+  { price: 5, label: '5 VP Micro', isEnabled: true, description: 'Quick fun entry (5 Virtual Points)' },
+  { price: 10, label: '10 VP Mini', isEnabled: true, description: 'Popular budget ticket (10 Virtual Points)' },
+  { price: 20, label: '20 VP Classic', isEnabled: true, description: 'Standard gameplay (20 Virtual Points)' },
+  { price: 40, label: '40 VP Super Jackpot', isEnabled: true, description: 'High engagement match (40 Virtual Points)' },
+  { price: 100, label: '100 VP Bumper VIP', isEnabled: true, description: 'Grand VIP room (100 Virtual Points)' },
 ];
 
 export const INITIAL_PRIZE_CATEGORIES: PrizeCategory[] = [

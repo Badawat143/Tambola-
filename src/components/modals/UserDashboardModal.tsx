@@ -948,44 +948,40 @@ export const UserDashboardModal: React.FC<UserDashboardModalProps> = ({ isPageMo
                   <div className="p-6 rounded-2xl bg-black/60 border border-pink-500/30 text-center space-y-2">
                     <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">Available Ticket Balance</p>
                     <p className="text-4xl font-black text-pink-300 font-mono">
-                      ₹{(currentUser.ticketWallet ?? 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                      {(currentUser.ticketWallet ?? 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })} VP
                     </p>
                     <div className="inline-block px-3 py-1 rounded-full bg-pink-500/20 border border-pink-400/40 text-pink-200 text-[11px] font-black tracking-wider uppercase">
-                      ✓ ELIGIBLE FOR TICKET BUYING &amp; USER TRANSFERS
+                      🎟️ RESTRICTED FOR TICKET PURCHASES ONLY
                     </div>
                   </div>
 
-                  {/* Ticket Wallet Buttons: BUY TICKET, TRANSFER, HISTORY */}
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  {/* Ticket Wallet Buttons: BUY TICKET & HISTORY ONLY */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <button
                       onClick={() => navigateToTab('buyTicket')}
                       className="py-3 rounded-2xl bg-gradient-to-r from-pink-500 via-rose-500 to-purple-600 hover:brightness-110 text-white font-black text-xs shadow-xl shadow-pink-500/30 cursor-pointer flex items-center justify-center gap-1.5"
                     >
                       <Ticket className="w-4 h-4" />
-                      <span>BUY TICKET</span>
-                    </button>
-                    <button
-                      onClick={() => navigateToTab('transfer')}
-                      className="py-3 rounded-2xl bg-gradient-to-r from-blue-500 to-indigo-600 hover:brightness-110 text-white font-black text-xs shadow-lg shadow-blue-500/30 cursor-pointer flex items-center justify-center gap-1.5"
-                    >
-                      <Send className="w-4 h-4" />
-                      <span>TRANSFER</span>
+                      <span>BUY TICKET (5, 10, 20, 40, 100 VP)</span>
                     </button>
                     <button
                       onClick={() => navigateToTab('transactions')}
                       className="py-3 rounded-2xl bg-white/10 hover:bg-white/20 text-white font-bold text-xs cursor-pointer flex items-center justify-center gap-1.5 border border-white/15"
                     >
                       <History className="w-4 h-4 text-pink-300" />
-                      <span>HISTORY</span>
+                      <span>TRANSACTION HISTORY</span>
                     </button>
                   </div>
 
                   <div className="p-4 rounded-2xl bg-pink-950/30 border border-pink-500/30 text-xs text-slate-300 space-y-2">
-                    <p className="font-bold text-pink-300">Ticket Wallet Policy:</p>
+                    <p className="font-bold text-pink-300 flex items-center gap-1.5">
+                      <ShieldCheck className="w-4 h-4 text-pink-400" />
+                      <span>Ticket Wallet Policy (Closed-Loop Virtual Points):</span>
+                    </p>
                     <ul className="list-disc list-inside space-y-1 text-slate-400">
-                      <li>Can be used to purchase tickets for all live games &amp; tournaments.</li>
-                      <li>Can be transferred to other registered players (5% platform fee applies).</li>
-                      <li>Cannot be directly withdrawn to bank/UPI. To withdraw winnings, play matches and win prizes!</li>
+                      <li>Ticket Wallet funds remain restricted strictly to ticket purchases only.</li>
+                      <li>Ticket Wallet cannot be transferred out, withdrawn, or converted.</li>
+                      <li>To recharge your Ticket Wallet, convert points from your Main Wallet or receive transfers from other players.</li>
                     </ul>
                   </div>
                 </div>
@@ -1438,22 +1434,22 @@ export const UserDashboardModal: React.FC<UserDashboardModalProps> = ({ isPageMo
                     </form>
                   </div>
 
-                  {/* Form 2: P2P Ticket Wallet ➔ Player Transfer (5% Fee) */}
+                  {/* Form 2: P2P Main Wallet ➔ Recipient Ticket Wallet (5% Fee) */}
                   <div className="p-6 rounded-3xl bg-gradient-to-br from-[#101b44] to-[#080e2a] border-2 border-blue-500/40 space-y-4 shadow-xl">
                     <div className="flex items-center gap-3">
                       <div className="w-10 h-10 rounded-2xl bg-blue-500/20 text-blue-300 flex items-center justify-center font-bold border border-blue-500/30">
                         🔄
                       </div>
                       <div>
-                        <h4 className="text-base font-black text-white">Player Ticket Transfer</h4>
-                        <p className="text-xs text-blue-300">Ticket Wallet ➔ Recipient Ticket Wallet</p>
+                        <h4 className="text-base font-black text-white">Send Points to Player</h4>
+                        <p className="text-xs text-blue-300">Main Wallet ➔ Recipient's Restricted Ticket Wallet</p>
                       </div>
                     </div>
 
                     <div className="p-3 rounded-xl bg-black/50 border border-white/10 flex justify-between text-xs">
-                      <span className="text-slate-400">Ticket Wallet Available:</span>
-                      <span className="font-mono text-pink-300 font-bold">
-                        ₹{(currentUser.ticketWallet || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                      <span className="text-slate-400">Main Wallet Available:</span>
+                      <span className="font-mono text-emerald-400 font-bold">
+                        {(currentUser.depositWallet || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })} VP
                       </span>
                     </div>
 
@@ -1462,7 +1458,7 @@ export const UserDashboardModal: React.FC<UserDashboardModalProps> = ({ isPageMo
                         <label className="text-xs font-bold text-slate-300">Recipient (User ID / Referral / Phone)</label>
                         <input
                           type="text"
-                          placeholder="e.g. user_rajesh or 9876543210"
+                          placeholder="e.g. AT102458 or 9876543210"
                           value={p2pRecipient}
                           onChange={(e) => setP2pRecipient(e.target.value)}
                           className="w-full mt-1 px-3.5 py-2.5 rounded-xl bg-black/60 border border-blue-500/40 text-white text-xs font-mono focus:outline-none focus:border-blue-400"
@@ -1470,11 +1466,11 @@ export const UserDashboardModal: React.FC<UserDashboardModalProps> = ({ isPageMo
                         />
                       </div>
                       <div>
-                        <label className="text-xs font-bold text-slate-300">Transfer Amount (₹)</label>
+                        <label className="text-xs font-bold text-slate-300">Transfer Amount (VP)</label>
                         <input
                           type="number"
                           min="10"
-                          max={currentUser.ticketWallet || 0}
+                          max={currentUser.depositWallet || 0}
                           value={p2pAmount}
                           onChange={(e) => setP2pAmount(Number(e.target.value))}
                           className="w-full mt-1 px-4 py-2.5 rounded-xl bg-black/60 border border-blue-500/40 text-blue-300 text-lg font-black font-mono focus:outline-none focus:border-blue-400"
@@ -1486,28 +1482,28 @@ export const UserDashboardModal: React.FC<UserDashboardModalProps> = ({ isPageMo
                       <div className="p-3.5 rounded-xl bg-black/70 border border-blue-500/30 text-xs space-y-1.5">
                         <div className="flex justify-between text-slate-400">
                           <span>Source Wallet:</span>
-                          <span className="font-mono text-pink-300 font-bold">Ticket Wallet</span>
+                          <span className="font-mono text-emerald-300 font-bold">Main Wallet (Transferable)</span>
                         </div>
                         <div className="flex justify-between text-slate-400">
                           <span>Transfer Amount:</span>
-                          <span className="font-mono text-white">₹{p2pAmount}</span>
+                          <span className="font-mono text-white">{p2pAmount} VP</span>
                         </div>
                         <div className="flex justify-between text-pink-400">
-                          <span>Platform Transfer Fee (5%):</span>
-                          <span className="font-mono">- ₹{(p2pAmount * 0.05).toFixed(2)}</span>
+                          <span>Platform Maintenance Fee (5%):</span>
+                          <span className="font-mono">- {(p2pAmount * 0.05).toFixed(2)} VP</span>
                         </div>
                         <div className="flex justify-between text-emerald-400 font-bold pt-1.5 border-t border-white/10">
                           <span>Recipient Receives (Ticket Wallet):</span>
-                          <span className="font-mono text-sm">₹{(p2pAmount * 0.95).toFixed(2)}</span>
+                          <span className="font-mono text-sm font-black">{(p2pAmount * 0.95).toFixed(2)} VP</span>
                         </div>
                       </div>
 
                       <button
                         type="submit"
-                        disabled={(currentUser.ticketWallet || 0) < p2pAmount || p2pAmount <= 0}
+                        disabled={(currentUser.depositWallet || 0) < p2pAmount || p2pAmount <= 0}
                         className="w-full py-3 rounded-xl bg-gradient-to-r from-blue-500 to-indigo-600 hover:brightness-110 text-white text-xs font-black shadow-lg shadow-blue-500/25 cursor-pointer disabled:opacity-40"
                       >
-                        CONFIRM TICKET WALLET TRANSFER
+                        CONFIRM TRANSFER (CREDITS RECIPIENT TICKET WALLET)
                       </button>
                     </form>
                   </div>
@@ -1517,32 +1513,32 @@ export const UserDashboardModal: React.FC<UserDashboardModalProps> = ({ isPageMo
                 <div className="p-5 rounded-3xl bg-gradient-to-r from-[#141b3d] to-[#121330] border-2 border-indigo-500/30 text-xs text-slate-200 space-y-3 shadow-xl">
                   <div className="flex items-center gap-2 font-black text-amber-300 uppercase tracking-wide">
                     <ShieldCheck className="w-5 h-5 text-amber-400" />
-                    <span>Official Apna Tambola Wallet Transfer Rules</span>
+                    <span>Official Apna Tambola Wallet Rules (Closed-Loop Demo)</span>
                   </div>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1 text-xs">
                     <div className="space-y-2 bg-black/40 p-3 rounded-2xl border border-white/5">
                       <p className="flex items-center gap-1.5 text-emerald-400 font-bold">
                         <Check className="w-4 h-4 text-emerald-400 shrink-0" />
-                        <span>Ticket Wallet ➔ Player Ticket Wallet: Allowed (5% Fee)</span>
+                        <span>User-to-User: Transfers credit Recipient's Ticket Wallet (5% Fee)</span>
                       </p>
                       <p className="flex items-center gap-1.5 text-emerald-400 font-bold">
                         <Check className="w-4 h-4 text-emerald-400 shrink-0" />
-                        <span>Main/Deposit Wallet ➔ Ticket Wallet: Allowed (0% Fee)</span>
+                        <span>Self Top-up: Main Wallet ➔ Own Ticket Wallet (0% Fee)</span>
                       </p>
                     </div>
                     <div className="space-y-2 bg-black/40 p-3 rounded-2xl border border-white/5">
                       <p className="flex items-center gap-1.5 text-rose-400 font-bold">
                         <X className="w-4 h-4 text-rose-400 shrink-0" />
-                        <span>Main Wallet ➔ Other Users: Blocked</span>
+                        <span>Ticket Wallet: Cannot be withdrawn or transferred out</span>
                       </p>
                       <p className="flex items-center gap-1.5 text-rose-400 font-bold">
                         <X className="w-4 h-4 text-rose-400 shrink-0" />
-                        <span>Ticket Wallet ➔ Withdrawal: Blocked</span>
+                        <span>Ticket Wallet: Exclusively for purchasing game tickets</span>
                       </p>
                     </div>
                   </div>
                   <p className="text-[11px] text-amber-300/90 font-medium italic border-t border-white/10 pt-2 text-center">
-                    “User-to-User transfer is strictly supported only via the Ticket Wallet with a 5% system maintenance fee.”
+                    “All user-to-user transfers credit the recipient's Ticket Wallet directly so they can participate in live Tambola matches.”
                   </p>
                 </div>
               </div>
