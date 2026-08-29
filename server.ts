@@ -40,6 +40,7 @@ interface ServerState {
     winners: any[];
     prizes: any[];
   };
+  archivedHistory: Record<string, string[]>; // userId -> array of archived record IDs
   settings: any;
 }
 
@@ -173,6 +174,7 @@ const state: ServerState = {
   userSessions: {},
   adminSessions: {},
   otpStore: {},
+  archivedHistory: {},
   liveGame: {
     id: 'AT-1025',
     title: 'Apna Super Bumper Dhamaka',
@@ -199,7 +201,30 @@ const state: ServerState = {
       { id: 'PRZ-8', name: '3rd Full House', code: 'FULLHOUSE3', amount: 1700, winnerCount: 1, claimedBy: [] },
     ],
   },
-  settings: {},
+  settings: {
+    siteName: 'APNA TAMBOLA',
+    withdrawalChargePercent: 15,
+    minWithdrawal: 100,
+    maxWithdrawal: 2000,
+    minDeposit: 100,
+    maxDeposit: 2000,
+    adminUpiId: 'apnatambola@upi',
+    supportContact: {
+      phone: '+91 98765 43210',
+      whatsapp: '+91 98765 43210',
+      email: 'support@apnatambola.com',
+    },
+    referralLevels: [
+      { level: 1, percent: 2.0 },
+      { level: 2, percent: 1.0 },
+      { level: 3, percent: 0.5 },
+      { level: 4, percent: 0.4 },
+      { level: 5, percent: 0.3 },
+      { level: 6, percent: 0.2 },
+      { level: 7, percent: 0.1 },
+      { level: 8, percent: 0.1 },
+    ],
+  },
 };
 
 // ==========================================
@@ -465,6 +490,44 @@ function generateUniqueUserId(): string {
   return newId;
 }
 
+// 0. Sponsor Lookup / Validation: /api/auth/sponsor/:code
+app.get('/api/auth/sponsor/:code', (req: Request, res: Response) => {
+  try {
+    const code = (req.params.code || '').trim().toUpperCase();
+    if (!code) {
+      return res.json({
+        success: true,
+        sponsor: { id: 'AT10001', name: 'APNA TAMBOLA Official', referralCode: 'AT10001' },
+      });
+    }
+
+    const sponsor = state.users.find(
+      (u) =>
+        (u.referralCode && u.referralCode.toUpperCase() === code) ||
+        (u.id && u.id.toUpperCase() === code)
+    );
+
+    if (sponsor) {
+      return res.json({
+        success: true,
+        sponsor: {
+          id: sponsor.id,
+          name: sponsor.name,
+          referralCode: sponsor.referralCode || sponsor.id,
+        },
+      });
+    }
+
+    // Default fallback sponsor
+    return res.json({
+      success: true,
+      sponsor: { id: 'AT10001', name: 'APNA TAMBOLA Official', referralCode: 'AT10001' },
+    });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // 1. User Registration: /api/auth/register
 app.post('/api/auth/register', (req: Request, res: Response) => {
   try {
@@ -496,19 +559,19 @@ app.post('/api/auth/register', (req: Request, res: Response) => {
       return res.status(409).json({ error: 'An account with this email or mobile number already exists. Please login instead.' });
     }
 
-    // Capture Referrer
-    let verifiedReferrer: string | null = null;
-    if (referralCode) {
+    // Capture Referrer (prevent self-referral or invalid code)
+    let verifiedReferrer = 'AT10001';
+    let sponsorName = 'APNA TAMBOLA Official';
+
+    if (referralCode && referralCode.toString().trim()) {
       const cleanRef = referralCode.toString().trim().toUpperCase();
-      const refUser = state.users.find((u) => u.referralCode?.toUpperCase() === cleanRef || u.id?.toUpperCase() === cleanRef);
+      const refUser = state.users.find(
+        (u) => (u.referralCode && u.referralCode.toUpperCase() === cleanRef) || (u.id && u.id.toUpperCase() === cleanRef)
+      );
       if (refUser) {
-        verifiedReferrer = refUser.id || refUser.referralCode;
-      } else {
-        // Fallback default sponsor if unknown
-        verifiedReferrer = 'AT10001';
+        verifiedReferrer = refUser.id;
+        sponsorName = refUser.name;
       }
-    } else {
-      verifiedReferrer = 'AT10001';
     }
 
     const newUserId = generateUniqueUserId();
@@ -550,13 +613,27 @@ app.post('/api/auth/register', (req: Request, res: Response) => {
       expiresAt: Date.now() + 7 * 24 * 60 * 60 * 1000,
     };
 
+    // Push notification to sponsor if sponsor is another user
+    const sponsorUser = state.users.find((u) => u.id === verifiedReferrer);
+    if (sponsorUser && sponsorUser.id !== 'AT10001') {
+      state.notifications.unshift({
+        id: `NOTIF-REF-${Date.now()}`,
+        title: '👥 New Direct Referral Joined!',
+        message: `${newUser.name} (ID: ${newUser.id}) just joined APNA TAMBOLA using your referral link!`,
+        type: 'referral',
+        userId: sponsorUser.id,
+        isRead: false,
+        createdAt: new Date().toISOString(),
+      });
+    }
+
     // Audit Log
     state.auditLogs.unshift({
       id: `LOG-${Date.now()}`,
       adminId: 'SYSTEM_AUTH',
       adminName: 'Registration Gateway',
       action: 'USER_REGISTERED',
-      details: `New User registered: ${newUser.name} (ID: ${newUser.id}) referred by ${verifiedReferrer}`,
+      details: `New User registered: ${newUser.name} (ID: ${newUser.id}) referred by ${verifiedReferrer} (${sponsorName})`,
       category: 'USER_MGMT',
       createdAt: new Date().toISOString(),
     });
@@ -566,6 +643,11 @@ app.post('/api/auth/register', (req: Request, res: Response) => {
       message: `Account created successfully! Welcome to APNA TAMBOLA, ${newUser.name}. Your User ID is ${newUser.id}.`,
       user: newUser,
       token,
+      sponsor: {
+        id: verifiedReferrer,
+        name: sponsorName,
+      },
+      referralLink: `/register?ref=${newUser.id}`,
       redirect: '/dashboard',
     });
   } catch (err: any) {
@@ -1554,7 +1636,7 @@ app.post('/api/wallet/deposit', (req: Request, res: Response) => {
   }
 });
 
-// 8. Withdrawal Request: Min ₹100, Max ₹2,000 from Winning Wallet
+// 8. Withdrawal Request: Min ₹100, Max ₹2,000 from Winning Wallet (15% Server-Side Calculated Fee)
 app.post('/api/wallet/withdraw', (req: Request, res: Response) => {
   try {
     const { userId, userName, amount, payoutType, accountHolderName, upiId, accountNumber, ifscCode, bankName } = req.body;
@@ -1575,11 +1657,19 @@ app.post('/api/wallet/withdraw', (req: Request, res: Response) => {
       return res.status(400).json({ error: 'Please provide complete bank account or UPI details.' });
     }
 
+    // Configured 15% Admin/Service charge
+    const chargePercent = state.settings.withdrawalChargePercent ?? 15;
+    const chargeAmount = Math.round(((numAmount * chargePercent) / 100) * 100) / 100;
+    const netAmount = Math.round((numAmount - chargeAmount) * 100) / 100;
+
     const newWithdrawal = {
       id: `WDR-${Date.now().toString().slice(-6)}`,
       userId,
-      userName: userName || `User ${userId}`,
+      userName: userName || user?.name || `User ${userId}`,
       amount: numAmount,
+      chargePercent,
+      chargeAmount,
+      netAmount,
       payoutType: payoutType || (upiId ? 'UPI' : 'Bank'),
       accountHolderName,
       upiId: upiId || undefined,
@@ -1597,13 +1687,278 @@ app.post('/api/wallet/withdraw', (req: Request, res: Response) => {
       user.walletBalance = Math.round(((user.depositWallet || 0) + (user.ticketWallet || 0) + user.winningWallet) * 100) / 100;
     }
 
+    state.auditLogs.unshift({
+      id: `LOG-${Date.now()}`,
+      adminId: user?.id || userId,
+      adminName: user?.name || 'User',
+      action: 'WITHDRAWAL_REQUEST',
+      details: `Withdrawal request of ₹${numAmount} (15% Charge: ₹${chargeAmount}, Net Payout: ₹${netAmount}) by ${user?.name || userId}`,
+      category: 'WITHDRAWAL',
+      createdAt: new Date().toISOString(),
+    });
+
     res.json({
       success: true,
       withdrawal: newWithdrawal,
-      message: 'Withdrawal request submitted. Admin will verify and transfer funds shortly.',
+      message: `Withdrawal request for ₹${numAmount} submitted. ₹${netAmount} will be transferred after 15% service charge (₹${chargeAmount}).`,
     });
   } catch (err: any) {
     res.status(500).json({ error: err.message || 'Internal server error processing withdrawal.' });
+  }
+});
+
+// 8b. Downline & Direct Referral Calculation: /api/users/downline/:userId
+app.get('/api/users/downline/:userId', (req: Request, res: Response) => {
+  try {
+    const { userId } = req.params;
+    const user = state.users.find((u) => u.id === userId);
+
+    if (!user) {
+      return res.status(404).json({ error: 'User not found.' });
+    }
+
+    // Direct Referrals (Level 1)
+    const directUsers = state.users.filter(
+      (u) =>
+        u.id !== user.id &&
+        (u.referredBy === user.id || (user.referralCode && u.referredBy === user.referralCode))
+    );
+
+    const directReferrals = directUsers.map((u) => {
+      const userTickets = state.tickets.filter((t) => t.userId === u.id);
+      const ticketsCount = userTickets.length;
+      const amountPlayed = userTickets.reduce((sum, t) => sum + (Number(t.ticketPrice) || 0), 0);
+      const maskedPhone = u.phone && u.phone.length >= 10
+        ? `${u.phone.slice(0, 3)}****${u.phone.slice(-3)}`
+        : u.phone || 'N/A';
+
+      return {
+        id: u.id,
+        name: u.name,
+        phone: maskedPhone,
+        email: u.email,
+        createdAt: u.createdAt,
+        status: u.isBlocked ? 'Blocked' : 'Active',
+        totalTicketsPurchased: ticketsCount,
+        totalAmountPlayed: amountPlayed,
+        referralEarnings: Math.round(amountPlayed * 0.02 * 100) / 100, // Level 1 (2%)
+      };
+    });
+
+    // Compute Level 1-8 Tree
+    const levelPercentages = [2.0, 1.0, 0.5, 0.4, 0.3, 0.2, 0.1, 0.1];
+    let currentLevelUserIds = directUsers.map((u) => u.id);
+    const levelStats: any[] = [];
+
+    // Level 1
+    const l1Tickets = state.tickets.filter((t) => currentLevelUserIds.includes(t.userId));
+    const l1Played = l1Tickets.reduce((sum, t) => sum + (Number(t.ticketPrice) || 0), 0);
+    levelStats.push({
+      level: 1,
+      name: 'Direct Referrals',
+      commissionPercent: 2.0,
+      memberCount: directUsers.length,
+      ticketsPurchased: l1Tickets.length,
+      volume: l1Played,
+      earnings: Math.round(l1Played * 0.02 * 100) / 100,
+    });
+
+    for (let lvl = 2; lvl <= 8; lvl++) {
+      const nextLevelUsers = state.users.filter(
+        (u) => currentLevelUserIds.includes(u.referredBy || '') && !currentLevelUserIds.includes(u.id) && u.id !== user.id
+      );
+      const nextLevelIds = nextLevelUsers.map((u) => u.id);
+      const lvlTickets = state.tickets.filter((t) => nextLevelIds.includes(t.userId));
+      const lvlVolume = lvlTickets.reduce((sum, t) => sum + (Number(t.ticketPrice) || 0), 0);
+      const percent = levelPercentages[lvl - 1] || 0.1;
+      const earnings = Math.round(((lvlVolume * percent) / 100) * 100) / 100;
+
+      levelStats.push({
+        level: lvl,
+        name: `Level ${lvl}`,
+        commissionPercent: percent,
+        memberCount: nextLevelUsers.length,
+        ticketsPurchased: lvlTickets.length,
+        volume: lvlVolume,
+        earnings,
+      });
+
+      currentLevelUserIds = nextLevelIds;
+    }
+
+    const totalTeamMembers = levelStats.reduce((sum, l) => sum + l.memberCount, 0);
+    const totalTeamEarnings = levelStats.reduce((sum, l) => sum + l.earnings, 0);
+
+    res.json({
+      success: true,
+      userId: user.id,
+      sponsorId: user.referredBy || 'AT10001',
+      directCount: directReferrals.length,
+      totalTeamMembers,
+      totalTeamEarnings: Math.round((user.referralEarnings || totalTeamEarnings) * 100) / 100,
+      directReferrals,
+      levelStats,
+    });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// 8c. Archive / Hide User History Record (Persisted in state, does not delete database record)
+app.post('/api/history/archive', (req: Request, res: Response) => {
+  try {
+    const { userId, recordId } = req.body;
+    if (!userId || !recordId) {
+      return res.status(400).json({ error: 'userId and recordId are required.' });
+    }
+
+    if (!state.archivedHistory[userId]) {
+      state.archivedHistory[userId] = [];
+    }
+
+    if (!state.archivedHistory[userId].includes(recordId)) {
+      state.archivedHistory[userId].push(recordId);
+    }
+
+    res.json({
+      success: true,
+      message: 'Record archived from user view successfully.',
+      archivedIds: state.archivedHistory[userId],
+    });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// 8d. Unarchive / Restore User History Record
+app.post('/api/history/unarchive', (req: Request, res: Response) => {
+  try {
+    const { userId, recordId } = req.body;
+    if (!userId || !recordId) {
+      return res.status(400).json({ error: 'userId and recordId are required.' });
+    }
+
+    if (state.archivedHistory[userId]) {
+      state.archivedHistory[userId] = state.archivedHistory[userId].filter((id) => id !== recordId);
+    }
+
+    res.json({
+      success: true,
+      message: 'Record restored to user view.',
+      archivedIds: state.archivedHistory[userId] || [],
+    });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// 8e. Get User Archived Record IDs
+app.get('/api/history/archived/:userId', (req: Request, res: Response) => {
+  const { userId } = req.params;
+  res.json({
+    success: true,
+    archivedIds: state.archivedHistory[userId] || [],
+  });
+});
+
+// 8f. Admin Referral Management: List All Referrals Tree & Search
+app.get('/api/admin/referrals', (req: Request, res: Response) => {
+  try {
+    const allUsersWithReferrers = state.users.map((u) => {
+      const directCount = state.users.filter((child) => child.referredBy === u.id).length;
+      const referrer = state.users.find((r) => r.id === u.referredBy);
+      return {
+        id: u.id,
+        name: u.name,
+        phone: u.phone,
+        email: u.email,
+        referralCode: u.referralCode,
+        referredBy: u.referredBy || 'None',
+        referrerName: referrer ? referrer.name : (u.referredBy === 'AT10001' ? 'Official Admin' : 'None'),
+        directReferralsCount: directCount,
+        referralEarnings: u.referralEarnings || 0,
+        createdAt: u.createdAt,
+      };
+    });
+
+    res.json({
+      success: true,
+      referralNetwork: allUsersWithReferrers,
+      totalUsers: allUsersWithReferrers.length,
+    });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// 8g. Admin Change User's Referrer
+app.post('/api/admin/referrals/change-referrer', (req: Request, res: Response) => {
+  try {
+    const { userId, newReferrerId, adminId, adminName } = req.body;
+    if (!userId || !newReferrerId) {
+      return res.status(400).json({ error: 'userId and newReferrerId are required.' });
+    }
+
+    const user = state.users.find((u) => u.id === userId);
+    if (!user) return res.status(404).json({ error: 'Target user not found.' });
+
+    const newReferrer = state.users.find((u) => u.id === newReferrerId || u.referralCode === newReferrerId);
+    if (!newReferrer && newReferrerId !== 'AT10001') {
+      return res.status(404).json({ error: 'New referrer user not found.' });
+    }
+
+    if (userId === newReferrerId) {
+      return res.status(400).json({ error: 'Self-referral is forbidden.' });
+    }
+
+    const oldReferrer = user.referredBy;
+    user.referredBy = newReferrer ? newReferrer.id : newReferrerId;
+
+    state.auditLogs.unshift({
+      id: `LOG-${Date.now()}`,
+      adminId: adminId || 'ADM-MASTER',
+      adminName: adminName || 'Super Admin',
+      action: 'CHANGE_REFERRER',
+      details: `Changed referrer for ${user.name} (${user.id}) from ${oldReferrer} to ${user.referredBy}`,
+      category: 'USER_MGMT',
+      createdAt: new Date().toISOString(),
+    });
+
+    res.json({
+      success: true,
+      message: `Referrer for ${user.name} updated to ${user.referredBy}.`,
+      user,
+    });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// 8h. System Settings API: Get and Update
+app.get('/api/settings', (req: Request, res: Response) => {
+  res.json({ success: true, settings: state.settings });
+});
+
+app.post('/api/admin/settings', (req: Request, res: Response) => {
+  try {
+    const { settings, adminId, adminName } = req.body;
+    if (settings && typeof settings === 'object') {
+      state.settings = { ...state.settings, ...settings };
+    }
+
+    state.auditLogs.unshift({
+      id: `LOG-${Date.now()}`,
+      adminId: adminId || 'ADM-MASTER',
+      adminName: adminName || 'Super Admin',
+      action: 'SETTINGS_UPDATE',
+      details: `Updated platform settings (Withdrawal Fee: ${state.settings.withdrawalChargePercent}%)`,
+      category: 'ADMIN_AUTH',
+      createdAt: new Date().toISOString(),
+    });
+
+    res.json({ success: true, message: 'Settings updated successfully.', settings: state.settings });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
   }
 });
 

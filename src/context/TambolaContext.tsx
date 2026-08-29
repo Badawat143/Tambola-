@@ -182,6 +182,10 @@ interface TambolaContextType {
     adminId?: string
   ) => { success: boolean; message: string };
   saveBankDetails: (details: User['bankDetails']) => { success: boolean; message: string };
+  archivedRecordIds: string[];
+  archiveHistoryRecord: (recordId: string) => void;
+  unarchiveHistoryRecord: (recordId: string) => void;
+  isHistoryRecordArchived: (recordId: string) => boolean;
 
   // Ticket & Gameplay Actions
   buyTicket: (
@@ -238,6 +242,7 @@ const TICKETS_STORAGE_KEY = 'apna_tambola_tickets_v6';
 const ACTIVE_USER_KEY = 'apna_tambola_active_user_v6';
 const DEPOSITS_KEY = 'apna_tambola_deposits_v6';
 const WITHDRAWALS_KEY = 'apna_tambola_withdrawals_v6';
+const ARCHIVED_HISTORY_KEY = 'apna_tambola_archived_history_v6';
 const TRANSFERS_KEY = 'apna_tambola_transfers_v6';
 const COMMISSION_KEY = 'apna_tambola_comm_ledger_v6';
 const PLATFORM_FEE_KEY = 'apna_tambola_fee_ledger_v6';
@@ -451,6 +456,51 @@ export const TambolaProvider: React.FC<{ children: React.ReactNode }> = ({ child
     return settings.availableTicketPrices || INITIAL_TICKET_PRICES;
   });
 
+  const [archivedRecordIds, setArchivedRecordIds] = useState<string[]>(() => {
+    try {
+      const saved = localStorage.getItem(ARCHIVED_HISTORY_KEY);
+      if (saved) return JSON.parse(saved);
+    } catch {}
+    return [];
+  });
+
+  const archiveHistoryRecord = (recordId: string) => {
+    setArchivedRecordIds((prev) => {
+      if (prev.includes(recordId)) return prev;
+      const updated = [...prev, recordId];
+      try {
+        localStorage.setItem(ARCHIVED_HISTORY_KEY, JSON.stringify(updated));
+      } catch {}
+      return updated;
+    });
+
+    fetch('/api/history/archive', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ userId: currentUser.id, recordId }),
+    }).catch(() => {});
+  };
+
+  const unarchiveHistoryRecord = (recordId: string) => {
+    setArchivedRecordIds((prev) => {
+      const updated = prev.filter((id) => id !== recordId);
+      try {
+        localStorage.setItem(ARCHIVED_HISTORY_KEY, JSON.stringify(updated));
+      } catch {}
+      return updated;
+    });
+
+    fetch('/api/history/unarchive', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ userId: currentUser.id, recordId }),
+    }).catch(() => {});
+  };
+
+  const isHistoryRecordArchived = (recordId: string) => {
+    return archivedRecordIds.includes(recordId);
+  };
+
   // UI State
   const [isSoundMuted, setIsSoundMuted] = useState<boolean>(false);
   const [complianceAgreed, setComplianceAgreed] = useState<boolean>(true);
@@ -592,14 +642,16 @@ export const TambolaProvider: React.FC<{ children: React.ReactNode }> = ({ child
     stateOfResidence: string = 'Maharashtra'
   ) => {
     const cleanEmail = email.trim().toLowerCase();
-    const cleanPhone = phone.trim();
+    const cleanPhone = phone.trim().replace(/[^0-9]/g, '');
 
-    const existing = allUsers.find((u) => u.email.toLowerCase() === cleanEmail || u.phone === cleanPhone);
+    const existing = allUsers.find((u) => u.email.toLowerCase() === cleanEmail || u.phone.replace(/[^0-9]/g, '') === cleanPhone);
     if (existing) {
       return { success: false, message: 'An account with this email or mobile number already exists.' };
     }
 
-    let verifiedReferredBy: string | null = null;
+    let verifiedReferredBy: string = 'AT10001';
+    let sponsorName: string = 'APNA TAMBOLA Official';
+
     if (referralCodeInput && referralCodeInput.trim()) {
       const code = referralCodeInput.trim().toUpperCase();
       const parentUser = allUsers.find(
@@ -608,30 +660,37 @@ export const TambolaProvider: React.FC<{ children: React.ReactNode }> = ({ child
           (u.id && u.id.trim().toUpperCase() === code)
       );
       if (parentUser) {
-        verifiedReferredBy = parentUser.referralCode;
+        verifiedReferredBy = parentUser.id;
+        sponsorName = parentUser.name;
       }
     }
 
-    const uniqueId = `USR-${Math.floor(100 + Math.random() * 900)}`;
-    const newRefCode = `APNA${Math.floor(100 + Math.random() * 900)}`;
+    // Generate Unique User ID e.g. AT102458
+    let uniqueId = '';
+    let exists = true;
+    while (exists) {
+      const num = Math.floor(100000 + Math.random() * 900000);
+      uniqueId = `AT${num}`;
+      exists = allUsers.some((u) => u.id === uniqueId);
+    }
 
     const newUser: User = {
       id: uniqueId,
-      name,
+      name: name.trim(),
       phone: cleanPhone,
       email: cleanEmail,
-      referralCode: newRefCode,
+      referralCode: uniqueId,
       referredBy: verifiedReferredBy,
-      depositWallet: 0,
+      depositWallet: 100, // ₹100 welcome deposit bonus
       ticketWallet: 100, // ₹100 welcome signup bonus strictly for tickets
       winningWallet: 0,
-      walletBalance: 100, // Total = 0 + 100 + 0
+      walletBalance: 200, // Total = 100 + 100 + 0
       referralEarnings: 0,
       directIncomeEarnings: 0,
       gameWinnings: 0,
       totalDeposited: 0,
       totalWithdrawn: 0,
-      freeTicketsAvailable: 1, // 1 Free Ticket on Registration!
+      freeTicketsAvailable: 2, // 2 Free Tickets on Registration!
       role: 'user',
       createdAt: new Date().toISOString(),
       ageVerified: true,
@@ -641,7 +700,22 @@ export const TambolaProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
     setAllUsers((prev) => [newUser, ...prev]);
     setCurrentUser(newUser);
+    setUserSession(newUser);
     syncUserToFirestore(newUser);
+
+    // Call Backend Registration Async for Authoritative Server Sync
+    fetch('/api/auth/register', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        name: newUser.name,
+        phone: newUser.phone,
+        email: newUser.email,
+        password: 'Password@123',
+        referralCode: verifiedReferredBy,
+        state: stateOfResidence,
+      }),
+    }).catch(() => {});
 
     // Initial starter ticket
     const initialTicket = createNewTicket('AT-1025', newUser.id, newUser.name, `TKT-${Math.floor(10000 + Math.random() * 90000)}`);
@@ -651,12 +725,26 @@ export const TambolaProvider: React.FC<{ children: React.ReactNode }> = ({ child
     // Welcome Notification
     addNotification(
       '🎉 Welcome to APNA TAMBOLA!',
-      '₹100 Ticket Wallet bonus and 1 Free Ticket added to your account. Enjoy real-money Tambola!',
+      `₹100 Deposit Bonus, ₹100 Ticket Wallet bonus and 2 Free Tickets added to your account. Your User ID is ${newUser.id}.`,
       'system',
       newUser.id
     );
 
-    return { success: true, message: 'Account registered successfully!', user: newUser };
+    // If referred by another user, notify the referrer
+    if (verifiedReferredBy && verifiedReferredBy !== 'AT10001') {
+      addNotification(
+        '👥 New Direct Referral Joined!',
+        `${newUser.name} (${newUser.id}) just registered using your referral link!`,
+        'referral',
+        verifiedReferredBy
+      );
+    }
+
+    return {
+      success: true,
+      message: `Account created successfully! Welcome to APNA TAMBOLA, ${newUser.name}. Your User ID is ${newUser.id}.`,
+      user: newUser,
+    };
   };
 
   // Login User with robust multi-field search (phone digits, email, referral code, ID, name, admin aliases)
@@ -1211,7 +1299,12 @@ export const TambolaProvider: React.FC<{ children: React.ReactNode }> = ({ child
       return { success: false, message: 'Please provide valid Bank account details or UPI ID.' };
     }
 
-    // Deduct from winningWallet immediately while pending
+    // 15% Service / Platform Charge Calculation
+    const chargePercent = settings.withdrawalChargePercent !== undefined ? settings.withdrawalChargePercent : 15;
+    const chargeAmount = Math.round(((num * chargePercent) / 100) * 100) / 100;
+    const netAmount = Math.round((num - chargeAmount) * 100) / 100;
+
+    // Deduct full requested amount from winningWallet immediately while pending
     const newWinningWallet = Math.round((winningBal - num) * 100) / 100;
     const newBal = Math.round(((currentUser.depositWallet || 0) + (currentUser.ticketWallet || 0) + newWinningWallet) * 100) / 100;
 
@@ -1234,6 +1327,9 @@ export const TambolaProvider: React.FC<{ children: React.ReactNode }> = ({ child
       userId: currentUser.id,
       userName: currentUser.name,
       amount: num,
+      chargePercent,
+      chargeAmount,
+      netAmount,
       payoutType: payoutDetails.payoutType,
       accountHolderName: payoutDetails.accountHolderName,
       upiId: payoutDetails.upiId,
@@ -1248,6 +1344,22 @@ export const TambolaProvider: React.FC<{ children: React.ReactNode }> = ({ child
     setCurrentUser(updatedUser);
     setAllUsers((prev) => prev.map((u) => (u.id === updatedUser.id ? updatedUser : u)));
 
+    // Backend sync
+    fetch('/api/wallet/withdraw', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        userId: currentUser.id,
+        amount: num,
+        payoutType: payoutDetails.payoutType,
+        accountHolderName: payoutDetails.accountHolderName,
+        upiId: payoutDetails.upiId,
+        accountNumber: payoutDetails.accountNumber,
+        ifscCode: payoutDetails.ifscCode,
+        bankName: payoutDetails.bankName,
+      }),
+    }).catch(() => {});
+
     // Audit Log
     setAuditLogs((prev) => [
       {
@@ -1255,7 +1367,7 @@ export const TambolaProvider: React.FC<{ children: React.ReactNode }> = ({ child
         adminId: 'USER_ACTION',
         adminName: currentUser.name,
         action: 'WITHDRAWAL_REQUESTED',
-        details: `Requested ₹${num} payout via ${payoutDetails.payoutType}. Status: PENDING ADMIN APPROVAL`,
+        details: `Requested ₹${num} payout via ${payoutDetails.payoutType} (15% Charge: ₹${chargeAmount}, Net Payout: ₹${netAmount}). Status: PENDING ADMIN APPROVAL`,
         category: 'WITHDRAWAL',
         createdAt: new Date().toISOString(),
       },
@@ -1264,12 +1376,16 @@ export const TambolaProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
     addNotification(
       '⏳ Withdrawal Request Submitted',
-      `Your payout request for ₹${num} is under admin review. Payout will be credited within 10-30 mins.`,
+      `Your payout request for ₹${num} (Net ₹${netAmount} after ${chargePercent}% service charge) is under admin review. Payout will be credited within 10-30 mins.`,
       'withdrawal',
       currentUser.id
     );
 
-    return { success: true, message: 'Withdrawal request submitted for Admin review!', withdrawal: newWdr };
+    return {
+      success: true,
+      message: `Withdrawal request for ₹${num} submitted! You will receive ₹${netAmount} (after ${chargePercent}% charge) in your ${payoutDetails.payoutType} account once approved.`,
+      withdrawal: newWdr,
+    };
   };
 
   const approveWithdrawal = (withdrawalId: string, adminId: string = 'USR-ADMIN') => {
@@ -2398,6 +2514,10 @@ export const TambolaProvider: React.FC<{ children: React.ReactNode }> = ({ child
         approveWithdrawal,
         rejectWithdrawal,
         saveBankDetails,
+        archivedRecordIds,
+        archiveHistoryRecord,
+        unarchiveHistoryRecord,
+        isHistoryRecordArchived,
 
         buyTicket,
         useFreeTicketToBuy,

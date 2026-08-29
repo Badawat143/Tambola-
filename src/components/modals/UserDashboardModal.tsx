@@ -87,6 +87,9 @@ export const UserDashboardModal: React.FC<UserDashboardModalProps> = ({ isPageMo
     settings,
     verifyClaim,
     buyTicket,
+    archiveHistoryRecord,
+    unarchiveHistoryRecord,
+    isHistoryRecordArchived,
   } = useTambola();
 
   if (!isPageMode && activeModal !== 'userDashboard' && activeModal !== 'deposit' && activeModal !== 'withdraw') {
@@ -97,6 +100,7 @@ export const UserDashboardModal: React.FC<UserDashboardModalProps> = ({ isPageMo
 
   // Mobile sidebar drawer open/close
   const [mobileDrawerOpen, setMobileDrawerOpen] = useState<boolean>(false);
+  const [showArchivedHistory, setShowArchivedHistory] = useState<boolean>(false);
 
   // Deposit Form State
   const [depositAmount, setDepositAmount] = useState<number>(500);
@@ -1901,22 +1905,31 @@ export const UserDashboardModal: React.FC<UserDashboardModalProps> = ({ isPageMo
                     { id: 'G-101', title: 'Grand Evening Bumper', date: 'Today, 08:00 PM', price: 25, status: 'Completed', result: 'Won ₹25 (Top Line)' },
                     { id: 'G-100', title: 'Afternoon Speed 90', date: 'Today, 03:00 PM', price: 10, status: 'Completed', result: 'Participated' },
                     { id: 'G-099', title: 'Midnight Mega Housie', date: 'Yesterday, 11:30 PM', price: 50, status: 'Completed', result: 'Won ₹250 (Full House)' },
-                  ].map((g) => (
-                    <div
-                      key={g.id}
-                      className="p-4 rounded-2xl bg-[#0e112d] border border-white/10 flex items-center justify-between text-xs"
-                    >
-                      <div>
-                        <p className="font-bold text-white text-sm">{g.title} (#{g.id})</p>
-                        <p className="text-slate-400">{g.date} • Ticket: ₹{g.price}</p>
+                  ]
+                    .filter((g) => (showArchivedHistory ? isHistoryRecordArchived(g.id) : !isHistoryRecordArchived(g.id)))
+                    .map((g) => (
+                      <div
+                        key={g.id}
+                        className="p-4 rounded-2xl bg-gradient-to-r from-[#0e1233] to-[#0b0e29] border border-white/10 flex items-center justify-between text-xs transition-all shadow-md"
+                      >
+                        <div>
+                          <p className="font-bold text-white text-sm">{g.title} (#{g.id})</p>
+                          <p className="text-slate-400">{g.date} • Ticket: ₹{g.price}</p>
+                        </div>
+                        <div className="flex items-center gap-3">
+                          <span className="px-2.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 font-bold text-[10px]">
+                            {g.result}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => (isHistoryRecordArchived(g.id) ? unarchiveHistoryRecord(g.id) : archiveHistoryRecord(g.id))}
+                            className="p-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-slate-400 hover:text-white transition-all text-xs"
+                          >
+                            {isHistoryRecordArchived(g.id) ? 'Unarchive' : 'Archive'}
+                          </button>
+                        </div>
                       </div>
-                      <div className="text-right">
-                        <span className="px-2.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 font-bold text-[10px]">
-                          {g.result}
-                        </span>
-                      </div>
-                    </div>
-                  ))}
+                    ))}
                 </div>
               </div>
             )}
@@ -2128,65 +2141,185 @@ export const UserDashboardModal: React.FC<UserDashboardModalProps> = ({ isPageMo
             )}
 
             {/* ================================================================= */}
-            {/* TAB 19: 📊 TRANSACTIONS */}
+            {/* TAB 19: 📊 TRANSACTIONS & HISTORY ARCHIVE */}
             {/* ================================================================= */}
             {activeTab === 'transactions' && (
               <div className="max-w-4xl mx-auto space-y-6 animate-fade-in">
                 <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pb-2">
                   <div>
-                    <h3 className="text-xl font-black text-white">📊 COMPLETE TRANSACTION HISTORY</h3>
-                    <p className="text-xs text-slate-400">Detailed financial ledger across all wallets</p>
+                    <h3 className="text-xl font-black text-white">📊 COMPLETE FINANCIAL LEDGER</h3>
+                    <p className="text-xs text-slate-400">Detailed deposits, withdrawals (15% fee), transfers and earnings</p>
                   </div>
 
-                  {/* Filter Pills */}
-                  <div className="flex flex-wrap gap-1.5">
-                    {[
-                      { key: 'all', label: 'All' },
-                      { key: 'deposit', label: 'Deposit' },
-                      { key: 'withdrawal', label: 'Withdrawal' },
-                      { key: 'transfer', label: 'Transfer' },
-                      { key: 'commission', label: 'Commission' },
-                    ].map((f) => (
-                      <button
-                        key={f.key}
-                        onClick={() => setTxFilter(f.key as any)}
-                        className={`px-3 py-1 rounded-lg text-xs font-bold transition-all ${
-                          txFilter === f.key
-                            ? 'bg-purple-600 text-white'
-                            : 'bg-white/5 text-slate-400 hover:bg-white/10'
-                        }`}
-                      >
-                        {f.label}
-                      </button>
-                    ))}
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setShowArchivedHistory(!showArchivedHistory)}
+                      className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 border ${
+                        showArchivedHistory
+                          ? 'bg-amber-500/20 border-amber-500/50 text-amber-300'
+                          : 'bg-white/5 border-white/10 text-slate-400 hover:text-white'
+                      }`}
+                    >
+                      <FileText className="w-3.5 h-3.5" />
+                      <span>{showArchivedHistory ? 'Viewing Archived' : 'Show Archived'}</span>
+                    </button>
                   </div>
                 </div>
 
-                <div className="space-y-2">
-                  {deposits.map((d) => (
-                    <div key={d.id} className="p-3.5 rounded-2xl bg-[#0e112d] border border-white/5 flex items-center justify-between text-xs">
-                      <div>
-                        <p className="font-bold text-white">Deposit via {d.paymentMethod}</p>
-                        <p className="text-[10px] text-slate-500">ID: {d.transactionId}</p>
-                      </div>
-                      <div className="text-right">
-                        <p className="font-mono font-bold text-emerald-400">+ ₹{d.amount}</p>
-                        <span className="text-[10px] text-slate-400 uppercase">{d.status}</span>
-                      </div>
-                    </div>
+                {/* Filter Pills */}
+                <div className="flex flex-wrap gap-1.5 pb-2">
+                  {[
+                    { key: 'all', label: 'All Records' },
+                    { key: 'deposit', label: 'Deposits' },
+                    { key: 'withdrawal', label: 'Withdrawals (15% Fee)' },
+                    { key: 'transfer', label: 'P2P Transfers' },
+                    { key: 'commission', label: 'Commissions' },
+                  ].map((f) => (
+                    <button
+                      key={f.key}
+                      onClick={() => setTxFilter(f.key as any)}
+                      className={`px-3 py-1 rounded-lg text-xs font-bold transition-all ${
+                        txFilter === f.key
+                          ? 'bg-gradient-to-r from-purple-600 to-pink-600 text-white shadow-md'
+                          : 'bg-white/5 text-slate-400 hover:bg-white/10'
+                      }`}
+                    >
+                      {f.label}
+                    </button>
                   ))}
-                  {withdrawals.map((w) => (
-                    <div key={w.id} className="p-3.5 rounded-2xl bg-[#0e112d] border border-white/5 flex items-center justify-between text-xs">
-                      <div>
-                        <p className="font-bold text-white">Withdrawal to {w.payoutType}</p>
-                        <p className="text-[10px] text-slate-500">ID: {w.id}</p>
-                      </div>
-                      <div className="text-right">
-                        <p className="font-mono font-bold text-amber-400">- ₹{w.amount}</p>
-                        <span className="text-[10px] text-slate-400 uppercase">{w.status}</span>
-                      </div>
-                    </div>
-                  ))}
+                </div>
+
+                <div className="space-y-2.5">
+                  {/* Deposits */}
+                  {(txFilter === 'all' || txFilter === 'deposit') &&
+                    deposits
+                      .filter((d) => (showArchivedHistory ? isHistoryRecordArchived(d.id) : !isHistoryRecordArchived(d.id)))
+                      .map((d) => (
+                        <div
+                          key={d.id}
+                          className="p-4 rounded-2xl bg-gradient-to-r from-[#0e1233] to-[#0b0e29] border border-emerald-500/20 hover:border-emerald-500/40 flex items-center justify-between text-xs transition-all shadow-md"
+                        >
+                          <div className="flex items-center gap-3">
+                            <div className="w-9 h-9 rounded-xl bg-emerald-500/20 text-emerald-300 flex items-center justify-center font-bold">
+                              ↓
+                            </div>
+                            <div>
+                              <p className="font-bold text-white text-sm">Deposit via {d.paymentMethod}</p>
+                              <p className="text-[11px] text-slate-400">
+                                UTR/Ref: <span className="font-mono text-slate-300">{d.utrRef || d.transactionId}</span> • {d.createdAt ? new Date(d.createdAt).toLocaleDateString() : 'Recent'}
+                              </p>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-3">
+                            <div className="text-right">
+                              <p className="font-mono font-black text-emerald-400 text-sm">+ ₹{d.amount.toFixed(2)}</p>
+                              <span className={`px-2 py-0.5 rounded-md text-[10px] font-bold uppercase ${
+                                d.status === 'approved' || d.status === 'completed'
+                                  ? 'bg-emerald-500/20 text-emerald-300'
+                                  : d.status === 'pending'
+                                  ? 'bg-amber-500/20 text-amber-300'
+                                  : 'bg-red-500/20 text-red-300'
+                              }`}>
+                                {d.status}
+                              </span>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => (isHistoryRecordArchived(d.id) ? unarchiveHistoryRecord(d.id) : archiveHistoryRecord(d.id))}
+                              title={isHistoryRecordArchived(d.id) ? 'Restore Record' : 'Archive / Hide Record'}
+                              className="p-2 rounded-lg bg-white/5 hover:bg-white/10 text-slate-400 hover:text-white transition-all text-xs"
+                            >
+                              {isHistoryRecordArchived(d.id) ? 'Unarchive' : 'Archive'}
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+
+                  {/* Withdrawals with 15% Platform Charge breakdown */}
+                  {(txFilter === 'all' || txFilter === 'withdrawal') &&
+                    withdrawals
+                      .filter((w) => (showArchivedHistory ? isHistoryRecordArchived(w.id) : !isHistoryRecordArchived(w.id)))
+                      .map((w) => {
+                        const feePercent = w.chargePercent ?? 15;
+                        const feeAmt = w.chargeAmount ?? Math.round(((w.amount * feePercent) / 100) * 100) / 100;
+                        const netAmt = w.netAmount ?? Math.round((w.amount - feeAmt) * 100) / 100;
+                        return (
+                          <div
+                            key={w.id}
+                            className="p-4 rounded-2xl bg-gradient-to-r from-[#170e2b] to-[#100a21] border border-amber-500/20 hover:border-amber-500/40 flex items-center justify-between text-xs transition-all shadow-md"
+                          >
+                            <div className="flex items-center gap-3">
+                              <div className="w-9 h-9 rounded-xl bg-amber-500/20 text-amber-300 flex items-center justify-center font-bold">
+                                ↑
+                              </div>
+                              <div>
+                                <p className="font-bold text-white text-sm">Payout to {w.payoutType} ({w.accountHolderName})</p>
+                                <p className="text-[11px] text-slate-400">
+                                  Gross: <span className="font-mono text-white">₹{w.amount}</span> • 15% Service Fee: <span className="font-mono text-pink-400">-₹{feeAmt}</span> • Net: <span className="font-mono text-emerald-400 font-bold">₹{netAmt}</span>
+                                </p>
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-3">
+                              <div className="text-right">
+                                <p className="font-mono font-black text-amber-400 text-sm">₹{netAmt.toFixed(2)} Net</p>
+                                <span className={`px-2 py-0.5 rounded-md text-[10px] font-bold uppercase ${
+                                  w.status === 'approved'
+                                    ? 'bg-emerald-500/20 text-emerald-300'
+                                    : w.status === 'pending'
+                                    ? 'bg-amber-500/20 text-amber-300'
+                                    : 'bg-red-500/20 text-red-300'
+                                }`}>
+                                  {w.status}
+                                </span>
+                              </div>
+                              <button
+                                type="button"
+                                onClick={() => (isHistoryRecordArchived(w.id) ? unarchiveHistoryRecord(w.id) : archiveHistoryRecord(w.id))}
+                                title={isHistoryRecordArchived(w.id) ? 'Restore Record' : 'Archive / Hide Record'}
+                                className="p-2 rounded-lg bg-white/5 hover:bg-white/10 text-slate-400 hover:text-white transition-all text-xs"
+                              >
+                                {isHistoryRecordArchived(w.id) ? 'Unarchive' : 'Archive'}
+                              </button>
+                            </div>
+                          </div>
+                        );
+                      })}
+
+                  {/* Commissions */}
+                  {(txFilter === 'all' || txFilter === 'commission') &&
+                    commissionLedger
+                      .filter((c) => (showArchivedHistory ? isHistoryRecordArchived(c.id) : !isHistoryRecordArchived(c.id)))
+                      .map((c) => (
+                        <div
+                          key={c.id}
+                          className="p-4 rounded-2xl bg-gradient-to-r from-[#170e30] to-[#0c0920] border border-purple-500/20 hover:border-purple-500/40 flex items-center justify-between text-xs transition-all shadow-md"
+                        >
+                          <div className="flex items-center gap-3">
+                            <div className="w-9 h-9 rounded-xl bg-purple-500/20 text-purple-300 flex items-center justify-center font-bold">
+                              %
+                            </div>
+                            <div>
+                              <p className="font-bold text-white text-sm">Level {c.level} Referral ({c.percent}%)</p>
+                              <p className="text-[11px] text-slate-400">From player: {c.sourceUserName} (Game #{c.gameId})</p>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-3">
+                            <div className="text-right">
+                              <p className="font-mono font-black text-purple-300 text-sm">+ ₹{c.amount.toFixed(2)}</p>
+                              <span className="text-[10px] text-slate-500">{c.createdAt ? c.createdAt.split('T')[0] : 'Recent'}</span>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => (isHistoryRecordArchived(c.id) ? unarchiveHistoryRecord(c.id) : archiveHistoryRecord(c.id))}
+                              title={isHistoryRecordArchived(c.id) ? 'Restore Record' : 'Archive / Hide Record'}
+                              className="p-2 rounded-lg bg-white/5 hover:bg-white/10 text-slate-400 hover:text-white transition-all text-xs"
+                            >
+                              {isHistoryRecordArchived(c.id) ? 'Unarchive' : 'Archive'}
+                            </button>
+                          </div>
+                        </div>
+                      ))}
                 </div>
               </div>
             )}

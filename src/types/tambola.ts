@@ -62,6 +62,7 @@ export interface User {
   passwordHash?: string;
   referralCode: string;
   referredBy: string | null;
+  sponsorId?: string;
   // 3 Separate Wallets
   depositWallet: number; // Main/Deposit wallet (approved deposits, add money)
   ticketWallet: number; // For ticket purchases & User-to-User transfers ONLY (cannot withdraw)
@@ -199,6 +200,9 @@ export interface WithdrawalRecord {
   userId: string;
   userName: string;
   amount: number;
+  chargePercent?: number;
+  chargeAmount?: number;
+  netAmount?: number;
   payoutType: 'UPI' | 'Bank';
   accountHolderName: string;
   upiId?: string;
@@ -341,7 +345,7 @@ export interface NotificationItem {
   userId: string; // 'all' or specific user ID
   title: string;
   message: string;
-  type: 'deposit' | 'withdrawal' | 'game' | 'winner' | 'commission' | 'freeticket' | 'system' | 'transfer';
+  type: 'deposit' | 'withdrawal' | 'game' | 'winner' | 'commission' | 'freeticket' | 'system' | 'transfer' | 'referral';
   isRead: boolean;
   createdAt: string;
   linkModal?: string;
@@ -376,6 +380,7 @@ export interface SiteSettings {
   depositMultiplesOf: number; // 100
   minWithdrawal: number; // 100
   maxWithdrawal: number; // 2000
+  withdrawalChargePercent?: number; // 15%
   upiQrCodeUrl: string;
   adminUpiId: string;
   adminAccountDetails: {
