@@ -19,7 +19,7 @@ interface UserDashboardPageProps {
   initialTab?: DashboardTab;
 }
 
-export const UserDashboardPage: React.FC<UserDashboardPageProps> = ({ onNavigate, initialTab = 'dashboard' }) => {
+export const UserDashboardPage: React.FC<UserDashboardPageProps> = ({ onNavigate, initialTab }) => {
   const {
     currentUser,
     userDashboardTab,
@@ -27,6 +27,22 @@ export const UserDashboardPage: React.FC<UserDashboardPageProps> = ({ onNavigate
     logoutUser,
     authState,
   } = useTambola();
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const path = window.location.pathname.toLowerCase();
+      if (path === '/deposit') setUserDashboardTab('deposit');
+      else if (path === '/withdraw') setUserDashboardTab('withdraw');
+      else if (path === '/wallet') setUserDashboardTab('mainWallet');
+      else if (path === '/transfer') setUserDashboardTab('transfer');
+      else if (path === '/tickets') setUserDashboardTab('myTickets');
+      else if (path === '/games') setUserDashboardTab('liveGames');
+      else if (path === '/referral') setUserDashboardTab('referral');
+      else if (path === '/passbook' || path === '/transactions') setUserDashboardTab('transactions');
+      else if (path === '/profile') setUserDashboardTab('profile');
+      else if (initialTab) setUserDashboardTab(initialTab);
+    }
+  }, [initialTab, setUserDashboardTab]);
 
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [loadError, setLoadError] = useState<string | null>(null);
