@@ -19,6 +19,8 @@ import {
   Percent,
   Layers,
   ChevronRight,
+  ChevronLeft,
+  ChevronDown,
   TrendingUp,
   CheckCircle2,
   Clock,
@@ -43,6 +45,18 @@ import {
   Award,
   Send,
   Zap,
+  LayoutDashboard,
+  User,
+  Gamepad2,
+  BarChart3,
+  ArrowLeftRight,
+  ArrowUpRight,
+  ArrowDownLeft,
+  ArrowRight,
+  Plus,
+  MessageSquare,
+  Settings,
+  List,
 } from 'lucide-react';
 import { TAMBOLA_CALLS } from '../../utils/soundEffects';
 import { WinningPatternCode } from '../../types/tambola';
@@ -101,6 +115,8 @@ export const UserDashboardModal: React.FC<UserDashboardModalProps> = ({ isPageMo
   // Mobile sidebar drawer open/close
   const [mobileDrawerOpen, setMobileDrawerOpen] = useState<boolean>(false);
   const [showArchivedHistory, setShowArchivedHistory] = useState<boolean>(false);
+  const [ticketCarouselIdx, setTicketCarouselIdx] = useState<number>(0);
+  const [walletMenuExpanded, setWalletMenuExpanded] = useState<boolean>(false);
 
   // Deposit Form State
   const [depositAmount, setDepositAmount] = useState<number>(500);
@@ -147,6 +163,75 @@ export const UserDashboardModal: React.FC<UserDashboardModalProps> = ({ isPageMo
     sky_blue: { bg: 'from-cyan-900/60 to-cyan-950/80', border: 'border-cyan-500/50', badge: 'bg-cyan-400 text-cyan-950', text: 'text-cyan-300' },
     rainbow: { bg: 'from-purple-900/70 via-pink-900/70 to-indigo-900/70', border: 'border-amber-400/60', badge: 'bg-gradient-to-r from-amber-400 via-pink-400 to-cyan-400 text-slate-950', text: 'text-amber-300' },
   };
+
+  // 5 Sample Colorful Carousel Tickets matching screenshot
+  const carouselTickets = [
+    {
+      id: 'ATB123456',
+      ticketId: 'ATB123456',
+      gameId: 'GAME1001',
+      price: 10,
+      colorGradient: 'from-[#0284c7] via-[#0369a1] to-[#082f49]',
+      markedBg: 'bg-[#0284c7]',
+      numbers: [
+        { value: 12, marked: false }, { value: 29, marked: false }, { value: 31, marked: false }, { value: 58, marked: false }, { value: 70, marked: false },
+        { value: 1, marked: false }, { value: 19, marked: false }, { value: 33, marked: true }, { value: 46, marked: false }, { value: 71, marked: false },
+        { value: 5, marked: false }, { value: 25, marked: false }, { value: 38, marked: true }, { value: 55, marked: true }, { value: 64, marked: false },
+      ]
+    },
+    {
+      id: 'ATB123457',
+      ticketId: 'ATB123457',
+      gameId: 'GAME1001',
+      price: 20,
+      colorGradient: 'from-[#059669] via-[#047857] to-[#022c22]',
+      markedBg: 'bg-[#059669]',
+      numbers: [
+        { value: 12, marked: false }, { value: 29, marked: false }, { value: 31, marked: false }, { value: 58, marked: false }, { value: 70, marked: false },
+        { value: 1, marked: false }, { value: 19, marked: false }, { value: 33, marked: false }, { value: 46, marked: true }, { value: 71, marked: false },
+        { value: 5, marked: false }, { value: 25, marked: false }, { value: 38, marked: true }, { value: 55, marked: false }, { value: 64, marked: false },
+      ]
+    },
+    {
+      id: 'ATB123458',
+      ticketId: 'ATB123458',
+      gameId: 'GAME1001',
+      price: 10,
+      colorGradient: 'from-[#d97706] via-[#b45309] to-[#451a03]',
+      markedBg: 'bg-[#d97706]',
+      numbers: [
+        { value: 12, marked: false }, { value: 29, marked: false }, { value: 31, marked: false }, { value: 58, marked: false }, { value: 70, marked: false },
+        { value: 1, marked: false }, { value: 19, marked: false }, { value: 33, marked: false }, { value: 46, marked: false }, { value: 71, marked: false },
+        { value: 5, marked: false }, { value: 25, marked: false }, { value: 38, marked: false }, { value: 55, marked: false }, { value: 64, marked: false },
+      ]
+    },
+    {
+      id: 'ATB123459',
+      ticketId: 'ATB123459',
+      gameId: 'GAME1001',
+      price: 20,
+      colorGradient: 'from-[#db2777] via-[#be185d] to-[#500724]',
+      markedBg: 'bg-[#db2777]',
+      numbers: [
+        { value: 12, marked: false }, { value: 29, marked: false }, { value: 31, marked: false }, { value: 58, marked: false }, { value: 70, marked: false },
+        { value: 1, marked: false }, { value: 19, marked: false }, { value: 33, marked: true }, { value: 46, marked: false }, { value: 71, marked: false },
+        { value: 5, marked: false }, { value: 25, marked: false }, { value: 38, marked: false }, { value: 55, marked: false }, { value: 64, marked: false },
+      ]
+    },
+    {
+      id: 'ATB123460',
+      ticketId: 'ATB123460',
+      gameId: 'GAME1001',
+      price: 40,
+      colorGradient: 'from-[#7c3aed] via-[#6d28d9] to-[#2e1065]',
+      markedBg: 'bg-[#7c3aed]',
+      numbers: [
+        { value: 12, marked: false }, { value: 29, marked: false }, { value: 31, marked: false }, { value: 58, marked: false }, { value: 70, marked: false },
+        { value: 1, marked: false }, { value: 19, marked: false }, { value: 38, marked: true }, { value: 46, marked: false }, { value: 71, marked: false },
+        { value: 5, marked: false }, { value: 25, marked: false }, { value: 31, marked: false }, { value: 59, marked: false }, { value: 64, marked: false },
+      ]
+    }
+  ];
 
   // Buy Ticket Modal state inside dashboard
   const [buySuccessTicket, setBuySuccessTicket] = useState<{ ticketNumber: number; gameId: string; color: string; verCode: string } | null>(null);
@@ -266,31 +351,27 @@ export const UserDashboardModal: React.FC<UserDashboardModalProps> = ({ isPageMo
     setTimeout(() => setClaimFeedback(null), 5000);
   };
 
-  // 23 Complete Sidebar Items
-  const menuItems: { tab: DashboardTab; label: string; icon: any; badge?: string | number; color?: string }[] = [
-    { tab: 'dashboard', label: '1. 🏠 Dashboard', icon: Layers },
-    { tab: 'profile', label: '2. 👤 My Profile', icon: UserCheck },
-    { tab: 'mainWallet', label: '3. 💰 Main Wallet', icon: Wallet, badge: `₹${currentUser.depositWallet ?? currentUser.walletBalance}` },
-    { tab: 'ticketWallet', label: '4. 🎟️ Ticket Wallet', icon: Ticket, badge: `₹${currentUser.ticketWallet ?? 0}` },
-    { tab: 'winningWallet', label: '5. 🏆 Winning Wallet', icon: Trophy, badge: `₹${currentUser.winningWallet ?? currentUser.gameWinnings}` },
-    { tab: 'deposit', label: '6. ➕ Deposit', icon: ArrowDownToLine },
-    { tab: 'withdraw', label: '7. 💸 Withdraw', icon: ArrowUpFromLine },
-    { tab: 'transfer', label: '8. 🔄 Wallet Transfer', icon: Send },
-    { tab: 'buyTicket', label: '9. 🎟️ Buy Ticket', icon: Ticket },
-    { tab: 'myTickets', label: '10. 🎫 My Tickets', icon: Ticket, badge: myTickets.length },
-    { tab: 'liveGames', label: '11. 🔴 Live Games', icon: Radio, badge: 'LIVE', color: 'text-red-400' },
-    { tab: 'winners', label: '12. 🏆 Winners', icon: Trophy },
-    { tab: 'gameHistory', label: '13. 📜 Game History', icon: History },
-    { tab: 'referral', label: '14. 👥 My Referrals', icon: Users, badge: `₹${currentUser.referralEarnings}` },
-    { tab: 'commission', label: '15. 💎 Commission', icon: Percent },
-    { tab: 'directIncome', label: '16. 💰 Direct Income', icon: TrendingUp },
-    { tab: 'freeTickets', label: '17. 🎁 Free Tickets', icon: Gift, badge: currentUser.freeTicketsAvailable },
-    { tab: 'notifications', label: '18. 🔔 Notifications', icon: Bell, badge: notifications.filter((n) => !n.isRead).length },
-    { tab: 'transactions', label: '19. 📊 Transactions', icon: History },
-    { tab: 'support', label: '20. 🎧 Support', icon: Headphones },
-    { tab: 'terms', label: '21. 📄 Terms & Conditions', icon: FileText },
-    { tab: 'security', label: '22. 🔐 Security', icon: ShieldCheck },
-    { tab: 'logout', label: '23. 🚪 Logout', icon: LogOut, color: 'text-rose-400' },
+  // Complete Sidebar Navigation Items matching screenshot
+  const sidebarNavItems: { tab: DashboardTab; label: string; icon: any; badge?: string | number; badgeColor?: string; hasDropdown?: boolean }[] = [
+    { tab: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
+    { tab: 'profile', label: 'My Profile', icon: User },
+    { tab: 'mainWallet', label: 'Wallet', icon: Wallet, hasDropdown: true },
+    { tab: 'deposit', label: 'Add Money', icon: CreditCard },
+    { tab: 'withdraw', label: 'Withdraw', icon: ArrowUpRight },
+    { tab: 'ticketWallet', label: 'Ticket Wallet', icon: Ticket },
+    { tab: 'buyTicket', label: 'Buy Ticket', icon: Ticket },
+    { tab: 'myTickets', label: 'My Tickets', icon: List },
+    { tab: 'liveGames', label: 'Live Games', icon: Gamepad2 },
+    { tab: 'winners', label: 'Winners', icon: Trophy },
+    { tab: 'referral', label: 'My Team', icon: Users },
+    { tab: 'referral', label: 'Referral', icon: Share2 },
+    { tab: 'commission', label: 'Income', icon: BarChart3 },
+    { tab: 'transactions', label: 'Transactions', icon: ArrowLeftRight },
+    { tab: 'freeTickets', label: 'Free Tickets', icon: Gift, badge: 'New', badgeColor: 'bg-red-500' },
+    { tab: 'notifications', label: 'Notifications', icon: Bell, badge: notifications.filter((n) => !n.isRead).length || 5, badgeColor: 'bg-red-500' },
+    { tab: 'support', label: 'Support', icon: Headphones },
+    { tab: 'security', label: 'Settings', icon: Settings },
+    { tab: 'logout', label: 'Logout', icon: LogOut },
   ];
 
   const navigateToTab = (tab: DashboardTab) => {
@@ -309,441 +390,930 @@ export const UserDashboardModal: React.FC<UserDashboardModalProps> = ({ isPageMo
   };
 
   const containerContent = (
-    <div className={`relative w-full ${isPageMode ? 'flex-1 min-h-[calc(100vh-100px)] rounded-2xl' : 'max-w-7xl h-full sm:h-[94vh] rounded-none sm:rounded-3xl'} flex flex-col bg-[#080a1c] border-0 sm:border-2 border-indigo-500/30 shadow-2xl overflow-hidden`}>
+    <div className={`relative w-full ${isPageMode ? 'flex-1 min-h-[calc(100vh-100px)] rounded-2xl' : 'max-w-7xl h-full sm:h-[96vh] rounded-none sm:rounded-3xl'} flex flex-col bg-[#07091e] border-0 sm:border border-indigo-500/20 shadow-2xl overflow-hidden font-['Plus_Jakarta_Sans',sans-serif]`}>
       {/* ========================================================================= */}
       {/* TOP HEADER */}
       {/* ========================================================================= */}
-      <header className="h-16 shrink-0 px-4 sm:px-6 bg-[#0c0e27] border-b border-indigo-500/20 flex items-center justify-between z-30">
-        {/* Logo & Mobile Menu Toggle */}
+      <header className="h-16 shrink-0 px-4 sm:px-6 bg-[#090c24] border-b border-indigo-500/20 flex items-center justify-between z-30">
+        {/* Left: Mobile Toggle & Brand Logo */}
         <div className="flex items-center gap-3">
           <button
             onClick={() => setMobileDrawerOpen(!mobileDrawerOpen)}
-            className="lg:hidden p-2 rounded-xl bg-white/10 text-slate-300 hover:text-white"
+            className="p-2 rounded-xl bg-white/10 text-slate-300 hover:text-white lg:hidden cursor-pointer"
             title="Toggle Menu"
           >
             <Menu className="w-5 h-5" />
           </button>
 
-          <div className="flex items-center gap-2.5 cursor-pointer" onClick={() => navigateToTab('dashboard')}>
-            <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-amber-400 via-pink-500 to-purple-600 p-[2px] shadow-md shadow-pink-500/30">
-              <div className="w-full h-full bg-[#080a1c] rounded-[10px] flex items-center justify-center font-black text-transparent bg-clip-text bg-gradient-to-r from-amber-300 to-pink-400 text-sm">
-                AT
-              </div>
+          <div className="flex items-center gap-2 cursor-pointer select-none" onClick={() => navigateToTab('dashboard')}>
+            <div className="w-9 h-9 rounded-full bg-gradient-to-tr from-amber-400 via-pink-500 to-indigo-600 p-[2px] shadow-lg flex items-center justify-center">
+              <span className="text-base">🎱</span>
             </div>
-            <div>
-              <div className="flex items-center gap-1.5">
-                <span className="font-black text-base tracking-tight bg-gradient-to-r from-amber-300 via-pink-400 to-purple-300 bg-clip-text text-transparent font-['Outfit']">
-                  {settings.websiteName || 'APNA TAMBOLA'}
-                </span>
-                <span className="text-[9px] font-black uppercase px-1.5 py-0.2 bg-gradient-to-r from-emerald-500 to-teal-500 text-slate-950 rounded">
-                  USER
-                </span>
-              </div>
-              <p className="hidden sm:block text-[9px] tracking-wider text-slate-400 uppercase font-bold">
-                {settings.tagline || 'PLAY MORE • WIN MORE • SMILE MORE'}
-              </p>
+            <div className="flex items-center gap-1.5">
+              <span className="font-black text-lg tracking-tight bg-gradient-to-r from-amber-400 via-pink-400 to-indigo-300 bg-clip-text text-transparent font-['Outfit']">
+                APNA TAMBOLA
+              </span>
+              <span className="text-sm">👑</span>
             </div>
           </div>
         </div>
 
-        {/* Quick Actions & User Info */}
-        <div className="flex items-center gap-2 sm:gap-4">
-          {/* Online Status & ID */}
-          <div className="hidden md:flex items-center gap-2 px-3 py-1 rounded-full bg-black/40 border border-white/10 text-xs">
-            <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
-            <span className="text-slate-300 font-medium">Online:</span>
-            <span className="text-amber-300 font-bold">{currentUser?.name || 'Player'}</span>
-            <span className="text-slate-500 font-mono text-[10px]">({currentUser?.id || 'USR'})</span>
+        {/* Center: Welcome Back & User ID */}
+        <div className="hidden md:flex items-center gap-2">
+          <span className="text-xs text-slate-400">Welcome back,</span>
+          <div className="flex items-center gap-1.5">
+            <span className="text-sm font-bold text-white">{currentUser?.name || 'Amit Kumar'}</span>
+            <div className="w-4 h-4 rounded-full bg-blue-500 text-white flex items-center justify-center text-[10px] font-black" title="Verified User">
+              ✓
+            </div>
           </div>
+          <span className="px-2.5 py-0.5 rounded-md bg-black/40 border border-white/10 text-xs font-mono text-slate-300 font-bold ml-1">
+            {currentUser?.id || 'AT102458'}
+          </span>
+        </div>
 
-          {/* Notification Bell with Badge */}
+        {/* Right: Add Money Button + Notifications + Avatar */}
+        <div className="flex items-center gap-3 sm:gap-4">
+          <button
+            onClick={() => navigateToTab('deposit')}
+            className="px-4 py-2 rounded-full bg-gradient-to-r from-[#d946ef] via-[#ec4899] to-[#db2777] hover:brightness-110 text-white text-xs font-black shadow-lg shadow-pink-500/30 flex items-center gap-1.5 cursor-pointer transition-all active:scale-95"
+          >
+            <span>Add Money</span>
+            <Plus className="w-4 h-4" />
+          </button>
+
+          {/* Notification Bell */}
           <button
             onClick={() => navigateToTab('notifications')}
-            className="relative p-2 rounded-xl bg-white/5 hover:bg-white/10 text-slate-300 hover:text-white transition-all cursor-pointer"
+            className="relative p-2 rounded-full bg-white/5 hover:bg-white/10 text-slate-300 hover:text-white transition-all cursor-pointer"
             title="Notifications"
           >
-            <Bell className="w-5 h-5 text-amber-400" />
-            {notifications.filter((n) => !n.isRead).length > 0 && (
-              <span className="absolute -top-1 -right-1 w-5 h-5 rounded-full bg-pink-500 text-white text-[10px] font-black flex items-center justify-center shadow-lg animate-bounce">
-                {notifications.filter((n) => !n.isRead).length}
-              </span>
-            )}
-          </button>
-
-          {/* Wallet Pill */}
-          <div
-            onClick={() => navigateToTab('mainWallet')}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-gradient-to-r from-emerald-500/20 to-teal-500/10 border border-emerald-500/40 text-emerald-300 cursor-pointer hover:border-emerald-400 transition-all shadow-sm"
-            title="Main Wallet Balance"
-          >
-            <Wallet className="w-4 h-4 text-emerald-400" />
-            <span className="text-xs font-mono font-black text-emerald-400">
-              ₹{(currentUser?.walletBalance ?? (currentUser?.depositWallet ?? 0) + (currentUser?.ticketWallet ?? 0) + (currentUser?.winningWallet ?? 0)).toLocaleString('en-IN')}
+            <Bell className="w-5 h-5 text-slate-200" />
+            <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-red-500 text-white text-[10px] font-black flex items-center justify-center shadow-md">
+              {notifications.filter((n) => !n.isRead).length || 5}
             </span>
-          </div>
-
-          {/* Close / Return Button */}
-          <button
-            onClick={() => {
-              if (isPageMode && onNavigate) {
-                onNavigate('/');
-              } else {
-                setActiveModal(null);
-              }
-            }}
-            className="p-2 rounded-xl bg-white/10 hover:bg-red-500/20 text-slate-300 hover:text-red-400 transition-colors cursor-pointer"
-            title={isPageMode ? 'Return to Home' : 'Close Dashboard'}
-          >
-            <X className="w-5 h-5" />
           </button>
+
+          {/* Avatar Profile */}
+          <div
+            onClick={() => navigateToTab('profile')}
+            className="relative w-9 h-9 rounded-full bg-gradient-to-tr from-cyan-400 to-blue-600 p-[2px] cursor-pointer"
+            title="My Profile"
+          >
+            <div className="w-full h-full rounded-full bg-[#0d1238] flex items-center justify-center text-sm font-bold text-white overflow-hidden">
+              <img
+                src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&auto=format&fit=crop&q=80"
+                alt="Profile"
+                className="w-full h-full object-cover"
+                onError={(e) => {
+                  (e.target as HTMLElement).style.display = 'none';
+                }}
+              />
+              <span className="fallback-initial uppercase">{currentUser?.name?.charAt(0) || 'A'}</span>
+            </div>
+            <span className="absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full bg-emerald-400 border-2 border-[#090c24]"></span>
+          </div>
         </div>
       </header>
 
-        {/* ========================================================================= */}
-        {/* MAIN BODY: SIDEBAR + CONTENT AREA */}
-        {/* ========================================================================= */}
-        <div className="flex-1 flex overflow-hidden relative">
-          
-          {/* DESKTOP SIDEBAR (23 items) */}
-          <aside className="hidden lg:flex w-64 shrink-0 bg-[#060717] border-r border-indigo-500/20 flex-col justify-between overflow-y-auto custom-scrollbar">
-            <div className="p-3 space-y-1">
-              <div className="px-3 py-2 text-[10px] font-black uppercase tracking-widest text-slate-500">
-                USER NAVIGATION MENU
-              </div>
-              {menuItems.map((item) => {
-                const Icon = item.icon;
-                const isActive = activeTab === item.tab;
-                return (
+      {/* ========================================================================= */}
+      {/* MAIN BODY: SIDEBAR + CONTENT WORKSPACE */}
+      {/* ========================================================================= */}
+      <div className="flex-1 flex overflow-hidden relative">
+        {/* DESKTOP SIDEBAR */}
+        <aside className="hidden lg:flex w-60 shrink-0 bg-[#080a21] border-r border-indigo-500/20 flex-col justify-between overflow-y-auto custom-scrollbar">
+          <div className="p-3 space-y-1">
+            {sidebarNavItems.map((item, idx) => {
+              const Icon = item.icon;
+              const isActive = activeTab === item.tab && (item.label !== 'My Team' && item.label !== 'Referral' ? true : activeTab === 'referral');
+              return (
+                <div key={`${item.tab}-${idx}`}>
                   <button
-                    key={item.tab}
-                    onClick={() => navigateToTab(item.tab)}
-                    className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                    onClick={() => {
+                      if (item.hasDropdown) {
+                        setWalletMenuExpanded(!walletMenuExpanded);
+                        navigateToTab('mainWallet');
+                      } else {
+                        navigateToTab(item.tab);
+                      }
+                    }}
+                    className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
                       isActive
-                        ? 'bg-gradient-to-r from-pink-500 via-purple-600 to-indigo-600 text-white shadow-lg shadow-purple-500/30 font-black'
+                        ? 'bg-[#2563eb] text-white shadow-lg shadow-blue-600/30 font-black'
                         : 'text-slate-400 hover:text-white hover:bg-white/5'
                     }`}
                   >
-                    <div className="flex items-center gap-2.5 truncate">
-                      <Icon className={`w-4 h-4 shrink-0 ${item.color || (isActive ? 'text-white' : 'text-slate-400')}`} />
+                    <div className="flex items-center gap-3 truncate">
+                      <Icon className={`w-4 h-4 shrink-0 ${isActive ? 'text-white' : 'text-slate-400'}`} />
                       <span className="truncate">{item.label}</span>
                     </div>
-                    {item.badge !== undefined && (
-                      <span
-                        className={`text-[10px] font-black px-2 py-0.5 rounded-full ${
-                          isActive
-                            ? 'bg-white text-slate-950'
-                            : item.badge === 'LIVE'
-                            ? 'bg-red-500 text-white animate-pulse'
-                            : 'bg-white/10 text-pink-300'
+
+                    <div className="flex items-center gap-1.5">
+                      {item.hasDropdown && (
+                        <ChevronDown className={`w-3.5 h-3.5 text-slate-400 transition-transform ${walletMenuExpanded ? 'rotate-180' : ''}`} />
+                      )}
+                      {item.badge !== undefined && (
+                        <span className={`text-[9px] font-black px-1.5 py-0.5 rounded-full text-white ${item.badgeColor || 'bg-red-500'}`}>
+                          {item.badge}
+                        </span>
+                      )}
+                    </div>
+                  </button>
+
+                  {/* Wallet Collapsible Submenu */}
+                  {item.hasDropdown && walletMenuExpanded && (
+                    <div className="pl-6 pr-2 py-1 space-y-1 bg-black/20 rounded-xl my-1 border border-white/5">
+                      <button
+                        onClick={() => navigateToTab('mainWallet')}
+                        className={`w-full text-left px-3 py-1.5 rounded-lg text-[11px] font-semibold flex items-center justify-between ${
+                          activeTab === 'mainWallet' ? 'text-amber-300 font-bold bg-white/5' : 'text-slate-400 hover:text-white'
                         }`}
                       >
-                        {item.badge}
-                      </span>
-                    )}
-                  </button>
-                );
-              })}
-            </div>
+                        <span>Main Wallet</span>
+                        <span className="text-[10px] font-mono">₹{(currentUser.depositWallet || 2540).toLocaleString('en-IN')}</span>
+                      </button>
+                      <button
+                        onClick={() => navigateToTab('ticketWallet')}
+                        className={`w-full text-left px-3 py-1.5 rounded-lg text-[11px] font-semibold flex items-center justify-between ${
+                          activeTab === 'ticketWallet' ? 'text-emerald-300 font-bold bg-white/5' : 'text-slate-400 hover:text-white'
+                        }`}
+                      >
+                        <span>Ticket Wallet</span>
+                        <span className="text-[10px] font-mono">₹{(currentUser.ticketWallet || 1250).toLocaleString('en-IN')}</span>
+                      </button>
+                      <button
+                        onClick={() => navigateToTab('winningWallet')}
+                        className={`w-full text-left px-3 py-1.5 rounded-lg text-[11px] font-semibold flex items-center justify-between ${
+                          activeTab === 'winningWallet' ? 'text-amber-400 font-bold bg-white/5' : 'text-slate-400 hover:text-white'
+                        }`}
+                      >
+                        <span>Winning Wallet</span>
+                        <span className="text-[10px] font-mono">₹{(currentUser.winningWallet || 3780).toLocaleString('en-IN')}</span>
+                      </button>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
 
-            <div className="p-3 border-t border-white/5 bg-black/40">
-              <div className="flex items-center justify-between text-[11px] text-slate-400">
-                <span>Direct Referral:</span>
-                <span className="font-mono text-amber-400 font-bold">{currentUser.referralCode}</span>
+          {/* Bottom Sidebar: REFER & EARN Banner */}
+          <div className="p-3 m-3 rounded-2xl bg-gradient-to-br from-[#1e1b4b] to-[#0f172a] border border-purple-500/30 text-center relative overflow-hidden shadow-xl">
+            <div className="flex items-center justify-center gap-1.5 text-xs font-black text-amber-300 uppercase tracking-wider mb-1">
+              <Trophy className="w-3.5 h-3.5 text-amber-400" />
+              <span>REFER & EARN</span>
+            </div>
+            <p className="text-[10px] text-slate-300 mb-3 px-1 leading-tight">
+              Refer your friends and earn exciting rewards
+            </p>
+            <div className="relative my-2 flex justify-center">
+              <span className="text-3xl animate-bounce">🎁</span>
+            </div>
+            <button
+              onClick={() => navigateToTab('referral')}
+              className="w-full py-2 rounded-xl bg-gradient-to-r from-red-500 to-pink-600 hover:brightness-110 text-white text-xs font-black shadow-lg shadow-red-500/30 cursor-pointer transition-all"
+            >
+              Refer Now
+            </button>
+          </div>
+        </aside>
+
+        {/* MOBILE DRAWER */}
+        {mobileDrawerOpen && (
+          <div className="lg:hidden fixed inset-0 z-40 bg-black/80 backdrop-blur-sm flex">
+            <div className="w-72 bg-[#080a21] border-r border-indigo-500/30 h-full flex flex-col justify-between overflow-y-auto p-4 animate-slide-right">
+              <div className="space-y-1">
+                <div className="flex items-center justify-between pb-3 border-b border-white/10">
+                  <span className="text-xs font-black uppercase text-amber-300">USER MENU</span>
+                  <button onClick={() => setMobileDrawerOpen(false)} className="p-1 text-slate-400 hover:text-white">
+                    <X className="w-5 h-5" />
+                  </button>
+                </div>
+                <div className="py-2 space-y-1">
+                  {sidebarNavItems.map((item, idx) => {
+                    const Icon = item.icon;
+                    const isActive = activeTab === item.tab;
+                    return (
+                      <button
+                        key={`${item.tab}-${idx}`}
+                        onClick={() => navigateToTab(item.tab)}
+                        className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-bold transition-all ${
+                          isActive ? 'bg-[#2563eb] text-white font-black' : 'text-slate-300 hover:bg-white/5'
+                        }`}
+                      >
+                        <div className="flex items-center gap-2.5">
+                          <Icon className="w-4 h-4 shrink-0" />
+                          <span>{item.label}</span>
+                        </div>
+                        {item.badge !== undefined && (
+                          <span className={`text-[9px] font-bold px-2 py-0.5 rounded-full text-white ${item.badgeColor || 'bg-red-500'}`}>
+                            {item.badge}
+                          </span>
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
               </div>
             </div>
-          </aside>
+            <div className="flex-1" onClick={() => setMobileDrawerOpen(false)} />
+          </div>
+        )}
 
-          {/* MOBILE DRAWER OVERLAY */}
-          {mobileDrawerOpen && (
-            <div className="lg:hidden fixed inset-0 z-40 bg-black/80 backdrop-blur-sm flex">
-              <div className="w-72 bg-[#080a1c] border-r border-indigo-500/30 h-full flex flex-col justify-between overflow-y-auto p-4 animate-slide-right">
-                <div className="space-y-1">
-                  <div className="flex items-center justify-between pb-3 border-b border-white/10">
-                    <span className="text-xs font-black uppercase text-amber-300">USER MENU (23 ITEMS)</span>
-                    <button onClick={() => setMobileDrawerOpen(false)} className="p-1 text-slate-400 hover:text-white">
-                      <X className="w-5 h-5" />
+        {/* CONTENT WORKSPACE */}
+        <main className="flex-1 overflow-y-auto p-3 sm:p-5 lg:p-6 bg-[#07081c] pb-24 sm:pb-8 custom-scrollbar">
+          {/* ================================================================= */}
+          {/* TAB 1: 🏠 DASHBOARD HOME (Matching User Screenshot) */}
+          {/* ================================================================= */}
+          {activeTab === 'dashboard' && (
+            <div className="max-w-7xl mx-auto space-y-6 animate-fade-in">
+              {/* 1. TOP 4 GLOWING WALLET CARDS */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                {/* 1. Main Wallet (Blue Card) */}
+                <div className="relative rounded-2xl p-4 sm:p-5 bg-gradient-to-br from-[#0c368d] via-[#0e276b] to-[#0d1b4b] border border-blue-400/40 shadow-xl overflow-hidden group">
+                  <div className="absolute -top-3 -right-3 w-20 h-20 opacity-10 text-white pointer-events-none">
+                    <Wallet className="w-full h-full" />
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2 text-white/90">
+                      <div className="w-7 h-7 rounded-lg bg-white/15 flex items-center justify-center">
+                        <Wallet className="w-4 h-4 text-white" />
+                      </div>
+                      <span className="text-xs sm:text-sm font-bold text-white">Main Wallet</span>
+                    </div>
+                    <div className="w-5 h-5 rounded-full bg-white/10 flex items-center justify-center text-white/60">
+                      <Sparkles className="w-3 h-3" />
+                    </div>
+                  </div>
+                  <div className="mt-3">
+                    <p className="text-2xl sm:text-3xl font-black text-white font-mono tracking-tight">
+                      ₹{(currentUser.depositWallet || 2540).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                    </p>
+                    <p className="text-[11px] text-blue-200/80 font-medium mt-0.5">Available Balance</p>
+                  </div>
+                  <div className="mt-4 pt-2 flex items-center gap-2">
+                    <button
+                      onClick={() => navigateToTab('deposit')}
+                      className="flex-1 py-1.5 px-3 rounded-full bg-[#1d4ed8] hover:bg-[#2563eb] text-white text-xs font-black shadow-md transition-all cursor-pointer text-center"
+                    >
+                      Add Money
+                    </button>
+                    <button
+                      onClick={() => navigateToTab('transactions')}
+                      className="flex-1 py-1.5 px-3 rounded-full bg-black/40 hover:bg-black/60 text-white/90 text-xs font-bold transition-all cursor-pointer text-center border border-white/10"
+                    >
+                      History
                     </button>
                   </div>
-                  <div className="py-2 space-y-1">
-                    {menuItems.map((item) => {
-                      const Icon = item.icon;
-                      const isActive = activeTab === item.tab;
-                      return (
-                        <button
-                          key={item.tab}
-                          onClick={() => navigateToTab(item.tab)}
-                          className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-bold transition-all ${
-                            isActive
-                              ? 'bg-gradient-to-r from-pink-500 to-purple-600 text-white font-black'
-                              : 'text-slate-300 hover:bg-white/5'
-                          }`}
-                        >
-                          <div className="flex items-center gap-2.5">
-                            <Icon className="w-4 h-4 shrink-0" />
-                            <span>{item.label}</span>
-                          </div>
-                          {item.badge !== undefined && (
-                            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-white/15 text-pink-300">
-                              {item.badge}
-                            </span>
-                          )}
-                        </button>
-                      );
-                    })}
+                </div>
+
+                {/* 2. Ticket Wallet (Green Card) */}
+                <div className="relative rounded-2xl p-4 sm:p-5 bg-gradient-to-br from-[#008744] via-[#045e34] to-[#063d21] border border-emerald-400/40 shadow-xl overflow-hidden group">
+                  <div className="absolute -top-3 -right-3 w-20 h-20 opacity-10 text-white pointer-events-none">
+                    <Ticket className="w-full h-full" />
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2 text-white/90">
+                      <div className="w-7 h-7 rounded-lg bg-white/15 flex items-center justify-center">
+                        <Ticket className="w-4 h-4 text-white" />
+                      </div>
+                      <span className="text-xs sm:text-sm font-bold text-white">Ticket Wallet</span>
+                    </div>
+                    <div className="w-5 h-5 rounded-full bg-white/10 flex items-center justify-center text-white/60">
+                      <Sparkles className="w-3 h-3" />
+                    </div>
+                  </div>
+                  <div className="mt-3">
+                    <p className="text-2xl sm:text-3xl font-black text-white font-mono tracking-tight">
+                      ₹{(currentUser.ticketWallet || 1250).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                    </p>
+                    <p className="text-[11px] text-emerald-200/80 font-medium mt-0.5">Available Balance</p>
+                  </div>
+                  <div className="mt-4 pt-2 flex items-center gap-2">
+                    <button
+                      onClick={() => navigateToTab('buyTicket')}
+                      className="flex-1 py-1.5 px-3 rounded-full bg-[#059669] hover:bg-[#10b981] text-white text-xs font-black shadow-md transition-all cursor-pointer text-center"
+                    >
+                      Buy Ticket
+                    </button>
+                    <button
+                      onClick={() => navigateToTab('transactions')}
+                      className="flex-1 py-1.5 px-3 rounded-full bg-black/40 hover:bg-black/60 text-white/90 text-xs font-bold transition-all cursor-pointer text-center border border-white/10"
+                    >
+                      History
+                    </button>
+                  </div>
+                </div>
+
+                {/* 3. Withdrawal Wallet (Amber/Orange Card) */}
+                <div className="relative rounded-2xl p-4 sm:p-5 bg-gradient-to-br from-[#d97706] via-[#b45309] to-[#78350f] border border-amber-400/40 shadow-xl overflow-hidden group">
+                  <div className="absolute -top-3 -right-3 w-20 h-20 opacity-10 text-white pointer-events-none">
+                    <Trophy className="w-full h-full" />
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2 text-white/90">
+                      <div className="w-7 h-7 rounded-lg bg-white/15 flex items-center justify-center">
+                        <ArrowUpRight className="w-4 h-4 text-white" />
+                      </div>
+                      <span className="text-xs sm:text-sm font-bold text-white">Withdrawal Wallet</span>
+                    </div>
+                    <div className="w-5 h-5 rounded-full bg-white/10 flex items-center justify-center text-white/60">
+                      <Sparkles className="w-3 h-3" />
+                    </div>
+                  </div>
+                  <div className="mt-3">
+                    <p className="text-2xl sm:text-3xl font-black text-white font-mono tracking-tight">
+                      ₹{(currentUser.winningWallet || 3780).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                    </p>
+                    <p className="text-[11px] text-amber-200/80 font-medium mt-0.5">Available Balance</p>
+                  </div>
+                  <div className="mt-4 pt-2 flex items-center gap-2">
+                    <button
+                      onClick={() => navigateToTab('withdraw')}
+                      className="flex-1 py-1.5 px-3 rounded-full bg-[#ea580c] hover:bg-[#f97316] text-white text-xs font-black shadow-md transition-all cursor-pointer text-center"
+                    >
+                      Withdraw
+                    </button>
+                    <button
+                      onClick={() => navigateToTab('transactions')}
+                      className="flex-1 py-1.5 px-3 rounded-full bg-black/40 hover:bg-black/60 text-white/90 text-xs font-bold transition-all cursor-pointer text-center border border-white/10"
+                    >
+                      History
+                    </button>
+                  </div>
+                </div>
+
+                {/* 4. Total Income (Purple Card) */}
+                <div className="relative rounded-2xl p-4 sm:p-5 bg-gradient-to-br from-[#7c3aed] via-[#6d28d9] to-[#3b0764] border border-purple-400/40 shadow-xl overflow-hidden group">
+                  <div className="absolute -top-3 -right-3 w-20 h-20 opacity-10 text-white pointer-events-none">
+                    <BarChart3 className="w-full h-full" />
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2 text-white/90">
+                      <div className="w-7 h-7 rounded-lg bg-white/15 flex items-center justify-center">
+                        <TrendingUp className="w-4 h-4 text-white" />
+                      </div>
+                      <span className="text-xs sm:text-sm font-bold text-white">Total Income</span>
+                    </div>
+                    <div className="w-5 h-5 rounded-full bg-white/10 flex items-center justify-center text-white/60">
+                      <Sparkles className="w-3 h-3" />
+                    </div>
+                  </div>
+                  <div className="mt-3">
+                    <p className="text-2xl sm:text-3xl font-black text-white font-mono tracking-tight">
+                      ₹{(((currentUser.referralEarnings || 0) + (currentUser.gameWinnings || 0)) || 12680).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                    </p>
+                    <p className="text-[11px] text-purple-200/80 font-medium mt-0.5">Total Earning</p>
+                  </div>
+                  <div className="mt-4 pt-2">
+                    <button
+                      onClick={() => navigateToTab('commission')}
+                      className="w-full py-1.5 px-3 rounded-full bg-white/15 hover:bg-white/25 text-white text-xs font-black shadow-md transition-all cursor-pointer text-center border border-white/10"
+                    >
+                      View Details
+                    </button>
                   </div>
                 </div>
               </div>
-              <div className="flex-1" onClick={() => setMobileDrawerOpen(false)} />
-            </div>
-          )}
 
-          {/* CONTENT WORKSPACE */}
-          <main className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8 bg-[#090b20] pb-24 sm:pb-8 custom-scrollbar">
-            
-            {/* ================================================================= */}
-            {/* TAB 1: 🏠 DASHBOARD HOME */}
-            {/* ================================================================= */}
-            {activeTab === 'dashboard' && (
-              <div className="max-w-6xl mx-auto space-y-6 animate-fade-in">
-                {/* Welcome Banner */}
-                <div className="relative rounded-3xl p-6 sm:p-8 bg-gradient-to-r from-purple-900/60 via-pink-900/40 to-indigo-900/60 border border-purple-500/30 shadow-2xl overflow-hidden">
-                  <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-4">
-                    <div>
-                      <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-amber-400/10 border border-amber-400/30 text-amber-300 text-xs font-bold mb-2">
-                        <Sparkles className="w-3.5 h-3.5" /> Welcome to India's #1 Live Tambola Platform
+              {/* 2. QUICK ACTIONS ROW */}
+              <div className="space-y-2.5">
+                <h3 className="text-xs sm:text-sm font-black text-white uppercase tracking-wider">Quick Actions</h3>
+                <div className="grid grid-cols-5 sm:grid-cols-10 gap-2">
+                  {/* 1. Add Money */}
+                  <button
+                    onClick={() => navigateToTab('deposit')}
+                    className="flex flex-col items-center justify-center p-2.5 rounded-2xl bg-gradient-to-b from-[#6366f1] to-[#4338ca] hover:scale-105 transition-all text-white shadow-lg cursor-pointer group"
+                  >
+                    <div className="w-7 h-7 rounded-full bg-white/20 flex items-center justify-center mb-1">
+                      <Plus className="w-4 h-4 text-white" />
+                    </div>
+                    <span className="text-[10px] font-bold text-center leading-tight">Add Money</span>
+                  </button>
+
+                  {/* 2. Buy Ticket */}
+                  <button
+                    onClick={() => navigateToTab('buyTicket')}
+                    className="flex flex-col items-center justify-center p-2.5 rounded-2xl bg-gradient-to-b from-[#10b981] to-[#047857] hover:scale-105 transition-all text-white shadow-lg cursor-pointer group"
+                  >
+                    <div className="w-7 h-7 rounded-full bg-white/20 flex items-center justify-center mb-1">
+                      <Ticket className="w-3.5 h-3.5 text-white" />
+                    </div>
+                    <span className="text-[10px] font-bold text-center leading-tight">Buy Ticket</span>
+                  </button>
+
+                  {/* 3. Live Game */}
+                  <button
+                    onClick={() => navigateToTab('liveGames')}
+                    className="relative flex flex-col items-center justify-center p-2.5 rounded-2xl bg-gradient-to-b from-[#ec4899] to-[#be185d] hover:scale-105 transition-all text-white shadow-lg cursor-pointer group"
+                  >
+                    <span className="absolute -top-1.5 px-1 py-0.1 rounded-full bg-red-600 text-[7px] font-black tracking-wider uppercase text-white shadow-md animate-pulse">
+                      LIVE
+                    </span>
+                    <div className="w-7 h-7 rounded-full bg-white/20 flex items-center justify-center mb-1">
+                      <Gamepad2 className="w-3.5 h-3.5 text-white" />
+                    </div>
+                    <span className="text-[10px] font-bold text-center leading-tight">Live Game</span>
+                  </button>
+
+                  {/* 4. Withdraw */}
+                  <button
+                    onClick={() => navigateToTab('withdraw')}
+                    className="flex flex-col items-center justify-center p-2.5 rounded-2xl bg-gradient-to-b from-[#f97316] to-[#c2410c] hover:scale-105 transition-all text-white shadow-lg cursor-pointer group"
+                  >
+                    <div className="w-7 h-7 rounded-full bg-white/20 flex items-center justify-center mb-1">
+                      <CreditCard className="w-3.5 h-3.5 text-white" />
+                    </div>
+                    <span className="text-[10px] font-bold text-center leading-tight">Withdraw</span>
+                  </button>
+
+                  {/* 5. Transfer */}
+                  <button
+                    onClick={() => navigateToTab('transfer')}
+                    className="flex flex-col items-center justify-center p-2.5 rounded-2xl bg-gradient-to-b from-[#0284c7] to-[#0369a1] hover:scale-105 transition-all text-white shadow-lg cursor-pointer group"
+                  >
+                    <div className="w-7 h-7 rounded-full bg-white/20 flex items-center justify-center mb-1">
+                      <ArrowLeftRight className="w-3.5 h-3.5 text-white" />
+                    </div>
+                    <span className="text-[10px] font-bold text-center leading-tight">Transfer</span>
+                  </button>
+
+                  {/* 6. My Team */}
+                  <button
+                    onClick={() => navigateToTab('referral')}
+                    className="flex flex-col items-center justify-center p-2.5 rounded-2xl bg-gradient-to-b from-[#06b6d4] to-[#0e7490] hover:scale-105 transition-all text-white shadow-lg cursor-pointer group"
+                  >
+                    <div className="w-7 h-7 rounded-full bg-white/20 flex items-center justify-center mb-1">
+                      <Users className="w-3.5 h-3.5 text-white" />
+                    </div>
+                    <span className="text-[10px] font-bold text-center leading-tight">My Team</span>
+                  </button>
+
+                  {/* 7. Referral */}
+                  <button
+                    onClick={() => navigateToTab('referral')}
+                    className="flex flex-col items-center justify-center p-2.5 rounded-2xl bg-gradient-to-b from-[#f43f5e] to-[#be123c] hover:scale-105 transition-all text-white shadow-lg cursor-pointer group"
+                  >
+                    <div className="w-7 h-7 rounded-full bg-white/20 flex items-center justify-center mb-1">
+                      <Share2 className="w-3.5 h-3.5 text-white" />
+                    </div>
+                    <span className="text-[10px] font-bold text-center leading-tight">Referral</span>
+                  </button>
+
+                  {/* 8. Income */}
+                  <button
+                    onClick={() => navigateToTab('commission')}
+                    className="flex flex-col items-center justify-center p-2.5 rounded-2xl bg-gradient-to-b from-[#eab308] to-[#a16207] hover:scale-105 transition-all text-white shadow-lg cursor-pointer group"
+                  >
+                    <div className="w-7 h-7 rounded-full bg-white/20 flex items-center justify-center mb-1">
+                      <TrendingUp className="w-3.5 h-3.5 text-white" />
+                    </div>
+                    <span className="text-[10px] font-bold text-center leading-tight">Income</span>
+                  </button>
+
+                  {/* 9. Free Tickets */}
+                  <button
+                    onClick={() => navigateToTab('freeTickets')}
+                    className="flex flex-col items-center justify-center p-2.5 rounded-2xl bg-gradient-to-b from-[#10b981] to-[#047857] hover:scale-105 transition-all text-white shadow-lg cursor-pointer group"
+                  >
+                    <div className="w-7 h-7 rounded-full bg-white/20 flex items-center justify-center mb-1">
+                      <Gift className="w-3.5 h-3.5 text-white" />
+                    </div>
+                    <span className="text-[10px] font-bold text-center leading-tight">Free Tickets</span>
+                  </button>
+
+                  {/* 10. History */}
+                  <button
+                    onClick={() => navigateToTab('transactions')}
+                    className="flex flex-col items-center justify-center p-2.5 rounded-2xl bg-gradient-to-b from-[#8b5cf6] to-[#6d28d9] hover:scale-105 transition-all text-white shadow-lg cursor-pointer group"
+                  >
+                    <div className="w-7 h-7 rounded-full bg-white/20 flex items-center justify-center mb-1">
+                      <History className="w-3.5 h-3.5 text-white" />
+                    </div>
+                    <span className="text-[10px] font-bold text-center leading-tight">History</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* 3. MIDDLE ROW: LIVE GAMES & MY TICKETS */}
+              <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
+                {/* Left: Live Games (lg:col-span-5) */}
+                <div className="lg:col-span-5 rounded-2xl p-4 sm:p-5 bg-[#0e112d] border border-indigo-500/30 flex flex-col justify-between shadow-xl">
+                  <div className="flex items-center justify-between mb-3">
+                    <h3 className="text-sm sm:text-base font-black text-white">Live Games</h3>
+                    <span className="px-2 py-0.5 rounded-full bg-red-600 text-white text-[9px] font-black uppercase tracking-wider animate-pulse">
+                      LIVE
+                    </span>
+                  </div>
+
+                  <div className="flex flex-col sm:flex-row items-center gap-4">
+                    {/* Tambola Ticket Visual */}
+                    <div className="w-full sm:w-44 shrink-0 rounded-2xl p-2.5 bg-gradient-to-br from-red-600 via-rose-700 to-amber-700 shadow-xl border border-red-400/40">
+                      <div className="flex items-center justify-center gap-1 text-[10px] font-black text-white tracking-wider mb-2">
+                        <span>APNA TAMBOLA</span>
+                        <span>👑</span>
                       </div>
-                      <h2 className="text-2xl sm:text-3xl font-black text-white">
-                        Namaste, <span className="text-transparent bg-clip-text bg-gradient-to-r from-amber-300 to-pink-400">{currentUser.name}</span>! 👋
-                      </h2>
-                      <p className="text-xs sm:text-sm text-slate-300 mt-1 max-w-xl">
-                        Play live games, win up to 70% cash prizes, book multi-tier tickets, and build continuous passive income across 8 referral levels!
-                      </p>
+                      {/* 3x5 Grid */}
+                      <div className="grid grid-cols-5 gap-1 text-center font-mono font-bold text-xs">
+                        {/* Row 1 */}
+                        <div className="h-6 bg-white text-slate-900 rounded flex items-center justify-center font-black">3</div>
+                        <div className="h-6 bg-white text-slate-900 rounded flex items-center justify-center font-black">17</div>
+                        <div className="h-6 bg-blue-600 text-white rounded flex items-center justify-center font-black">41</div>
+                        <div className="h-6 bg-white text-slate-900 rounded flex items-center justify-center font-black">55</div>
+                        <div className="h-6 bg-white text-slate-900 rounded flex items-center justify-center font-black">73</div>
+                        {/* Row 2 */}
+                        <div className="h-6 bg-white text-slate-900 rounded flex items-center justify-center font-black">8</div>
+                        <div className="h-6 bg-white text-slate-900 rounded flex items-center justify-center font-black">22</div>
+                        <div className="h-6 bg-red-600 text-white rounded flex items-center justify-center font-black">34</div>
+                        <div className="h-6 bg-white text-slate-900 rounded flex items-center justify-center font-black">45</div>
+                        <div className="h-6 bg-white text-slate-900 rounded flex items-center justify-center font-black">66</div>
+                        {/* Row 3 */}
+                        <div className="h-6 bg-white text-slate-900 rounded flex items-center justify-center font-black">12</div>
+                        <div className="h-6 bg-white text-slate-900 rounded flex items-center justify-center font-black">28</div>
+                        <div className="h-6 bg-white text-slate-900 rounded flex items-center justify-center font-black">36</div>
+                        <div className="h-6 bg-white text-slate-900 rounded flex items-center justify-center font-black">59</div>
+                        <div className="h-6 bg-white text-slate-900 rounded flex items-center justify-center font-black">78</div>
+                      </div>
                     </div>
 
-                    <div className="flex flex-wrap items-center gap-2.5">
-                      <button
-                        onClick={() => navigateToTab('buyTicket')}
-                        className="px-4 py-2.5 rounded-xl bg-gradient-to-r from-pink-500 to-purple-600 text-white text-xs font-black shadow-lg shadow-pink-500/30 hover:scale-105 transition-all cursor-pointer flex items-center gap-1.5"
-                      >
-                        <Ticket className="w-4 h-4" />
-                        <span>Buy Ticket</span>
-                      </button>
-                      <button
-                        onClick={() => navigateToTab('liveGames')}
-                        className="px-4 py-2.5 rounded-xl bg-gradient-to-r from-amber-400 to-yellow-500 text-slate-950 text-xs font-black shadow-lg shadow-amber-400/30 hover:scale-105 transition-all cursor-pointer flex items-center gap-1.5"
-                      >
-                        <Radio className="w-4 h-4 text-red-600 animate-pulse" />
-                        <span>Live Game Room</span>
-                      </button>
+                    {/* Game Details */}
+                    <div className="flex-1 space-y-1.5 text-xs w-full">
+                      <div className="flex justify-between sm:block">
+                        <span className="text-slate-400 text-[11px]">Game ID:</span>
+                        <p className="font-bold text-white text-xs sm:text-sm font-mono">{activeLiveGame?.id || 'GAME1001'}</p>
+                      </div>
+                      <div className="flex justify-between sm:block">
+                        <span className="text-slate-400 text-[11px]">Ticket Price:</span>
+                        <p className="font-bold text-white text-xs sm:text-sm font-mono">₹{activeLiveGame?.ticketPrice || 10}</p>
+                      </div>
+                      <div className="flex justify-between sm:block">
+                        <span className="text-slate-400 text-[11px]">Players:</span>
+                        <p className="font-bold text-slate-300 text-xs font-mono">{activeLiveGame?.ticketsSoldCount || 120}/500</p>
+                      </div>
+                      <div className="flex justify-between sm:block">
+                        <span className="text-slate-400 text-[11px]">Start Time:</span>
+                        <p className="font-bold text-white text-xs font-mono">08:00 PM</p>
+                      </div>
+                      <div>
+                        <div className="flex items-center gap-1 text-sm sm:text-base font-black text-white font-mono tracking-widest mt-1">
+                          <span className="px-1.5 py-0.5 rounded bg-black/50">02</span>
+                          <span>:</span>
+                          <span className="px-1.5 py-0.5 rounded bg-black/50">15</span>
+                        </div>
+                        <div className="flex items-center gap-3 text-[8px] text-slate-400 font-bold uppercase tracking-wider">
+                          <span>MIN</span>
+                          <span className="ml-1">SEC</span>
+                        </div>
+                      </div>
                     </div>
                   </div>
+
+                  {/* Join Now Button */}
+                  <button
+                    onClick={() => navigateToTab('liveGames')}
+                    className="w-full mt-3.5 py-2.5 rounded-full bg-gradient-to-r from-[#ec4899] to-[#be185d] hover:brightness-110 text-white font-black text-xs sm:text-sm shadow-lg shadow-pink-500/30 transition-all cursor-pointer text-center"
+                  >
+                    Join Now
+                  </button>
                 </div>
 
-                {/* 3 SUMMARY WALLET CARDS */}
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                  {/* 💰 MAIN WALLET */}
-                  <div className="p-5 rounded-2xl bg-gradient-to-br from-emerald-950/70 via-[#0f142e] to-[#0a0d24] border-2 border-emerald-500/40 shadow-xl relative overflow-hidden">
-                    <div className="flex items-center justify-between text-emerald-400 text-xs font-black">
-                      <span className="flex items-center gap-1.5">💰 MAIN WALLET</span>
-                      <Wallet className="w-4 h-4" />
-                    </div>
-                    <p className="text-3xl font-black text-white font-mono mt-3">
-                      ₹{(currentUser.depositWallet ?? currentUser.walletBalance).toLocaleString('en-IN')}
-                    </p>
-                    <p className="text-[11px] text-slate-400 mt-1">Available transferable balance</p>
-                    <div className="mt-4 pt-3 border-t border-white/10 flex items-center gap-2">
-                      <button
-                        onClick={() => navigateToTab('deposit')}
-                        className="flex-1 py-2 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 text-xs font-black transition-all cursor-pointer"
-                      >
-                        ADD MONEY
-                      </button>
-                      <button
-                        onClick={() => navigateToTab('transfer')}
-                        className="px-3 py-2 rounded-xl bg-white/10 hover:bg-white/20 text-white text-xs font-bold transition-all cursor-pointer"
-                      >
-                        TRANSFER
-                      </button>
-                      <button
-                        onClick={() => navigateToTab('transactions')}
-                        className="p-2 rounded-xl bg-white/10 hover:bg-white/20 text-slate-300 hover:text-white"
-                        title="History"
-                      >
-                        <History className="w-4 h-4" />
-                      </button>
-                    </div>
+                {/* Right: My Tickets Carousel (lg:col-span-7) */}
+                <div className="lg:col-span-7 rounded-2xl p-4 sm:p-5 bg-[#0e112d] border border-indigo-500/30 flex flex-col justify-between shadow-xl">
+                  <div className="flex items-center justify-between mb-3">
+                    <h3 className="text-sm sm:text-base font-black text-white">My Tickets</h3>
+                    <button
+                      onClick={() => navigateToTab('myTickets')}
+                      className="text-xs font-bold text-slate-300 hover:text-white transition-colors cursor-pointer"
+                    >
+                      View All
+                    </button>
                   </div>
 
-                  {/* 🎟️ TICKET WALLET */}
-                  <div className="p-5 rounded-2xl bg-gradient-to-br from-pink-950/70 via-[#0f142e] to-[#0a0d24] border-2 border-pink-500/40 shadow-xl relative overflow-hidden">
-                    <div className="flex items-center justify-between text-pink-400 text-xs font-black">
-                      <span className="flex items-center gap-1.5">🎟️ TICKET WALLET</span>
-                      <Ticket className="w-4 h-4" />
-                    </div>
-                    <p className="text-3xl font-black text-white font-mono mt-3">
-                      ₹{(currentUser.ticketWallet ?? 0).toLocaleString('en-IN')}
-                    </p>
-                    <p className="text-[10px] text-amber-300 font-bold uppercase tracking-wider mt-1">
-                      ⚠️ TICKET WALLET IS ONLY FOR TICKET PURCHASES
-                    </p>
-                    <div className="mt-4 pt-3 border-t border-white/10 flex items-center gap-2">
-                      <button
-                        onClick={() => navigateToTab('buyTicket')}
-                        className="w-full py-2 rounded-xl bg-gradient-to-r from-pink-500 to-purple-600 hover:opacity-95 text-white text-xs font-black transition-all cursor-pointer"
-                      >
-                        BUY TICKET
-                      </button>
-                    </div>
-                  </div>
+                  {/* Carousel Row with Prev/Next Buttons */}
+                  <div className="relative flex items-center gap-2">
+                    <button
+                      onClick={() => setTicketCarouselIdx((prev) => Math.max(0, prev - 1))}
+                      disabled={ticketCarouselIdx === 0}
+                      className="p-1.5 rounded-full bg-black/40 border border-white/10 text-slate-300 hover:text-white disabled:opacity-30 cursor-pointer shrink-0"
+                    >
+                      <ChevronLeft className="w-4 h-4" />
+                    </button>
 
-                  {/* 🏆 WINNING WALLET */}
-                  <div className="p-5 rounded-2xl bg-gradient-to-br from-amber-950/70 via-[#0f142e] to-[#0a0d24] border-2 border-amber-500/40 shadow-xl relative overflow-hidden">
-                    <div className="flex items-center justify-between text-amber-400 text-xs font-black">
-                      <span className="flex items-center gap-1.5">🏆 WINNING WALLET</span>
-                      <Trophy className="w-4 h-4" />
-                    </div>
-                    <p className="text-3xl font-black text-amber-400 font-mono mt-3">
-                      ₹{(currentUser.winningWallet ?? currentUser.gameWinnings).toLocaleString('en-IN')}
-                    </p>
-                    <p className="text-[11px] text-slate-400 mt-1">Available Winning Balance</p>
-                    <div className="mt-4 pt-3 border-t border-white/10 flex items-center gap-2">
-                      <button
-                        onClick={() => navigateToTab('withdraw')}
-                        className="flex-1 py-2 rounded-xl bg-amber-400 hover:bg-amber-300 text-slate-950 text-xs font-black transition-all cursor-pointer"
-                      >
-                        WITHDRAW
-                      </button>
-                      <button
-                        onClick={() => navigateToTab('transactions')}
-                        className="px-3 py-2 rounded-xl bg-white/10 hover:bg-white/20 text-white text-xs font-bold transition-all cursor-pointer"
-                      >
-                        HISTORY
-                      </button>
-                    </div>
-                  </div>
-                </div>
-
-                {/* 🎟️ MY TICKETS & 🎮 LIVE GAMES ROW */}
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
-                  {/* Ticket Summary Card */}
-                  <div className="p-6 rounded-3xl bg-[#0e112d] border border-indigo-500/30 space-y-4">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <Ticket className="w-5 h-5 text-purple-400" />
-                        <h3 className="text-base font-black text-white">🎟️ MY TICKETS OVERVIEW</h3>
-                      </div>
-                      <button
-                        onClick={() => navigateToTab('myTickets')}
-                        className="text-xs font-bold text-pink-400 hover:underline flex items-center gap-1"
-                      >
-                        VIEW ALL TICKETS <ChevronRight className="w-4 h-4" />
-                      </button>
-                    </div>
-
-                    <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 text-center">
-                      <div className="p-3 rounded-2xl bg-black/40 border border-white/5">
-                        <p className="text-lg font-black text-white font-mono">{myTickets.length}</p>
-                        <p className="text-[10px] text-slate-400">Total</p>
-                      </div>
-                      <div className="p-3 rounded-2xl bg-black/40 border border-white/5">
-                        <p className="text-lg font-black text-emerald-400 font-mono">
-                          {myTickets.filter((t) => (t.status || 'active') === 'active').length}
-                        </p>
-                        <p className="text-[10px] text-slate-400">Active</p>
-                      </div>
-                      <div className="p-3 rounded-2xl bg-black/40 border border-white/5">
-                        <p className="text-lg font-black text-slate-300 font-mono">
-                          {myTickets.filter((t) => t.status === 'completed').length}
-                        </p>
-                        <p className="text-[10px] text-slate-400">Completed</p>
-                      </div>
-                      <div className="p-3 rounded-2xl bg-black/40 border border-white/5">
-                        <p className="text-lg font-black text-amber-400 font-mono">
-                          {myTickets.filter((t) => t.status === 'won').length}
-                        </p>
-                        <p className="text-[10px] text-slate-400">Winning</p>
-                      </div>
-                      <div className="p-3 rounded-2xl bg-black/40 border border-purple-500/30 bg-purple-500/10">
-                        <p className="text-lg font-black text-pink-400 font-mono">{currentUser.freeTicketsAvailable}</p>
-                        <p className="text-[10px] text-pink-300 font-bold">FREE</p>
-                      </div>
-                    </div>
-
-                    {/* Quick Ticket List */}
-                    <div className="space-y-2 pt-2">
-                      {myTickets.slice(0, 2).map((t) => (
+                    {/* Tickets List */}
+                    <div className="flex-1 flex gap-2 overflow-x-auto custom-scrollbar py-1">
+                      {carouselTickets.map((ticket, idx) => (
                         <div
-                          key={t.id}
-                          className="flex items-center justify-between p-3 rounded-2xl bg-black/30 border border-white/5"
+                          key={ticket.id || idx}
+                          className={`min-w-[125px] sm:min-w-[135px] flex-1 rounded-2xl p-2.5 sm:p-3 bg-gradient-to-b ${ticket.colorGradient} border border-white/20 shadow-lg text-white`}
                         >
-                          <div className="flex items-center gap-3">
-                            <span className="w-8 h-8 rounded-xl bg-pink-500/20 text-pink-400 font-mono font-black text-xs flex items-center justify-center">
-                              #{t.ticketNumber}
-                            </span>
-                            <div>
-                              <p className="text-xs font-bold text-white">Game #{t.gameId}</p>
-                              <p className="text-[10px] text-slate-400">Price: ₹{t.ticketPrice}</p>
-                            </div>
+                          <div className="text-[9px] text-white/80">Ticket ID</div>
+                          <div className="text-[11px] font-bold font-mono tracking-tight text-white">{ticket.ticketId}</div>
+
+                          {/* 3x5 Grid */}
+                          <div className="grid grid-cols-5 gap-0.5 my-2 text-center text-[8px] font-mono font-bold">
+                            {ticket.numbers.map((num, nIdx) => (
+                              <div
+                                key={nIdx}
+                                className={`h-3.5 rounded-[2px] flex items-center justify-center ${
+                                  num.marked ? `${ticket.markedBg} text-white font-black` : 'bg-white text-slate-900'
+                                }`}
+                              >
+                                {num.value}
+                              </div>
+                            ))}
                           </div>
-                          <button
-                            onClick={() => navigateToTab('myTickets')}
-                            className="px-3 py-1 rounded-xl bg-white/10 hover:bg-white/20 text-xs font-bold text-slate-200"
-                          >
-                            View Ticket
-                          </button>
+
+                          <div className="text-[9px] text-white/80">Game ID</div>
+                          <div className="text-[10px] font-bold font-mono text-white">{ticket.gameId}</div>
+                          <div className="text-xs font-black font-mono mt-1 text-white">₹{ticket.price}</div>
                         </div>
                       ))}
                     </div>
+
+                    <button
+                      onClick={() => setTicketCarouselIdx((prev) => Math.min(2, prev + 1))}
+                      className="p-1.5 rounded-full bg-black/40 border border-white/10 text-slate-300 hover:text-white cursor-pointer shrink-0"
+                    >
+                      <ChevronRight className="w-4 h-4" />
+                    </button>
                   </div>
 
-                  {/* Live Game Card */}
-                  <div className="p-6 rounded-3xl bg-[#0e112d] border border-red-500/30 space-y-4">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <Radio className="w-5 h-5 text-red-500 animate-pulse" />
-                        <h3 className="text-base font-black text-white">🎮 LIVE GAMES</h3>
+                  {/* Carousel Pagination Dots */}
+                  <div className="flex justify-center items-center gap-1.5 mt-3">
+                    <span className="w-1.5 h-1.5 rounded-full bg-white"></span>
+                    <span className="w-1.5 h-1.5 rounded-full bg-white/30"></span>
+                    <span className="w-1.5 h-1.5 rounded-full bg-white/30"></span>
+                    <span className="w-1.5 h-1.5 rounded-full bg-white/30"></span>
+                    <span className="w-1.5 h-1.5 rounded-full bg-white/30"></span>
+                  </div>
+                </div>
+              </div>
+
+              {/* 4. BOTTOM ROW: 3 COLUMNS */}
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+                {/* Column 1: My Team */}
+                <div className="rounded-2xl p-4 sm:p-5 bg-[#0e112d] border border-indigo-500/30 flex flex-col justify-between shadow-xl">
+                  <div className="flex items-center justify-between mb-3">
+                    <h3 className="text-xs sm:text-sm font-black text-white">
+                      My Team <span className="text-xs text-slate-400 font-normal">(Total Members)</span>
+                    </h3>
+                    <button
+                      onClick={() => navigateToTab('referral')}
+                      className="text-xs font-bold text-slate-300 hover:text-white cursor-pointer"
+                    >
+                      View All
+                    </button>
+                  </div>
+
+                  {/* 8 Level Cards in 2x4 Grid */}
+                  <div className="grid grid-cols-2 gap-2">
+                    {/* Level 1 */}
+                    <div className="flex items-center gap-2 p-2 rounded-xl bg-black/30 border border-white/5">
+                      <div className="w-7 h-7 rounded-full bg-amber-400/20 text-amber-400 flex items-center justify-center shrink-0">
+                        <User className="w-3.5 h-3.5" />
                       </div>
-                      <span className="px-2.5 py-0.5 rounded-full bg-red-500/20 text-red-400 border border-red-500/40 text-[10px] font-black uppercase animate-pulse">
-                        ● LIVE NOW
-                      </span>
+                      <div>
+                        <p className="text-[9px] text-slate-400">Level 1</p>
+                        <p className="text-xs font-black text-white font-mono">25 <span className="text-[9px] text-slate-400 font-normal">Members</span></p>
+                      </div>
                     </div>
 
-                    <div className="p-4 rounded-2xl bg-gradient-to-r from-red-950/40 via-purple-950/40 to-black/60 border border-red-500/30 space-y-3">
-                      <div className="flex justify-between items-center">
-                        <span className="text-xs text-slate-400">Game ID:</span>
-                        <span className="font-mono text-xs font-bold text-amber-300">#{activeLiveGame.id}</span>
+                    {/* Level 2 */}
+                    <div className="flex items-center gap-2 p-2 rounded-xl bg-black/30 border border-white/5">
+                      <div className="w-7 h-7 rounded-full bg-cyan-400/20 text-cyan-400 flex items-center justify-center shrink-0">
+                        <User className="w-3.5 h-3.5" />
                       </div>
-                      <div className="flex justify-between items-center">
-                        <span className="text-xs text-slate-400">Game Name:</span>
-                        <span className="text-sm font-bold text-white">{activeLiveGame.title}</span>
+                      <div>
+                        <p className="text-[9px] text-slate-400">Level 2</p>
+                        <p className="text-xs font-black text-white font-mono">64 <span className="text-[9px] text-slate-400 font-normal">Members</span></p>
                       </div>
-                      <div className="grid grid-cols-3 gap-2 pt-2 border-t border-white/10 text-center">
-                        <div>
-                          <p className="text-xs text-slate-400">Ticket Price</p>
-                          <p className="text-sm font-bold text-emerald-400 font-mono">₹{activeLiveGame.ticketPrice}</p>
-                        </div>
-                        <div>
-                          <p className="text-xs text-slate-400">Tickets Sold</p>
-                          <p className="text-sm font-bold text-pink-400 font-mono">{activeLiveGame.ticketsSoldCount}</p>
-                        </div>
-                        <div>
-                          <p className="text-xs text-slate-400">Prize Pool</p>
-                          <p className="text-sm font-bold text-amber-400 font-mono">₹{activeLiveGame.prizePool}</p>
-                        </div>
-                      </div>
+                    </div>
 
-                      <button
-                        onClick={() => navigateToTab('liveGames')}
-                        className="w-full mt-2 py-2.5 rounded-xl bg-gradient-to-r from-red-500 via-pink-600 to-purple-600 text-white font-black text-xs shadow-lg shadow-red-500/30 hover:brightness-110 cursor-pointer flex items-center justify-center gap-1.5"
-                      >
-                        <Play className="w-4 h-4 fill-current" />
-                        <span>VIEW LIVE GAME</span>
-                      </button>
+                    {/* Level 3 */}
+                    <div className="flex items-center gap-2 p-2 rounded-xl bg-black/30 border border-white/5">
+                      <div className="w-7 h-7 rounded-full bg-blue-400/20 text-blue-400 flex items-center justify-center shrink-0">
+                        <User className="w-3.5 h-3.5" />
+                      </div>
+                      <div>
+                        <p className="text-[9px] text-slate-400">Level 3</p>
+                        <p className="text-xs font-black text-white font-mono">120 <span className="text-[9px] text-slate-400 font-normal">Members</span></p>
+                      </div>
+                    </div>
+
+                    {/* Level 4 */}
+                    <div className="flex items-center gap-2 p-2 rounded-xl bg-black/30 border border-white/5">
+                      <div className="w-7 h-7 rounded-full bg-pink-400/20 text-pink-400 flex items-center justify-center shrink-0">
+                        <User className="w-3.5 h-3.5" />
+                      </div>
+                      <div>
+                        <p className="text-[9px] text-slate-400">Level 4</p>
+                        <p className="text-xs font-black text-white font-mono">180 <span className="text-[9px] text-slate-400 font-normal">Members</span></p>
+                      </div>
+                    </div>
+
+                    {/* Level 5 */}
+                    <div className="flex items-center gap-2 p-2 rounded-xl bg-black/30 border border-white/5">
+                      <div className="w-7 h-7 rounded-full bg-orange-400/20 text-orange-400 flex items-center justify-center shrink-0">
+                        <User className="w-3.5 h-3.5" />
+                      </div>
+                      <div>
+                        <p className="text-[9px] text-slate-400">Level 5</p>
+                        <p className="text-xs font-black text-white font-mono">250 <span className="text-[9px] text-slate-400 font-normal">Members</span></p>
+                      </div>
+                    </div>
+
+                    {/* Level 6 */}
+                    <div className="flex items-center gap-2 p-2 rounded-xl bg-black/30 border border-white/5">
+                      <div className="w-7 h-7 rounded-full bg-emerald-400/20 text-emerald-400 flex items-center justify-center shrink-0">
+                        <User className="w-3.5 h-3.5" />
+                      </div>
+                      <div>
+                        <p className="text-[9px] text-slate-400">Level 6</p>
+                        <p className="text-xs font-black text-white font-mono">320 <span className="text-[9px] text-slate-400 font-normal">Members</span></p>
+                      </div>
+                    </div>
+
+                    {/* Level 7 */}
+                    <div className="flex items-center gap-2 p-2 rounded-xl bg-black/30 border border-white/5">
+                      <div className="w-7 h-7 rounded-full bg-sky-400/20 text-sky-400 flex items-center justify-center shrink-0">
+                        <User className="w-3.5 h-3.5" />
+                      </div>
+                      <div>
+                        <p className="text-[9px] text-slate-400">Level 7</p>
+                        <p className="text-xs font-black text-white font-mono">400 <span className="text-[9px] text-slate-400 font-normal">Members</span></p>
+                      </div>
+                    </div>
+
+                    {/* Level 8 */}
+                    <div className="flex items-center gap-2 p-2 rounded-xl bg-black/30 border border-white/5">
+                      <div className="w-7 h-7 rounded-full bg-rose-400/20 text-rose-400 flex items-center justify-center shrink-0">
+                        <User className="w-3.5 h-3.5" />
+                      </div>
+                      <div>
+                        <p className="text-[9px] text-slate-400">Level 8</p>
+                        <p className="text-xs font-black text-white font-mono">520 <span className="text-[9px] text-slate-400 font-normal">Members</span></p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Column 2: My Referral Link */}
+                <div className="rounded-2xl p-4 sm:p-5 bg-[#0e112d] border border-indigo-500/30 flex flex-col justify-between shadow-xl space-y-3">
+                  <h3 className="text-xs sm:text-sm font-black text-white">My Referral Link</h3>
+
+                  {/* URL Box */}
+                  <div className="p-2.5 rounded-xl bg-black/40 border border-white/10 text-[11px] font-mono text-slate-300 truncate select-all">
+                    {`https://apnatambola.com/register?ref=${currentUser.referralCode || 'AT102458'}`}
+                  </div>
+
+                  {/* Action Buttons: Copy, Share, WhatsApp */}
+                  <div className="grid grid-cols-3 gap-2">
+                    <button
+                      onClick={handleCopyRef}
+                      className="py-2 px-2 rounded-xl bg-[#2563eb] hover:bg-[#1d4ed8] text-white text-[11px] font-bold flex items-center justify-center gap-1 shadow-md cursor-pointer"
+                    >
+                      <Copy className="w-3 h-3" />
+                      <span>{copiedLink ? 'Copied!' : 'Copy'}</span>
+                    </button>
+
+                    <button
+                      onClick={() => {
+                        if (navigator.share) {
+                          navigator.share({
+                            title: 'APNA TAMBOLA',
+                            text: `Join APNA TAMBOLA with my referral code ${currentUser.referralCode || 'AT102458'}!`,
+                            url: `https://apnatambola.com/register?ref=${currentUser.referralCode || 'AT102458'}`,
+                          });
+                        } else {
+                          handleCopyRef();
+                        }
+                      }}
+                      className="py-2 px-2 rounded-xl bg-[#7c3aed] hover:bg-[#6d28d9] text-white text-[11px] font-bold flex items-center justify-center gap-1 shadow-md cursor-pointer"
+                    >
+                      <Share2 className="w-3 h-3" />
+                      <span>Share</span>
+                    </button>
+
+                    <button
+                      onClick={() => {
+                        const url = `https://api.whatsapp.com/send?text=${encodeURIComponent(
+                          `🎱 Join APNA TAMBOLA now! Play live games & win real prizes! Click here: https://apnatambola.com/register?ref=${currentUser.referralCode || 'AT102458'}`
+                        )}`;
+                        window.open(url, '_blank');
+                      }}
+                      className="py-2 px-2 rounded-xl bg-[#16a34a] hover:bg-[#15803d] text-white text-[11px] font-bold flex items-center justify-center gap-1 shadow-md cursor-pointer"
+                    >
+                      <MessageSquare className="w-3 h-3" />
+                      <span>WhatsApp</span>
+                    </button>
+                  </div>
+
+                  {/* Stats: Direct, Total, Active */}
+                  <div className="grid grid-cols-3 gap-2 pt-2 border-t border-white/10 text-center">
+                    <div>
+                      <p className="text-[9px] text-slate-400">Direct Members</p>
+                      <p className="text-sm font-black text-white font-mono mt-0.5">25</p>
+                    </div>
+                    <div>
+                      <p className="text-[9px] text-slate-400">Total Team</p>
+                      <p className="text-sm font-black text-white font-mono mt-0.5">1,881</p>
+                    </div>
+                    <div>
+                      <p className="text-[9px] text-slate-400">Active Members</p>
+                      <p className="text-sm font-black text-white font-mono mt-0.5">1,245</p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Column 3: Recent Transactions */}
+                <div className="rounded-2xl p-4 sm:p-5 bg-[#0e112d] border border-indigo-500/30 flex flex-col justify-between shadow-xl">
+                  <div className="flex items-center justify-between mb-3">
+                    <h3 className="text-xs sm:text-sm font-black text-white">Recent Transactions</h3>
+                    <button
+                      onClick={() => navigateToTab('transactions')}
+                      className="text-xs font-bold text-slate-300 hover:text-white cursor-pointer"
+                    >
+                      View All
+                    </button>
+                  </div>
+
+                  <div className="space-y-2">
+                    {/* TX 1 */}
+                    <div className="flex items-center justify-between p-2 rounded-xl bg-black/30 border border-white/5">
+                      <div className="flex items-center gap-2">
+                        <div className="w-6 h-6 rounded-full bg-red-500/20 text-red-400 flex items-center justify-center shrink-0">
+                          <ArrowUpRight className="w-3.5 h-3.5" />
+                        </div>
+                        <div className="truncate">
+                          <p className="text-[11px] font-bold text-white truncate">Ticket Purchase - GAME1001</p>
+                          <p className="text-[9px] text-slate-400">Today, 07:30 PM</p>
+                        </div>
+                      </div>
+                      <span className="text-[11px] font-black font-mono text-red-400 shrink-0">-₹10.00</span>
+                    </div>
+
+                    {/* TX 2 */}
+                    <div className="flex items-center justify-between p-2 rounded-xl bg-black/30 border border-white/5">
+                      <div className="flex items-center gap-2">
+                        <div className="w-6 h-6 rounded-full bg-emerald-500/20 text-emerald-400 flex items-center justify-center shrink-0">
+                          <ArrowDownLeft className="w-3.5 h-3.5" />
+                        </div>
+                        <div className="truncate">
+                          <p className="text-[11px] font-bold text-white truncate">
+                            Add Money - <span className="text-emerald-400">Approved</span>
+                          </p>
+                          <p className="text-[9px] text-slate-400">Today, 06:20 PM</p>
+                        </div>
+                      </div>
+                      <span className="text-[11px] font-black font-mono text-emerald-400 shrink-0">+₹500.00</span>
+                    </div>
+
+                    {/* TX 3 */}
+                    <div className="flex items-center justify-between p-2 rounded-xl bg-black/30 border border-white/5">
+                      <div className="flex items-center gap-2">
+                        <div className="w-6 h-6 rounded-full bg-orange-500/20 text-orange-400 flex items-center justify-center shrink-0">
+                          <ArrowRight className="w-3.5 h-3.5" />
+                        </div>
+                        <div className="truncate">
+                          <p className="text-[11px] font-bold text-white truncate">Withdrawal Request</p>
+                          <p className="text-[9px] text-slate-400">Today, 05:10 PM</p>
+                        </div>
+                      </div>
+                      <span className="text-[11px] font-black font-mono text-orange-400 shrink-0">-₹1,000.00</span>
+                    </div>
+
+                    {/* TX 4 */}
+                    <div className="flex items-center justify-between p-2 rounded-xl bg-black/30 border border-white/5">
+                      <div className="flex items-center gap-2">
+                        <div className="w-6 h-6 rounded-full bg-cyan-500/20 text-cyan-400 flex items-center justify-center shrink-0">
+                          <Share2 className="w-3.5 h-3.5" />
+                        </div>
+                        <div className="truncate">
+                          <p className="text-[11px] font-bold text-white truncate">Referral Income - Level 1</p>
+                          <p className="text-[9px] text-slate-400">Today, 04:30 PM</p>
+                        </div>
+                      </div>
+                      <span className="text-[11px] font-black font-mono text-cyan-400 shrink-0">+₹25.00</span>
+                    </div>
+
+                    {/* TX 5 */}
+                    <div className="flex items-center justify-between p-2 rounded-xl bg-black/30 border border-white/5">
+                      <div className="flex items-center gap-2">
+                        <div className="w-6 h-6 rounded-full bg-red-500/20 text-red-400 flex items-center justify-center shrink-0">
+                          <ArrowUpRight className="w-3.5 h-3.5" />
+                        </div>
+                        <div className="truncate">
+                          <p className="text-[11px] font-bold text-white truncate">Ticket Purchase - GAME1002</p>
+                          <p className="text-[9px] text-slate-400">Today, 03:15 PM</p>
+                        </div>
+                      </div>
+                      <span className="text-[11px] font-black font-mono text-red-400 shrink-0">-₹20.00</span>
                     </div>
                   </div>
                 </div>
               </div>
-            )}
+            </div>
+          )}
 
             {/* ================================================================= */}
             {/* TAB 2: 👤 MY PROFILE */}
