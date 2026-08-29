@@ -32,6 +32,8 @@ import { UserDashboardPage } from './components/dashboard/UserDashboardPage';
 import { AdminDashboardPage } from './components/admin/AdminDashboardPage';
 import { getAdminSession, getUserSession, clearUserSession, clearAdminSession } from './services/authService';
 
+import { LoadingScreen } from './components/LoadingScreen';
+
 import {
   Sparkles,
   Ticket,
@@ -44,7 +46,7 @@ import {
 } from 'lucide-react';
 
 const MainAppContent: React.FC = () => {
-  const { settings, setActiveModal, setSelectedGameForPurchase, upcomingGames, openUserDashboard } = useTambola();
+  const { settings, setActiveModal, setSelectedGameForPurchase, upcomingGames, openUserDashboard, authState, currentUser } = useTambola();
 
   // URL Path State
   const [currentPath, setCurrentPath] = useState<string>(() => {
@@ -121,7 +123,7 @@ const MainAppContent: React.FC = () => {
     if (adminSession && (adminSession.admin.role === 'admin' || adminSession.admin.role === 'superadmin')) {
       return <AdminDashboardPage onNavigate={navigate} />;
     }
-    // Normal users / unauthenticated trying to access /admin/* get 403 Forbidden
+    // Normal users / unauthenticated trying to access /admin/* get redirected or access denied
     return <AccessDeniedPage onNavigate={navigate} onLogout={clearAdminSession} />;
   }
 
@@ -138,6 +140,13 @@ const MainAppContent: React.FC = () => {
     normalizedPath === '/passbook' ||
     normalizedPath === '/profile'
   ) {
+    if (authState === 'loading') {
+      return <LoadingScreen message="Loading your dashboard..." subMessage="Syncing your wallet balances, live game status, and tickets..." />;
+    }
+    const session = getUserSession();
+    if (!session && !currentUser) {
+      return <UserLoginPage onNavigate={navigate} />;
+    }
     return <UserDashboardPage onNavigate={navigate} />;
   }
 
