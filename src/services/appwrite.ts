@@ -1,0 +1,134 @@
+import { Client, Account, Databases, ID, OAuthProvider } from 'appwrite';
+
+// Configurable Appwrite Endpoint & Project ID
+export const APPWRITE_ENDPOINT: string =
+  (import.meta as any).env?.VITE_APPWRITE_ENDPOINT || 'https://fra.cloud.appwrite.io/v1';
+
+export const APPWRITE_PROJECT_ID: string =
+  (import.meta as any).env?.VITE_APPWRITE_PROJECT_ID || 'fra-6a9237fe0029724b3e69';
+
+// Initialize the Appwrite Client
+export const appwriteClient = new Client()
+  .setEndpoint(APPWRITE_ENDPOINT)
+  .setProject(APPWRITE_PROJECT_ID);
+
+// Initialize Appwrite Services
+export const appwriteAccount = new Account(appwriteClient);
+export const appwriteDatabases = new Databases(appwriteClient);
+
+export interface AppwriteAuthResult {
+  success: boolean;
+  user?: any;
+  session?: any;
+  error?: string;
+}
+
+/**
+ * Register a new user in Appwrite
+ */
+export async function appwriteRegister(
+  email: string,
+  password: string,
+  name: string
+): Promise<AppwriteAuthResult> {
+  try {
+    const userId = ID.unique();
+    const user = await appwriteAccount.create(userId, email, password, name);
+    // Automatically log in after registration
+    const session = await appwriteAccount.createEmailPasswordSession(email, password);
+    return { success: true, user, session };
+  } catch (error: any) {
+    return {
+      success: false,
+      error: error.message || 'Failed to register with Appwrite Authentication',
+    };
+  }
+}
+
+/**
+ * Login existing user with Email & Password
+ */
+export async function appwriteLogin(
+  email: string,
+  password: string
+): Promise<AppwriteAuthResult> {
+  try {
+    const session = await appwriteAccount.createEmailPasswordSession(email, password);
+    const user = await appwriteAccount.get();
+    return { success: true, user, session };
+  } catch (error: any) {
+    return {
+      success: false,
+      error: error.message || 'Invalid credentials or Appwrite Auth error',
+    };
+  }
+}
+
+/**
+ * Anonymous guest session
+ */
+export async function appwriteAnonymousLogin(): Promise<AppwriteAuthResult> {
+  try {
+    const session = await appwriteAccount.createAnonymousSession();
+    const user = await appwriteAccount.get();
+    return { success: true, user, session };
+  } catch (error: any) {
+    return {
+      success: false,
+      error: error.message || 'Failed to start anonymous Appwrite session',
+    };
+  }
+}
+
+/**
+ * Get current Appwrite session / user
+ */
+export async function appwriteGetCurrentUser(): Promise<any | null> {
+  try {
+    return await appwriteAccount.get();
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Logout current session
+ */
+export async function appwriteLogout(): Promise<boolean> {
+  try {
+    await appwriteAccount.deleteSession('current');
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * OAuth Login (Google, GitHub, etc.)
+ */
+export function appwriteLoginOAuth(provider: 'google' | 'github' = 'google') {
+  const targetProvider = provider === 'google' ? OAuthProvider.Google : OAuthProvider.Github;
+  const redirectSuccess = `${window.location.origin}/?auth=appwrite_success`;
+  const redirectFailure = `${window.location.origin}/?auth=appwrite_failed`;
+  
+  return appwriteAccount.createOAuth2Session(targetProvider, redirectSuccess, redirectFailure);
+}
+
+/**
+ * Ping Appwrite to verify connectivity
+ */
+export async function checkAppwriteHealth(): Promise<{ connected: boolean; message: string }> {
+  try {
+    await appwriteAccount.get();
+    return { connected: true, message: 'Appwrite connected & active session detected' };
+  } catch (err: any) {
+    if (err?.code === 401) {
+      // 401 means server reachable, project ID is valid, but no user is currently logged in
+      return { connected: true, message: 'Appwrite Project connected & ready for Authentication' };
+    }
+    return {
+      connected: false,
+      message: err?.message || 'Unable to connect to Appwrite endpoint',
+    };
+  }
+}

@@ -1,0 +1,6 @@
+{
+  "name": "APNA TAMBOLA",
+  "description": "Play More • Win More • Smile More - India's premier online Tambola and Housie platform featuring multi-tier ticket prices (₹5-₹100), 70% prize pool validator, 8-level referral gameplay commission, 5 free ticket winners engine, UPI/bank deposits & withdrawals, live caller with speech, full user dashboard, and admin control suite.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

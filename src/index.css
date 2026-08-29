@@ -1,0 +1,123 @@
+@import "tailwindcss";
+
+@layer utilities {
+  .glass-card {
+    background: rgba(25, 20, 55, 0.65);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+  }
+
+  .glass-card-hover {
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+  .glass-card-hover:hover {
+    background: rgba(35, 28, 75, 0.8);
+    border-color: rgba(236, 72, 153, 0.35);
+    box-shadow: 0 10px 30px -10px rgba(236, 72, 153, 0.3);
+    transform: translateY(-2px);
+  }
+
+  .glass-glow-gold {
+    box-shadow: 0 0 25px -5px rgba(234, 179, 8, 0.35);
+  }
+
+  .glass-glow-purple {
+    box-shadow: 0 0 30px -5px rgba(168, 85, 247, 0.4);
+  }
+
+  .glass-glow-pink {
+    box-shadow: 0 0 30px -5px rgba(236, 72, 153, 0.4);
+  }
+
+  .glass-glow-blue {
+    box-shadow: 0 0 30px -5px rgba(59, 130, 246, 0.4);
+  }
+
+  .text-glow-gold {
+    text-shadow: 0 0 15px rgba(250, 204, 21, 0.6);
+  }
+
+  .text-glow-pink {
+    text-shadow: 0 0 15px rgba(244, 114, 182, 0.6);
+  }
+}
+
+@keyframes float-slow {
+  0%, 100% {
+    transform: translateY(0px) rotate(0deg);
+  }
+  50% {
+    transform: translateY(-14px) rotate(6deg);
+  }
+}
+
+@keyframes float-reverse {
+  0%, 100% {
+    transform: translateY(0px) rotate(0deg);
+  }
+  50% {
+    transform: translateY(14px) rotate(-6deg);
+  }
+}
+
+@keyframes pulse-ring {
+  0% {
+    transform: scale(0.95);
+    box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7);
+  }
+  70% {
+    transform: scale(1);
+    box-shadow: 0 0 0 10px rgba(239, 68, 68, 0);
+  }
+  100% {
+    transform: scale(0.95);
+    box-shadow: 0 0 0 0 rgba(239, 68, 68, 0);
+  }
+}
+
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+.animate-float {
+  animation: float-slow 5s ease-in-out infinite;
+}
+
+.animate-float-reverse {
+  animation: float-reverse 6s ease-in-out infinite;
+}
+
+.animate-pulse-live {
+  animation: pulse-ring 2s infinite;
+}
+
+.shimmer-text {
+  background: linear-gradient(90deg, #f59e0b 0%, #fbbf24 25%, #fff 50%, #fbbf24 75%, #f59e0b 100%);
+  background-size: 200% auto;
+  color: transparent;
+  -webkit-background-clip: text;
+  background-clip: text;
+  animation: shimmer 4s linear infinite;
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: #0d0e24;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #2b295c;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #4c3f91;
+}
+

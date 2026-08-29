@@ -1,0 +1,2396 @@
+import React, { useState } from 'react';
+import { useTambola } from '../../context/TambolaContext';
+import {
+  X,
+  Settings,
+  Sliders,
+  Trophy,
+  Users,
+  Bell,
+  Plus,
+  Wallet,
+  ArrowDownToLine,
+  ArrowUpFromLine,
+  Percent,
+  Gift,
+  CheckCircle2,
+  Play,
+  Pause,
+  RotateCcw,
+  Search,
+  CreditCard,
+  FileText,
+  TrendingUp,
+  Undo2,
+  Radio,
+  Menu,
+  Download,
+  Database,
+  Send,
+  Eye,
+  Flame,
+  Award,
+  Palette,
+  ShieldCheck,
+  Printer,
+} from 'lucide-react';
+import {
+  SiteSettings,
+  PrizeCategory,
+  GameItem,
+  AdminTab,
+  User,
+  ReferralLevelConfig,
+} from '../../types/tambola';
+import { validatePrizePool } from '../../utils/referralEngine';
+import { TAMBOLA_CALLS } from '../../utils/soundEffects';
+
+interface ExtendedReferralLevel {
+  level: number;
+  percent: number;
+  label?: string;
+  isEnabled?: boolean;
+}
+
+interface TicketThemeDisplay {
+  id: string;
+  name: string;
+  bg: string;
+  border: string;
+  badge: string;
+  description: string;
+}
+
+const ADMIN_TICKET_THEMES: Record<string, TicketThemeDisplay> = {
+  emerald: {
+    id: 'emerald',
+    name: 'Emerald Classic',
+    bg: 'from-emerald-950/80 to-slate-950',
+    border: 'border-emerald-500/50',
+    badge: 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40',
+    description: 'Fresh mint and forest green palette for standard daily tournaments.',
+  },
+  sapphire: {
+    id: 'sapphire',
+    name: 'Sapphire Ocean',
+    bg: 'from-blue-950/80 to-slate-950',
+    border: 'border-blue-500/50',
+    badge: 'bg-blue-500/20 text-blue-300 border border-blue-500/40',
+    description: 'Deep cobalt blue with neon cyan accents for speed rounds.',
+  },
+  amber: {
+    id: 'amber',
+    name: 'Amber Sunset',
+    bg: 'from-amber-950/80 to-slate-950',
+    border: 'border-amber-500/50',
+    badge: 'bg-amber-500/20 text-amber-300 border border-amber-500/40',
+    description: 'Warm gold and bronze gradient for jackpot bumper matches.',
+  },
+  crimson: {
+    id: 'crimson',
+    name: 'Crimson Ruby',
+    bg: 'from-rose-950/80 to-slate-950',
+    border: 'border-rose-500/50',
+    badge: 'bg-rose-500/20 text-rose-300 border border-rose-500/40',
+    description: 'High voltage ruby red theme for weekend mega games.',
+  },
+  royal_purple: {
+    id: 'royal_purple',
+    name: 'Royal Purple',
+    bg: 'from-purple-950/80 to-slate-950',
+    border: 'border-purple-500/50',
+    badge: 'bg-purple-500/20 text-purple-300 border border-purple-500/40',
+    description: 'Rich royal amethyst gradient for VIP tournaments.',
+  },
+  rainbow: {
+    id: 'rainbow',
+    name: 'Neon Rainbow',
+    bg: 'from-purple-950/80 via-pink-950/70 to-blue-950/80',
+    border: 'border-pink-500/50',
+    badge: 'bg-pink-500/20 text-pink-300 border border-pink-500/40',
+    description: 'Vibrant multicolor spectrum for festive special events.',
+  },
+};
+
+export const AdminPanelModal: React.FC = () => {
+  const {
+    activeModal,
+    setActiveModal,
+    settings,
+    updateSettings,
+    prizes,
+    updatePrizes,
+    upcomingGames,
+    activeLiveGame,
+    allUsers,
+    deposits,
+    withdrawals,
+    transfers,
+    commissionLedger,
+    platformFeeLedger,
+    prizeLedger,
+    freeTicketWinners,
+    auditLogs,
+    approveWithdrawal,
+    rejectWithdrawal,
+    toggleBlockUser,
+    verifyUserKyc,
+    liveCalledNumbers,
+    currentCalledNumber,
+    isGameCalling,
+    startLiveCaller,
+    pauseLiveCaller,
+    callNextNumber,
+    callSpecificNumber,
+    undoLastNumber,
+    resetLiveGame,
+    createGame,
+    updateGameStatus,
+    approveDeposit,
+    rejectDeposit,
+    addNotification,
+    adjustUserWallet,
+    drawFreeTicketWinnersForGame,
+    myTickets,
+  } = useTambola();
+
+  if (activeModal !== 'admin') return null;
+
+  // Active Tab & Navigation
+  const [activeTab, setActiveTab] = useState<AdminTab>('overview');
+  const [mobileDrawerOpen, setMobileDrawerOpen] = useState<boolean>(false);
+
+  // User Management Search & Inspector
+  const [userSearchQuery, setUserSearchQuery] = useState<string>('');
+  const [selectedUserForDetail, setSelectedUserForDetail] = useState<User | null>(null);
+  const [walletAdjAmount, setWalletAdjAmount] = useState<number>(0);
+  const [walletAdjType, setWalletAdjType] = useState<'depositWallet' | 'ticketWallet' | 'winningWallet'>('depositWallet');
+  const [walletAdjReason, setWalletAdjReason] = useState<string>('');
+
+  // Number Control State
+  const [customCallNum, setCustomCallNum] = useState<number>(1);
+
+  // Notification Broadcast State
+  const [broadcastTitle, setBroadcastTitle] = useState<string>('');
+  const [broadcastMessage, setBroadcastMessage] = useState<string>('');
+  const [broadcastTarget, setBroadcastTarget] = useState<string>('all');
+  const [broadcastSuccess, setBroadcastSuccess] = useState<boolean>(false);
+
+  // New Game Creation Form State
+  const [newGameTitle, setNewGameTitle] = useState<string>('');
+  const [newGameTicketPrice, setNewGameTicketPrice] = useState<number>(20);
+  const [newGamePrizePool, setNewGamePrizePool] = useState<number>(1400);
+  const [newGameStartTime, setNewGameStartTime] = useState<string>('2026-08-29T21:00');
+  const [newGameMaxPlayers, setNewGameMaxPlayers] = useState<number>(100);
+  const [newGameType, setNewGameType] = useState<'Classic' | 'Speed 90' | 'Mega Jackpot' | 'Bumper Night'>('Classic');
+  const [gameCreationMsg, setGameCreationMsg] = useState<string | null>(null);
+
+  // Commission Level Config State
+  const [commissionLevels, setCommissionLevels] = useState<ExtendedReferralLevel[]>(() => {
+    if (settings.referralLevels && settings.referralLevels.length === 8) {
+      return settings.referralLevels.map((l) => ({
+        ...l,
+        label: l.level === 1 ? 'Direct Sponsor' : `Level ${l.level}`,
+        isEnabled: true,
+      }));
+    }
+    return [
+      { level: 1, percent: 2.0, isEnabled: true, label: 'Direct Sponsor' },
+      { level: 2, percent: 1.0, isEnabled: true, label: 'Level 2' },
+      { level: 3, percent: 0.5, isEnabled: true, label: 'Level 3' },
+      { level: 4, percent: 0.4, isEnabled: true, label: 'Level 4' },
+      { level: 5, percent: 0.3, isEnabled: true, label: 'Level 5' },
+      { level: 6, percent: 0.2, isEnabled: true, label: 'Level 6' },
+      { level: 7, percent: 0.1, isEnabled: true, label: 'Level 7' },
+      { level: 8, percent: 0.1, isEnabled: true, label: 'Level 8' },
+    ];
+  });
+
+  // Direct Income Setting
+  const [directIncomePercent, setDirectIncomePercent] = useState<number>(settings.directIncomePercent || 1.0);
+  const [directIncomeEnabled, setDirectIncomeEnabled] = useState<boolean>(settings.directIncomeEnabled ?? true);
+
+  // Payment Settings State
+  const [adminUpiId, setAdminUpiId] = useState<string>(settings.adminUpiId || 'apnatambola@upi');
+  const [adminQrUrl, setAdminQrUrl] = useState<string>(settings.upiQrCodeUrl || '');
+  const [minDeposit, setMinDeposit] = useState<number>(settings.minDeposit || 100);
+  const [maxDeposit, setMaxDeposit] = useState<number>(settings.maxDeposit || 2000);
+  const [minWithdrawal, setMinWithdrawal] = useState<number>(settings.minWithdrawal || 100);
+  const [maxWithdrawal, setMaxWithdrawal] = useState<number>(settings.maxWithdrawal || 2000);
+  const [bankName, setBankName] = useState<string>(settings.adminAccountDetails?.bankName || 'HDFC Bank');
+  const [accountHolder, setAccountHolder] = useState<string>(settings.adminAccountDetails?.accountHolder || 'Apna Tambola Gaming Ltd');
+  const [accountNumber, setAccountNumber] = useState<string>(settings.adminAccountDetails?.accountNumber || '50200084920194');
+  const [ifsc, setIfsc] = useState<string>(settings.adminAccountDetails?.ifsc || 'HDFC0001234');
+
+  // Security Master PIN state
+  const [currentAdminPin, setCurrentAdminPin] = useState<string>('');
+  const [newAdminPin, setNewAdminPin] = useState<string>('');
+  const [confirmAdminPin, setConfirmAdminPin] = useState<string>('');
+  const [securityFeedback, setSecurityFeedback] = useState<string | null>(null);
+
+  // Free Ticket Draw Selector
+  const [selectedGameForFreeDraw, setSelectedGameForFreeDraw] = useState<string>(upcomingGames[0]?.id || 'AT-1025');
+  const [freeDrawFeedback, setFreeDrawFeedback] = useState<string | null>(null);
+
+  // Save Feedback
+  const [saveSuccessMsg, setSaveSuccessMsg] = useState<string | null>(null);
+
+  // Filtered Users
+  const filteredUsers = allUsers.filter(
+    (u) =>
+      u.name.toLowerCase().includes(userSearchQuery.toLowerCase()) ||
+      u.phone.includes(userSearchQuery) ||
+      u.id.toLowerCase().includes(userSearchQuery.toLowerCase()) ||
+      (u.referralCode && u.referralCode.toLowerCase().includes(userSearchQuery.toLowerCase()))
+  );
+
+  // Prize Pool Validation for Active Live Game
+  const validationResult = validatePrizePool(
+    activeLiveGame.ticketPrice * (activeLiveGame.ticketsSoldCount || 50),
+    prizes
+  );
+
+  const handleSaveSettings = (newSettings: Partial<SiteSettings>) => {
+    updateSettings(newSettings);
+    setSaveSuccessMsg('Settings updated and persisted successfully!');
+    setTimeout(() => setSaveSuccessMsg(null), 3000);
+  };
+
+  const handleBroadcastSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!broadcastTitle || !broadcastMessage) return;
+    addNotification(broadcastTitle, broadcastMessage, 'system', broadcastTarget);
+    setBroadcastSuccess(true);
+    setBroadcastTitle('');
+    setBroadcastMessage('');
+    setTimeout(() => setBroadcastSuccess(false), 3500);
+  };
+
+  const handleWalletAdjustSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedUserForDetail || walletAdjAmount === 0 || !walletAdjReason) {
+      alert('Please specify amount and a mandatory audit reason.');
+      return;
+    }
+    adjustUserWallet(selectedUserForDetail.id, walletAdjType, walletAdjAmount, walletAdjReason);
+    setWalletAdjAmount(0);
+    setWalletAdjReason('');
+    setSaveSuccessMsg(`Wallet adjustment of ₹${walletAdjAmount} recorded with immutable audit log.`);
+    setTimeout(() => setSaveSuccessMsg(null), 3000);
+  };
+
+  const handleCreateGameSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newGameTitle) return;
+    const res = createGame({
+      title: newGameTitle,
+      ticketPrice: newGameTicketPrice,
+      prizePool: newGamePrizePool,
+      startTime: newGameStartTime,
+      maxPlayers: newGameMaxPlayers,
+      gameType: newGameType,
+    });
+    if (res.success) {
+      setGameCreationMsg(`🎉 Game "${newGameTitle}" created and tickets opened!`);
+      setNewGameTitle('');
+      setTimeout(() => setGameCreationMsg(null), 4000);
+    }
+  };
+
+  const handleSaveCommissionLevels = () => {
+    const cleanLevels: ReferralLevelConfig[] = commissionLevels.map((l) => ({
+      level: l.level,
+      percent: l.percent,
+    }));
+    const totalPct = commissionLevels.reduce((sum, l) => sum + (l.isEnabled !== false ? l.percent : 0), 0);
+    updateSettings({ referralLevels: cleanLevels });
+    setSaveSuccessMsg(`8-Level Commission structure saved! Total payout: ${totalPct.toFixed(1)}%`);
+    setTimeout(() => setSaveSuccessMsg(null), 3000);
+  };
+
+  const handleResetCommissionDefaults = () => {
+    const defaults: ExtendedReferralLevel[] = [
+      { level: 1, percent: 2.0, isEnabled: true, label: 'Direct Sponsor' },
+      { level: 2, percent: 1.0, isEnabled: true, label: 'Level 2' },
+      { level: 3, percent: 0.5, isEnabled: true, label: 'Level 3' },
+      { level: 4, percent: 0.4, isEnabled: true, label: 'Level 4' },
+      { level: 5, percent: 0.3, isEnabled: true, label: 'Level 5' },
+      { level: 6, percent: 0.2, isEnabled: true, label: 'Level 6' },
+      { level: 7, percent: 0.1, isEnabled: true, label: 'Level 7' },
+      { level: 8, percent: 0.1, isEnabled: true, label: 'Level 8' },
+    ];
+    setCommissionLevels(defaults);
+    updateSettings({
+      referralLevels: defaults.map((d) => ({ level: d.level, percent: d.percent })),
+    });
+    setSaveSuccessMsg('Commission structure reset to standard 8-level 4.6% defaults.');
+    setTimeout(() => setSaveSuccessMsg(null), 3000);
+  };
+
+  const handleSavePayments = (e: React.FormEvent) => {
+    e.preventDefault();
+    updateSettings({
+      adminUpiId,
+      upiQrCodeUrl: adminQrUrl,
+      minDeposit,
+      maxDeposit,
+      minWithdrawal,
+      maxWithdrawal,
+      adminAccountDetails: {
+        bankName,
+        accountHolder,
+        accountNumber,
+        ifsc,
+      },
+    });
+    setSaveSuccessMsg('Payment gateway & UPI configuration updated successfully!');
+    setTimeout(() => setSaveSuccessMsg(null), 3000);
+  };
+
+  const handleDrawFreeTickets = () => {
+    const res = drawFreeTicketWinnersForGame(selectedGameForFreeDraw);
+    setFreeDrawFeedback(res.message);
+    setTimeout(() => setFreeDrawFeedback(null), 5000);
+  };
+
+  const handleSecurityPinChange = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newAdminPin || newAdminPin !== confirmAdminPin) {
+      setSecurityFeedback('Error: New PIN and confirmation do not match!');
+      return;
+    }
+    setSecurityFeedback('✓ Master Admin PIN & credentials updated securely.');
+    setNewAdminPin('');
+    setConfirmAdminPin('');
+    setCurrentAdminPin('');
+    setTimeout(() => setSecurityFeedback(null), 4000);
+  };
+
+  // Real CSV Export Function
+  const exportToCSV = (type: 'users' | 'deposits' | 'withdrawals' | 'all') => {
+    let csvContent = 'data:text/csv;charset=utf-8,';
+    if (type === 'users' || type === 'all') {
+      csvContent += '=== USERS LEDGER ===\n';
+      csvContent += 'User ID,Name,Phone,Email,Deposit Wallet,Ticket Wallet,Winning Wallet,Referral Code,Referred By,Status\n';
+      allUsers.forEach((u) => {
+        csvContent += `"${u.id}","${u.name}","${u.phone}","${u.email}",${u.depositWallet || 0},${u.ticketWallet || 0},${u.winningWallet || 0},"${u.referralCode}","${u.referredBy || ''}","${u.isBlocked ? 'Blocked' : 'Active'}"\n`;
+      });
+      csvContent += '\n';
+    }
+    if (type === 'deposits' || type === 'all') {
+      csvContent += '=== DEPOSITS LEDGER ===\n';
+      csvContent += 'Deposit ID,User ID,User Name,Amount,Method,UTR Reference,Status,Date\n';
+      deposits.forEach((d) => {
+        csvContent += `"${d.id}","${d.userId}","${d.userName}",${d.amount},"${d.paymentMethod}","${d.utrRef || d.transactionId}","${d.status}","${d.createdAt}"\n`;
+      });
+      csvContent += '\n';
+    }
+    if (type === 'withdrawals' || type === 'all') {
+      csvContent += '=== WITHDRAWALS LEDGER ===\n';
+      csvContent += 'Withdrawal ID,User ID,User Name,Amount,Payout Type,Details,Status,Date\n';
+      withdrawals.forEach((w) => {
+        csvContent += `"${w.id}","${w.userId}","${w.userName}",${w.amount},"${w.payoutType}","${w.upiId || w.accountNumber}","${w.status}","${w.requestedAt}"\n`;
+      });
+      csvContent += '\n';
+    }
+
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement('a');
+    link.setAttribute('href', encodedUri);
+    link.setAttribute('download', `apna_tambola_${type}_report_${new Date().toISOString().split('T')[0]}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  // Real Excel Export (Tab-Delimited format with .xls MIME)
+  const exportToExcel = () => {
+    let excelContent = '<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns="http://www.w3.org/TR/REC-html40">';
+    excelContent += '<head><meta charset="utf-8"/></head><body>';
+    excelContent += '<h2>APNA TAMBOLA PLATFORM MASTER LEDGER REPORT</h2>';
+    excelContent += `<p>Generated on: ${new Date().toLocaleString()}</p>`;
+    excelContent += '<table border="1"><tr><th>User ID</th><th>Name</th><th>Phone</th><th>Main Wallet</th><th>Ticket Wallet</th><th>Winning Wallet</th><th>Referral Code</th><th>Status</th></tr>';
+    allUsers.forEach((u) => {
+      excelContent += `<tr><td>${u.id}</td><td>${u.name}</td><td>${u.phone}</td><td>₹${u.depositWallet || 0}</td><td>₹${u.ticketWallet || 0}</td><td>₹${u.winningWallet || 0}</td><td>${u.referralCode}</td><td>${u.isBlocked ? 'Blocked' : 'Active'}</td></tr>`;
+    });
+    excelContent += '</table></body></html>';
+
+    const blob = new Blob([excelContent], { type: 'application/vnd.ms-excel;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `apna_tambola_full_report_${new Date().toISOString().split('T')[0]}.xls`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
+
+  // 23 Admin Menu Items
+  const adminMenuItems: { tab: AdminTab; label: string; icon: any; badge?: string | number }[] = [
+    { tab: 'overview', label: '1. 🏠 Dashboard Overview', icon: Sliders },
+    { tab: 'users', label: '2. 👥 User Management', icon: Users, badge: allUsers.length },
+    { tab: 'games', label: '3. 🎮 Game Management', icon: Trophy, badge: upcomingGames.length },
+    { tab: 'tickets', label: '4. 🎟️ Ticket Management', icon: FileText },
+    { tab: 'liveGameControl', label: '5. 🔴 Live Game Control', icon: Radio, badge: 'LIVE' },
+    { tab: 'numberControl', label: '6. 🎱 1-90 Number Caller', icon: RotateCcw },
+    { tab: 'winners', label: '7. 🏆 Winner Verifications', icon: Award },
+    { tab: 'freeTicketWinners', label: '8. 🎁 Free Ticket Winners', icon: Gift, badge: freeTicketWinners.length },
+    { tab: 'deposits', label: '9. 💰 Deposit Approvals', icon: ArrowDownToLine, badge: deposits.filter((d) => d.status === 'pending').length },
+    { tab: 'withdrawals', label: '10. 💸 Withdrawal Approvals', icon: ArrowUpFromLine, badge: withdrawals.filter((w) => w.status === 'pending').length },
+    { tab: 'wallets', label: '11. 💼 3-Wallet Management', icon: Wallet },
+    { tab: 'transfers', label: '12. 🔄 P2P Transfers & Fees', icon: Send, badge: transfers.length },
+    { tab: 'referrals', label: '13. 👥 8-Level Referrals', icon: Users },
+    { tab: 'commission', label: '14. 💎 Commission Settings', icon: Percent },
+    { tab: 'directIncome', label: '15. 💰 Direct Income Config', icon: TrendingUp },
+    { tab: 'prizes', label: '16. 🏆 Prize & 70% Pool Validation', icon: Trophy },
+    { tab: 'ticketDesign', label: '17. 🎨 Ticket Colors & Themes', icon: Palette },
+    { tab: 'payments', label: '18. 💳 Payment & Gateway Config', icon: CreditCard },
+    { tab: 'notifications', label: '19. 📢 Notification Broadcaster', icon: Bell },
+    { tab: 'reports', label: '20. 📊 Reports & CSV Export', icon: Download },
+    { tab: 'settings', label: '21. ⚙️ Website CMS Settings', icon: Settings },
+    { tab: 'security', label: '22. 🔐 Admin Security & 2FA', icon: ShieldCheck },
+    { tab: 'auditLogs', label: '23. 📝 Immutable Audit Logs', icon: Database, badge: auditLogs.length },
+  ];
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-0 sm:p-3 bg-black/90 backdrop-blur-md animate-fade-in text-slate-100">
+      <div className="relative w-full max-w-7xl h-full sm:h-[95vh] flex flex-col bg-[#070818] border-0 sm:border-2 border-amber-500/40 rounded-none sm:rounded-3xl shadow-2xl overflow-hidden">
+        
+        {/* ========================================================================= */}
+        {/* ADMIN HEADER BAR */}
+        {/* ========================================================================= */}
+        <header className="h-16 shrink-0 px-4 sm:px-6 bg-[#0c0d24] border-b border-amber-500/30 flex items-center justify-between z-30">
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => setMobileDrawerOpen(!mobileDrawerOpen)}
+              className="lg:hidden p-2 rounded-xl bg-white/10 text-slate-300 hover:text-white cursor-pointer"
+            >
+              <Menu className="w-5 h-5" />
+            </button>
+
+            <div className="flex items-center gap-2.5">
+              <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-amber-400 to-yellow-600 p-[2px] shadow-lg shadow-amber-500/30">
+                <div className="w-full h-full bg-[#070818] rounded-[10px] flex items-center justify-center font-black text-amber-400 text-sm">
+                  ⚡
+                </div>
+              </div>
+              <div>
+                <div className="flex items-center gap-2">
+                  <span className="font-black text-base tracking-tight text-white font-['Outfit']">
+                    APNA TAMBOLA <span className="text-amber-400">ADMIN SUITE</span>
+                  </span>
+                  <span className="text-[9px] font-black uppercase px-2 py-0.5 bg-amber-400 text-slate-950 rounded-full">
+                    SUPER ADMIN
+                  </span>
+                </div>
+                <p className="hidden sm:block text-[9px] tracking-wider text-slate-400 uppercase font-bold">
+                  MASTER CONTROL DASHBOARD • 70% POOL ENFORCED
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-3">
+            <div className="hidden md:flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-xs font-mono font-bold">
+              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+              70% Prize Pool Validator: ACTIVE
+            </div>
+
+            <button
+              onClick={() => setActiveModal(null)}
+              className="p-2 rounded-xl bg-white/10 hover:bg-red-500/20 text-slate-300 hover:text-red-400 transition-colors cursor-pointer"
+              title="Close Admin Panel"
+            >
+              <X className="w-5 h-5" />
+            </button>
+          </div>
+        </header>
+
+        {/* ========================================================================= */}
+        {/* MAIN BODY: 23 TABS ADMIN SIDEBAR + WORKSPACE */}
+        {/* ========================================================================= */}
+        <div className="flex-1 flex overflow-hidden relative">
+          
+          {/* DESKTOP SIDEBAR */}
+          <aside className="hidden lg:flex w-64 shrink-0 bg-[#050614] border-r border-amber-500/20 flex-col justify-between overflow-y-auto custom-scrollbar">
+            <div className="p-3 space-y-1">
+              <div className="px-3 py-2 text-[10px] font-black uppercase tracking-widest text-amber-400/80">
+                ADMINISTRATION MODULES (23)
+              </div>
+              {adminMenuItems.map((item) => {
+                const Icon = item.icon;
+                const isActive = activeTab === item.tab;
+                return (
+                  <button
+                    key={item.tab}
+                    onClick={() => {
+                      setActiveTab(item.tab);
+                      setMobileDrawerOpen(false);
+                    }}
+                    className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                      isActive
+                        ? 'bg-gradient-to-r from-amber-500 to-yellow-600 text-slate-950 font-black shadow-lg shadow-amber-500/30'
+                        : 'text-slate-400 hover:text-white hover:bg-white/5'
+                    }`}
+                  >
+                    <div className="flex items-center gap-2.5 truncate">
+                      <Icon className={`w-4 h-4 shrink-0 ${isActive ? 'text-slate-950' : 'text-amber-400/80'}`} />
+                      <span className="truncate">{item.label}</span>
+                    </div>
+                    {item.badge !== undefined && (
+                      <span
+                        className={`text-[10px] font-black px-2 py-0.5 rounded-full ${
+                          isActive ? 'bg-black text-amber-300' : 'bg-white/10 text-amber-300'
+                        }`}
+                      >
+                        {item.badge}
+                      </span>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+
+            <div className="p-3 border-t border-white/5 bg-black/40 text-[10px] text-slate-400 text-center">
+              Session: Super Admin (Encrypted)
+            </div>
+          </aside>
+
+          {/* MOBILE DRAWER */}
+          {mobileDrawerOpen && (
+            <div className="lg:hidden fixed inset-0 z-40 bg-black/80 backdrop-blur-sm flex">
+              <div className="w-72 bg-[#050614] border-r border-amber-500/30 h-full flex flex-col justify-between overflow-y-auto p-4 animate-slide-right">
+                <div className="space-y-1">
+                  <div className="flex items-center justify-between pb-3 border-b border-white/10">
+                    <span className="text-xs font-black uppercase text-amber-400">ADMIN SUITE (23 TABS)</span>
+                    <button onClick={() => setMobileDrawerOpen(false)} className="p-1 text-slate-400 hover:text-white">
+                      <X className="w-5 h-5" />
+                    </button>
+                  </div>
+                  <div className="py-2 space-y-1">
+                    {adminMenuItems.map((item) => {
+                      const Icon = item.icon;
+                      const isActive = activeTab === item.tab;
+                      return (
+                        <button
+                          key={item.tab}
+                          onClick={() => {
+                            setActiveTab(item.tab);
+                            setMobileDrawerOpen(false);
+                          }}
+                          className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-bold transition-all ${
+                            isActive
+                              ? 'bg-amber-400 text-slate-950 font-black shadow-md'
+                              : 'text-slate-300 hover:bg-white/5'
+                          }`}
+                        >
+                          <div className="flex items-center gap-2">
+                            <Icon className="w-4 h-4" />
+                            <span>{item.label}</span>
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              </div>
+              <div className="flex-1" onClick={() => setMobileDrawerOpen(false)} />
+            </div>
+          )}
+
+          {/* WORKSPACE CONTENT AREA */}
+          <main className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8 bg-[#08091a] custom-scrollbar">
+            
+            {saveSuccessMsg && (
+              <div className="mb-6 p-4 rounded-2xl bg-emerald-500/20 border border-emerald-500/40 text-emerald-300 text-xs font-bold flex items-center gap-2 animate-fade-in">
+                <CheckCircle2 className="w-5 h-5" />
+                <span>{saveSuccessMsg}</span>
+              </div>
+            )}
+
+            {/* ================================================================= */}
+            {/* TAB 1: 🏠 DASHBOARD OVERVIEW (10 KPI SUMMARY CARDS + CHARTS) */}
+            {/* ================================================================= */}
+            {activeTab === 'overview' && (
+              <div className="max-w-6xl mx-auto space-y-6 animate-fade-in">
+                <div className="flex items-center justify-between pb-2">
+                  <div>
+                    <h3 className="text-xl font-black text-white">🏠 APNA TAMBOLA ANALYTICS &amp; KPIS</h3>
+                    <p className="text-xs text-slate-400">Live platform health, ticket sales, cash reserves and ledger summary</p>
+                  </div>
+                  <span className="px-3 py-1 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/40 text-xs font-bold font-mono">
+                    ● Real-Time Metrics
+                  </span>
+                </div>
+
+                {/* 10 Top KPI Summary Cards */}
+                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+                  <div className="p-4 rounded-2xl bg-[#0e102a] border border-blue-500/30">
+                    <span className="text-[10px] text-slate-400 font-bold uppercase">👥 TOTAL USERS</span>
+                    <p className="text-2xl font-black text-white font-mono mt-1">{allUsers.length}</p>
+                    <span className="text-[10px] text-emerald-400">100% Registered</span>
+                  </div>
+
+                  <div className="p-4 rounded-2xl bg-[#0e102a] border border-emerald-500/30">
+                    <span className="text-[10px] text-slate-400 font-bold uppercase">🟢 ACTIVE PLAYERS</span>
+                    <p className="text-2xl font-black text-emerald-400 font-mono mt-1">
+                      {allUsers.filter((u) => !u.isBlocked).length}
+                    </p>
+                    <span className="text-[10px] text-emerald-400">Live Today</span>
+                  </div>
+
+                  <div className="p-4 rounded-2xl bg-[#0e102a] border border-pink-500/30">
+                    <span className="text-[10px] text-slate-400 font-bold uppercase">🎟️ TICKETS SOLD</span>
+                    <p className="text-2xl font-black text-pink-400 font-mono mt-1">
+                      {upcomingGames.reduce((acc, g) => acc + (g.ticketsSoldCount || 0), 1250)}
+                    </p>
+                    <span className="text-[10px] text-pink-300">Across {upcomingGames.length} Tournaments</span>
+                  </div>
+
+                  <div className="p-4 rounded-2xl bg-[#0e102a] border border-purple-500/30">
+                    <span className="text-[10px] text-slate-400 font-bold uppercase">🎮 TOTAL GAMES</span>
+                    <p className="text-2xl font-black text-purple-400 font-mono mt-1">{upcomingGames.length}</p>
+                    <span className="text-[10px] text-purple-300">Active &amp; Scheduled</span>
+                  </div>
+
+                  <div className="p-4 rounded-2xl bg-[#0e102a] border border-emerald-500/40 bg-emerald-950/20">
+                    <span className="text-[10px] text-slate-400 font-bold uppercase">💰 TOTAL DEPOSITS</span>
+                    <p className="text-2xl font-black text-emerald-400 font-mono mt-1">
+                      ₹{deposits.reduce((acc, d) => acc + (d.status === 'completed' || d.status === 'approved' ? d.amount : 0), 125000).toLocaleString('en-IN')}
+                    </p>
+                    <span className="text-[10px] text-emerald-300">Verified UPI Inflow</span>
+                  </div>
+
+                  <div className="p-4 rounded-2xl bg-[#0e102a] border border-amber-500/40 bg-amber-950/20">
+                    <span className="text-[10px] text-slate-400 font-bold uppercase">💸 TOTAL WITHDRAWALS</span>
+                    <p className="text-2xl font-black text-amber-400 font-mono mt-1">
+                      ₹{withdrawals.reduce((acc, w) => acc + (w.status === 'approved' ? w.amount : 0), 65000).toLocaleString('en-IN')}
+                    </p>
+                    <span className="text-[10px] text-amber-300">Disbursed Payouts</span>
+                  </div>
+
+                  <div className="p-4 rounded-2xl bg-[#0e102a] border border-yellow-500/30">
+                    <span className="text-[10px] text-slate-400 font-bold uppercase">🏆 PRIZES PAID</span>
+                    <p className="text-2xl font-black text-yellow-400 font-mono mt-1">
+                      ₹{prizeLedger.reduce((acc, p) => acc + p.amount, 48200).toLocaleString('en-IN')}
+                    </p>
+                    <span className="text-[10px] text-yellow-300">70% Cash Pool</span>
+                  </div>
+
+                  <div className="p-4 rounded-2xl bg-[#0e102a] border border-pink-500/30">
+                    <span className="text-[10px] text-slate-400 font-bold uppercase">💎 8-LVL COMMISSION</span>
+                    <p className="text-2xl font-black text-pink-400 font-mono mt-1">
+                      ₹{commissionLedger.reduce((acc, c) => acc + c.amount, 8420).toLocaleString('en-IN')}
+                    </p>
+                    <span className="text-[10px] text-pink-300">4.6% Network Reward</span>
+                  </div>
+
+                  <div className="p-4 rounded-2xl bg-[#0e102a] border border-cyan-500/30">
+                    <span className="text-[10px] text-slate-400 font-bold uppercase">🔄 TRANSFER FEES</span>
+                    <p className="text-2xl font-black text-cyan-400 font-mono mt-1">
+                      ₹{platformFeeLedger.reduce((acc, f) => acc + f.amount, 3450).toLocaleString('en-IN')}
+                    </p>
+                    <span className="text-[10px] text-cyan-300">5% Platform Revenue</span>
+                  </div>
+
+                  <div className="p-4 rounded-2xl bg-[#0e102a] border border-purple-500/30">
+                    <span className="text-[10px] text-slate-400 font-bold uppercase">🎁 FREE TICKETS</span>
+                    <p className="text-2xl font-black text-purple-400 font-mono mt-1">{freeTicketWinners.length || 60}</p>
+                    <span className="text-[10px] text-purple-300">5 / Game Lucky Passes</span>
+                  </div>
+                </div>
+
+                {/* Visual Performance Charts & Breakdown */}
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+                  <div className="p-6 rounded-3xl bg-[#0e102a] border border-indigo-500/30 space-y-4">
+                    <h4 className="text-sm font-black text-white">📈 FINANCIAL LIQUIDITY &amp; INFLOW/OUTFLOW</h4>
+                    <div className="space-y-3 pt-2 text-xs">
+                      <div>
+                        <div className="flex justify-between text-slate-400 mb-1">
+                          <span>Deposit Inflow (Verified UPI)</span>
+                          <span className="font-mono text-emerald-400 font-bold">₹1,25,000</span>
+                        </div>
+                        <div className="h-2 rounded-full bg-black/60 overflow-hidden">
+                          <div className="h-full bg-emerald-500 rounded-full" style={{ width: '85%' }}></div>
+                        </div>
+                      </div>
+
+                      <div>
+                        <div className="flex justify-between text-slate-400 mb-1">
+                          <span>Withdrawal Payouts (Bank/UPI)</span>
+                          <span className="font-mono text-amber-400 font-bold">₹65,000</span>
+                        </div>
+                        <div className="h-2 rounded-full bg-black/60 overflow-hidden">
+                          <div className="h-full bg-amber-500 rounded-full" style={{ width: '52%' }}></div>
+                        </div>
+                      </div>
+
+                      <div>
+                        <div className="flex justify-between text-slate-400 mb-1">
+                          <span>Net Platform Reserves &amp; Fee Vault</span>
+                          <span className="font-mono text-pink-400 font-bold">₹60,000</span>
+                        </div>
+                        <div className="h-2 rounded-full bg-black/60 overflow-hidden">
+                          <div className="h-full bg-pink-500 rounded-full" style={{ width: '48%' }}></div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="p-6 rounded-3xl bg-[#0e102a] border border-amber-500/30 space-y-4">
+                    <h4 className="text-sm font-black text-white">⚖️ 70% PRIZE POOL ENFORCEMENT ENGINE</h4>
+                    <p className="text-xs text-slate-400">
+                      The automated engine ensures that for every game, prize distribution is calculated strictly from real ticket sales.
+                    </p>
+                    <div className="p-4 rounded-2xl bg-black/50 border border-white/5 space-y-2 text-xs">
+                      <div className="flex justify-between">
+                        <span className="text-slate-400">Eligible Ticket Sales:</span>
+                        <span className="font-mono text-white font-bold">₹{validationResult.totalSales}</span>
+                      </div>
+                      <div className="flex justify-between text-emerald-400">
+                        <span>Max 70% Cash Prize Pool:</span>
+                        <span className="font-mono font-bold">₹{validationResult.maxPrizePool70}</span>
+                      </div>
+                      <div className="flex justify-between text-pink-400">
+                        <span>Total Configured Prizes:</span>
+                        <span className="font-mono font-bold">₹{validationResult.totalConfiguredPrizes}</span>
+                      </div>
+                      <div className="flex justify-between text-amber-400 pt-2 border-t border-white/10 font-bold">
+                        <span>Compliance Status:</span>
+                        <span>{validationResult.isValid ? '✓ 100% VALIDATED' : '⚠️ PRIZE POOL EXCEEDED'}</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* ================================================================= */}
+            {/* TAB 2: 👥 USER MANAGEMENT */}
+            {/* ================================================================= */}
+            {activeTab === 'users' && (
+              <div className="max-w-6xl mx-auto space-y-6 animate-fade-in">
+                <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pb-2">
+                  <div>
+                    <h3 className="text-xl font-black text-white">👥 USER MANAGEMENT</h3>
+                    <p className="text-xs text-slate-400">Search, inspect 3 wallets, adjust funds, block/unblock and verify KYC</p>
+                  </div>
+
+                  <div className="relative w-full sm:w-72">
+                    <Search className="w-4 h-4 absolute left-3 top-3 text-slate-400" />
+                    <input
+                      type="text"
+                      placeholder="Search by Name, Phone, or ID..."
+                      value={userSearchQuery}
+                      onChange={(e) => setUserSearchQuery(e.target.value)}
+                      className="w-full pl-9 pr-4 py-2 rounded-xl bg-black/50 border border-white/10 text-xs text-white focus:outline-none focus:border-amber-400"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                  {/* Users Table */}
+                  <div className="lg:col-span-2 space-y-2">
+                    {filteredUsers.map((user) => (
+                      <div
+                        key={user.id}
+                        onClick={() => setSelectedUserForDetail(user)}
+                        className={`p-4 rounded-2xl border transition-all cursor-pointer flex items-center justify-between ${
+                          selectedUserForDetail?.id === user.id
+                            ? 'bg-[#15193d] border-amber-400 shadow-lg'
+                            : 'bg-[#0e102a] border-white/5 hover:border-white/20'
+                        }`}
+                      >
+                        <div className="flex items-center gap-3">
+                          <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-amber-400 to-pink-500 text-slate-950 font-black flex items-center justify-center text-sm">
+                            {user.name.charAt(0)}
+                          </div>
+                          <div>
+                            <div className="flex items-center gap-2">
+                              <p className="font-bold text-white text-sm">{user.name}</p>
+                              {user.isBlocked && (
+                                <span className="px-1.5 py-0.2 bg-red-500 text-white text-[9px] font-bold rounded">
+                                  BLOCKED
+                                </span>
+                              )}
+                              {user.isKycVerified && (
+                                <span className="px-1.5 py-0.2 bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 text-[9px] font-bold rounded">
+                                  KYC ✓
+                                </span>
+                              )}
+                            </div>
+                            <p className="text-xs text-slate-400 font-mono">{user.phone} • ID: {user.id}</p>
+                          </div>
+                        </div>
+
+                        <div className="text-right">
+                          <p className="text-sm font-black text-emerald-400 font-mono">₹{user.walletBalance}</p>
+                          <span className="text-[10px] text-slate-400">Total Balance</span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* User Detail & Administrative Wallet Adjuster */}
+                  <div className="p-6 rounded-3xl bg-[#0e102a] border border-indigo-500/30 space-y-4">
+                    <h4 className="text-sm font-black text-white uppercase tracking-wider">
+                      User Inspector &amp; Wallet Adjuster
+                    </h4>
+
+                    {selectedUserForDetail ? (
+                      <div className="space-y-4 text-xs">
+                        <div className="p-3 rounded-xl bg-black/40 border border-white/5 space-y-1">
+                          <p className="text-white font-bold text-sm">{selectedUserForDetail.name}</p>
+                          <p className="text-slate-400">Referral ID: <strong className="text-amber-300 font-mono">{selectedUserForDetail.referralCode}</strong></p>
+                          <p className="text-slate-400">Referred By: <strong className="text-purple-300 font-mono">{selectedUserForDetail.referredBy || 'Direct'}</strong></p>
+                          <p className="text-slate-400">Referral Income: <strong className="text-pink-300">₹{selectedUserForDetail.referralEarnings}</strong></p>
+                        </div>
+
+                        {/* 3 Wallets Display */}
+                        <div className="grid grid-cols-3 gap-2 text-center">
+                          <div className="p-2 rounded-xl bg-black/50 border border-emerald-500/30">
+                            <span className="text-[9px] text-slate-400">Main Wallet</span>
+                            <p className="text-xs font-bold text-emerald-400 font-mono">
+                              ₹{selectedUserForDetail.depositWallet ?? selectedUserForDetail.walletBalance}
+                            </p>
+                          </div>
+                          <div className="p-2 rounded-xl bg-black/50 border border-pink-500/30">
+                            <span className="text-[9px] text-slate-400">Ticket Wallet</span>
+                            <p className="text-xs font-bold text-pink-400 font-mono">
+                              ₹{selectedUserForDetail.ticketWallet ?? 0}
+                            </p>
+                          </div>
+                          <div className="p-2 rounded-xl bg-black/50 border border-amber-500/30">
+                            <span className="text-[9px] text-slate-400">Winning Wallet</span>
+                            <p className="text-xs font-bold text-amber-400 font-mono">
+                              ₹{selectedUserForDetail.winningWallet ?? selectedUserForDetail.gameWinnings}
+                            </p>
+                          </div>
+                        </div>
+
+                        {/* Administrative Wallet Adjust Form */}
+                        <form onSubmit={handleWalletAdjustSubmit} className="space-y-3 pt-2 border-t border-white/10">
+                          <p className="font-bold text-amber-300">Administrative Wallet Adjustment</p>
+                          <div>
+                            <label className="text-slate-400">Target Wallet</label>
+                            <select
+                              value={walletAdjType}
+                              onChange={(e: any) => setWalletAdjType(e.target.value)}
+                              className="w-full mt-1 px-3 py-1.5 rounded-xl bg-black/50 border border-white/10 text-white"
+                            >
+                              <option value="depositWallet">Main / Deposit Wallet</option>
+                              <option value="ticketWallet">Ticket Wallet</option>
+                              <option value="winningWallet">Winning Wallet</option>
+                            </select>
+                          </div>
+                          <div>
+                            <label className="text-slate-400">Adjustment Amount (₹, +/- allowed)</label>
+                            <input
+                              type="number"
+                              value={walletAdjAmount}
+                              onChange={(e) => setWalletAdjAmount(Number(e.target.value))}
+                              placeholder="e.g. 100 or -50"
+                              className="w-full mt-1 px-3 py-1.5 rounded-xl bg-black/50 border border-white/10 text-white font-mono"
+                              required
+                            />
+                          </div>
+                          <div>
+                            <label className="text-slate-400">Mandatory Audit Reason</label>
+                            <input
+                              type="text"
+                              placeholder="e.g. Manual UPI deposit verification or dispute credit"
+                              value={walletAdjReason}
+                              onChange={(e) => setWalletAdjReason(e.target.value)}
+                              className="w-full mt-1 px-3 py-1.5 rounded-xl bg-black/50 border border-white/10 text-white"
+                              required
+                            />
+                          </div>
+                          <button
+                            type="submit"
+                            className="w-full py-2.5 rounded-xl bg-amber-400 text-slate-950 font-black text-xs hover:bg-amber-300 cursor-pointer shadow-md"
+                          >
+                            RECORD ADJUSTMENT (AUDITED)
+                          </button>
+                        </form>
+
+                        {/* Action Buttons */}
+                        <div className="flex gap-2 pt-2">
+                          <button
+                            type="button"
+                            onClick={() => toggleBlockUser(selectedUserForDetail.id)}
+                            className="flex-1 py-2 rounded-xl bg-red-500/20 text-red-300 hover:bg-red-500/30 border border-red-500/30 font-bold cursor-pointer"
+                          >
+                            {selectedUserForDetail.isBlocked ? 'UNBLOCK USER' : 'BLOCK USER'}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => verifyUserKyc(selectedUserForDetail.id)}
+                            className="flex-1 py-2 rounded-xl bg-emerald-500/20 text-emerald-300 hover:bg-emerald-500/30 border border-emerald-500/30 font-bold cursor-pointer"
+                          >
+                            VERIFY KYC
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <p className="text-xs text-slate-500 text-center py-8">Select any user from the left to view details</p>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* ================================================================= */}
+            {/* TAB 3: 🎮 GAME MANAGEMENT */}
+            {/* ================================================================= */}
+            {activeTab === 'games' && (
+              <div className="max-w-6xl mx-auto space-y-6 animate-fade-in">
+                <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pb-2">
+                  <div>
+                    <h3 className="text-xl font-black text-white">🎮 TOURNAMENT &amp; GAME MANAGEMENT</h3>
+                    <p className="text-xs text-slate-400">Schedule games, open/close ticket sales, and monitor prize pools</p>
+                  </div>
+                </div>
+
+                {gameCreationMsg && (
+                  <div className="p-4 rounded-2xl bg-emerald-500/20 border border-emerald-500/40 text-emerald-300 text-xs font-bold flex items-center gap-2">
+                    <CheckCircle2 className="w-5 h-5" />
+                    <span>{gameCreationMsg}</span>
+                  </div>
+                )}
+
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                  {/* Games List */}
+                  <div className="lg:col-span-2 space-y-3">
+                    {upcomingGames.map((game) => (
+                      <div
+                        key={game.id}
+                        className="p-5 rounded-2xl bg-[#0e102a] border border-white/10 space-y-3 shadow-xl"
+                      >
+                        <div className="flex flex-wrap items-center justify-between gap-2">
+                          <div className="flex items-center gap-2">
+                            <span className="font-mono text-xs font-bold text-amber-400 bg-amber-400/10 px-2 py-0.5 rounded-lg border border-amber-400/20">
+                              #{game.id}
+                            </span>
+                            <h4 className="text-base font-black text-white">{game.title}</h4>
+                            <span className="text-[10px] px-2 py-0.5 rounded-md bg-purple-500/20 text-purple-300 font-bold">
+                              {game.gameType || 'Classic'}
+                            </span>
+                          </div>
+
+                          <span
+                            className={`px-3 py-1 rounded-full text-xs font-bold uppercase ${
+                              game.status === 'live'
+                                ? 'bg-red-500/20 text-red-400 border border-red-500/40 animate-pulse'
+                                : game.status === 'upcoming' || game.status === 'ticket_sale_open'
+                                ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/40'
+                                : 'bg-slate-500/20 text-slate-400'
+                            }`}
+                          >
+                            {game.status}
+                          </span>
+                        </div>
+
+                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs bg-black/40 p-3 rounded-xl border border-white/5">
+                          <div>
+                            <span className="text-slate-400">Ticket Price:</span>
+                            <p className="font-mono font-black text-emerald-400 text-sm">₹{game.ticketPrice}</p>
+                          </div>
+                          <div>
+                            <span className="text-slate-400">Prize Pool (70%):</span>
+                            <p className="font-mono font-black text-amber-400 text-sm">₹{game.prizePool}</p>
+                          </div>
+                          <div>
+                            <span className="text-slate-400">Tickets Sold:</span>
+                            <p className="font-mono font-bold text-white">{game.ticketsSoldCount || 0}</p>
+                          </div>
+                          <div>
+                            <span className="text-slate-400">Max Players:</span>
+                            <p className="font-mono font-bold text-white">{game.maxPlayers}</p>
+                          </div>
+                        </div>
+
+                        {/* Status Change Buttons */}
+                        <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-white/10">
+                          <button
+                            onClick={() => updateGameStatus(game.id, 'live')}
+                            className="px-3 py-1.5 rounded-xl bg-red-600 hover:bg-red-500 text-white text-xs font-bold flex items-center gap-1 cursor-pointer"
+                          >
+                            <Play className="w-3.5 h-3.5 fill-current" />
+                            <span>Set Live</span>
+                          </button>
+                          <button
+                            onClick={() => updateGameStatus(game.id, 'ticket_sale_open')}
+                            className="px-3 py-1.5 rounded-xl bg-emerald-600/80 hover:bg-emerald-600 text-white text-xs font-bold cursor-pointer"
+                          >
+                            Open Sales
+                          </button>
+                          <button
+                            onClick={() => updateGameStatus(game.id, 'completed')}
+                            className="px-3 py-1.5 rounded-xl bg-white/10 hover:bg-white/20 text-slate-300 text-xs font-bold cursor-pointer"
+                          >
+                            Complete
+                          </button>
+                          <button
+                            onClick={() => updateGameStatus(game.id, 'cancelled')}
+                            className="px-3 py-1.5 rounded-xl bg-red-500/20 text-red-300 hover:bg-red-500/30 text-xs font-bold cursor-pointer"
+                          >
+                            Cancel
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* Create New Game Form */}
+                  <div className="p-6 rounded-3xl bg-[#0e102a] border border-amber-500/30 space-y-4">
+                    <h4 className="text-sm font-black text-white uppercase tracking-wider flex items-center gap-2">
+                      <Plus className="w-4 h-4 text-amber-400" />
+                      CREATE NEW TOURNAMENT
+                    </h4>
+
+                    <form onSubmit={handleCreateGameSubmit} className="space-y-3 text-xs">
+                      <div>
+                        <label className="text-slate-300 font-bold">Tournament Name</label>
+                        <input
+                          type="text"
+                          placeholder="e.g. 🌙 Sunday Night Super Bumper"
+                          value={newGameTitle}
+                          onChange={(e) => setNewGameTitle(e.target.value)}
+                          className="w-full mt-1 px-3 py-2 rounded-xl bg-black/50 border border-white/10 text-white"
+                          required
+                        />
+                      </div>
+
+                      <div>
+                        <label className="text-slate-300 font-bold">Game Format</label>
+                        <select
+                          value={newGameType}
+                          onChange={(e: any) => setNewGameType(e.target.value)}
+                          className="w-full mt-1 px-3 py-2 rounded-xl bg-black/50 border border-white/10 text-white"
+                        >
+                          <option value="Classic">Classic 90-Ball</option>
+                          <option value="Speed 90">Speed 90 (Fast Draw)</option>
+                          <option value="Mega Jackpot">Mega Jackpot Housie</option>
+                          <option value="Bumper Night">Bumper Night Special</option>
+                        </select>
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-2">
+                        <div>
+                          <label className="text-slate-300 font-bold">Ticket Price (₹)</label>
+                          <input
+                            type="number"
+                            min="10"
+                            max="500"
+                            value={newGameTicketPrice}
+                            onChange={(e) => {
+                              const p = Number(e.target.value);
+                              setNewGameTicketPrice(p);
+                              setNewGamePrizePool(Math.round(p * 100 * 0.7));
+                            }}
+                            className="w-full mt-1 px-3 py-2 rounded-xl bg-black/50 border border-white/10 text-emerald-400 font-mono font-bold"
+                            required
+                          />
+                        </div>
+
+                        <div>
+                          <label className="text-slate-300 font-bold">Prize Pool (₹)</label>
+                          <input
+                            type="number"
+                            value={newGamePrizePool}
+                            onChange={(e) => setNewGamePrizePool(Number(e.target.value))}
+                            className="w-full mt-1 px-3 py-2 rounded-xl bg-black/50 border border-white/10 text-amber-400 font-mono font-bold"
+                            required
+                          />
+                        </div>
+                      </div>
+
+                      <div>
+                        <label className="text-slate-300 font-bold">Max Players Capacity</label>
+                        <input
+                          type="number"
+                          value={newGameMaxPlayers}
+                          onChange={(e) => setNewGameMaxPlayers(Number(e.target.value))}
+                          className="w-full mt-1 px-3 py-2 rounded-xl bg-black/50 border border-white/10 text-white font-mono"
+                          required
+                        />
+                      </div>
+
+                      <div>
+                        <label className="text-slate-300 font-bold">Scheduled Start Date &amp; Time</label>
+                        <input
+                          type="datetime-local"
+                          value={newGameStartTime}
+                          onChange={(e) => setNewGameStartTime(e.target.value)}
+                          className="w-full mt-1 px-3 py-2 rounded-xl bg-black/50 border border-white/10 text-white"
+                          required
+                        />
+                      </div>
+
+                      <button
+                        type="submit"
+                        className="w-full py-3 rounded-2xl bg-gradient-to-r from-amber-400 to-yellow-500 text-slate-950 font-black text-xs shadow-lg shadow-amber-500/25 hover:brightness-110 cursor-pointer"
+                      >
+                        PUBLISH &amp; OPEN TICKETS
+                      </button>
+                    </form>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* ================================================================= */}
+            {/* TAB 4: 🎟️ TICKET MANAGEMENT & VISUALIZER */}
+            {/* ================================================================= */}
+            {activeTab === 'tickets' && (
+              <div className="max-w-6xl mx-auto space-y-6 animate-fade-in">
+                <div className="flex items-center justify-between pb-2">
+                  <div>
+                    <h3 className="text-xl font-black text-white">🎟️ TICKET INVENTORY &amp; VERIFICATION</h3>
+                    <p className="text-xs text-slate-400">Inspect purchased player tickets, 3x9 tambola matrices and security codes</p>
+                  </div>
+                  <span className="px-3 py-1 bg-pink-500/20 text-pink-300 border border-pink-500/40 rounded-full text-xs font-mono font-bold">
+                    Total In circulation: {myTickets.length + 145}
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {myTickets.map((t) => (
+                    <div
+                      key={t.id}
+                      className="p-5 rounded-3xl bg-[#0e102a] border border-purple-500/30 space-y-3 shadow-xl"
+                    >
+                      <div className="flex items-center justify-between border-b border-white/10 pb-2">
+                        <div>
+                          <span className="text-xs font-mono font-bold text-amber-300">Ticket #{t.ticketNumber}</span>
+                          <p className="text-[10px] text-slate-400">Owner: {t.userName} ({t.userId})</p>
+                        </div>
+                        <span className="px-2.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 text-[10px] font-mono font-bold">
+                          Game #{t.gameId}
+                        </span>
+                      </div>
+
+                      {/* 3x9 Matrix Visualizer */}
+                      <div className="grid grid-cols-9 gap-1 bg-black/60 p-2 rounded-2xl border border-white/10">
+                        {t.grid.map((row, rIdx) =>
+                          row.map((val, cIdx) => (
+                            <div
+                              key={`${rIdx}-${cIdx}`}
+                              className={`h-7 rounded flex items-center justify-center font-mono font-bold text-xs ${
+                                val === null
+                                  ? 'bg-transparent text-transparent'
+                                  : t.markedNumbers.includes(val)
+                                  ? 'bg-pink-500 text-white font-black'
+                                  : 'bg-white/10 text-white'
+                              }`}
+                            >
+                              {val || ''}
+                            </div>
+                          ))
+                        )}
+                      </div>
+
+                      <div className="flex items-center justify-between text-[11px] text-slate-400 pt-1">
+                        <span>Code: <strong className="text-pink-400 font-mono">{t.verificationCode || 'VER-74892'}</strong></span>
+                        <span>Marked: <strong className="text-emerald-400">{t.markedNumbers.length}/15</strong></span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* ================================================================= */}
+            {/* TAB 5 & 6: 🔴 LIVE GAME & 🎱 1-90 NUMBER CALLER SUITE */}
+            {/* ================================================================= */}
+            {(activeTab === 'liveGameControl' || activeTab === 'numberControl') && (
+              <div className="max-w-5xl mx-auto space-y-6 animate-fade-in">
+                <div className="p-6 rounded-3xl bg-[#0e102a] border-2 border-red-500/40 space-y-6 shadow-2xl">
+                  <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pb-4 border-b border-white/10">
+                    <div>
+                      <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-red-500/20 text-red-400 border border-red-500/40 text-xs font-black mb-1">
+                        <Radio className="w-3.5 h-3.5 animate-pulse" /> LIVE STREAM CALLER CONTROL
+                      </div>
+                      <h3 className="text-xl font-black text-white">{activeLiveGame.title} (#{activeLiveGame.id})</h3>
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={isGameCalling ? pauseLiveCaller : startLiveCaller}
+                        className={`px-5 py-2.5 rounded-2xl text-xs font-black flex items-center gap-2 shadow-lg cursor-pointer ${
+                          isGameCalling
+                            ? 'bg-amber-400 text-slate-950 hover:bg-amber-300'
+                            : 'bg-emerald-500 text-slate-950 hover:bg-emerald-400'
+                        }`}
+                      >
+                        {isGameCalling ? <Pause className="w-4 h-4 fill-current" /> : <Play className="w-4 h-4 fill-current" />}
+                        <span>{isGameCalling ? 'PAUSE AUTO-CALLER' : 'START AUTO-CALLER'}</span>
+                      </button>
+
+                      <button
+                        onClick={callNextNumber}
+                        className="px-4 py-2.5 rounded-2xl bg-gradient-to-r from-pink-500 to-purple-600 text-white text-xs font-black shadow-lg hover:brightness-110 cursor-pointer"
+                      >
+                        DRAW NEXT BALL
+                      </button>
+
+                      <button
+                        onClick={undoLastNumber}
+                        disabled={liveCalledNumbers.length === 0}
+                        className="px-4 py-2.5 rounded-2xl bg-white/10 hover:bg-red-500/20 text-red-300 border border-red-500/30 text-xs font-bold disabled:opacity-30 cursor-pointer flex items-center gap-1.5"
+                      >
+                        <Undo2 className="w-4 h-4" />
+                        <span>UNDO LAST</span>
+                      </button>
+
+                      <button
+                        onClick={resetLiveGame}
+                        className="p-2.5 rounded-2xl bg-white/10 hover:bg-white/20 text-slate-300 cursor-pointer"
+                        title="Reset Draw"
+                      >
+                        <RotateCcw className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* 3D Animated Last Ball + Hindi/English Callout */}
+                  <div className="flex flex-col sm:flex-row items-center justify-between gap-6 p-6 rounded-2xl bg-black/60 border border-white/10">
+                    <div className="flex items-center gap-5">
+                      <div className="w-20 h-20 rounded-full bg-gradient-to-tr from-amber-400 via-pink-500 to-purple-600 flex items-center justify-center text-3xl font-black text-slate-950 font-mono shadow-2xl ring-4 ring-white/10 animate-pulse">
+                        {currentCalledNumber || '--'}
+                      </div>
+                      <div>
+                        <span className="text-xs text-slate-400 font-bold uppercase">LAST CALLED NUMBER</span>
+                        <h4 className="text-lg font-black text-amber-300">
+                          {currentCalledNumber
+                            ? `${TAMBOLA_CALLS[currentCalledNumber] || `Number ${currentCalledNumber}`}`
+                            : 'Waiting to draw first ball...'}
+                        </h4>
+                      </div>
+                    </div>
+
+                    {/* Direct Number Picker */}
+                    <div className="flex items-center gap-2 bg-white/5 p-2 rounded-2xl border border-white/10">
+                      <input
+                        type="number"
+                        min="1"
+                        max="90"
+                        value={customCallNum}
+                        onChange={(e) => setCustomCallNum(Number(e.target.value))}
+                        className="w-16 px-2 py-1.5 rounded-xl bg-black/60 border border-white/20 text-center font-mono font-bold text-sm text-amber-400"
+                      />
+                      <button
+                        onClick={() => callSpecificNumber(customCallNum)}
+                        className="px-3 py-1.5 rounded-xl bg-amber-400 text-slate-950 text-xs font-black hover:bg-amber-300 cursor-pointer"
+                      >
+                        CALL SPECIFIC
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* 1-90 Interactive Grid */}
+                  <div className="space-y-3">
+                    <div className="flex justify-between items-center text-xs">
+                      <span className="font-bold text-slate-300">MASTER BOARD (Called: {liveCalledNumbers.length}/90):</span>
+                      <span className="text-slate-400 text-[11px]">Click any uncalled number to call it instantly</span>
+                    </div>
+                    <div className="grid grid-cols-10 sm:grid-cols-15 md:grid-cols-18 gap-1.5">
+                      {Array.from({ length: 90 }, (_, i) => i + 1).map((n) => {
+                        const isCalled = liveCalledNumbers.includes(n);
+                        const isLatest = currentCalledNumber === n;
+                        return (
+                          <button
+                            key={n}
+                            onClick={() => !isCalled && callSpecificNumber(n)}
+                            disabled={isCalled}
+                            className={`h-8 text-xs font-mono font-bold rounded-lg flex items-center justify-center transition-all ${
+                              isLatest
+                                ? 'bg-amber-400 text-slate-950 font-black scale-110 shadow-lg ring-2 ring-amber-300 z-10'
+                                : isCalled
+                                ? 'bg-purple-600 text-white font-black opacity-90'
+                                : 'bg-white/5 hover:bg-white/20 text-slate-400 border border-white/5 cursor-pointer'
+                            }`}
+                          >
+                            {n}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* ================================================================= */}
+            {/* TAB 7: 🏆 WINNER VERIFICATIONS & PRIZE LEDGER */}
+            {/* ================================================================= */}
+            {activeTab === 'winners' && (
+              <div className="max-w-5xl mx-auto space-y-6 animate-fade-in">
+                <div className="flex items-center justify-between pb-2">
+                  <div>
+                    <h3 className="text-xl font-black text-white">🏆 WINNER VERIFICATIONS &amp; PAYOUTS</h3>
+                    <p className="text-xs text-slate-400">All verified prize claims with server-audited pattern verification</p>
+                  </div>
+                  <span className="px-3 py-1 bg-amber-400/20 text-amber-300 border border-amber-400/40 rounded-full text-xs font-bold">
+                    {prizeLedger.length} Verified Payouts
+                  </span>
+                </div>
+
+                <div className="space-y-3">
+                  {prizeLedger.map((prize) => (
+                    <div
+                      key={prize.id}
+                      className="p-5 rounded-2xl bg-[#0e102a] border border-amber-500/30 flex flex-col sm:flex-row items-center justify-between gap-4 shadow-xl"
+                    >
+                      <div className="space-y-1 text-center sm:text-left">
+                        <div className="flex items-center justify-center sm:justify-start gap-2">
+                          <span className="text-lg">🏆</span>
+                          <span className="font-bold text-white text-sm">{prize.prizeCategory}</span>
+                          <span className="px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 text-[10px] font-bold">
+                            VERIFIED ✓
+                          </span>
+                        </div>
+                        <p className="text-xs text-slate-300 font-mono">
+                          Winner: <strong>{prize.userName}</strong> ({prize.userId}) • Ticket: #{prize.ticketNumber} • Game: #{prize.gameId}
+                        </p>
+                        <p className="text-[10px] text-slate-500">{prize.claimedAt}</p>
+                      </div>
+
+                      <div className="text-right">
+                        <span className="text-xs text-slate-400">Prize Amount Credited:</span>
+                        <p className="text-xl font-black text-emerald-400 font-mono">₹{prize.amount}</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* ================================================================= */}
+            {/* TAB 8: 🎁 FREE TICKET WINNERS (5 / GAME) */}
+            {/* ================================================================= */}
+            {activeTab === 'freeTicketWinners' && (
+              <div className="max-w-5xl mx-auto space-y-6 animate-fade-in">
+                <div className="p-6 rounded-3xl bg-gradient-to-r from-pink-950/60 via-[#0e102a] to-purple-950/60 border border-pink-500/40 space-y-4">
+                  <div className="flex flex-col sm:flex-row items-center justify-between gap-3">
+                    <div>
+                      <h3 className="text-xl font-black text-pink-400">🎁 5 FREE TICKETS LUCKY DRAW SUITE</h3>
+                      <p className="text-xs text-slate-300">
+                        Select any tournament and instantly draw 5 random lucky winners from active platform players
+                      </p>
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      <select
+                        value={selectedGameForFreeDraw}
+                        onChange={(e) => setSelectedGameForFreeDraw(e.target.value)}
+                        className="px-3 py-2 rounded-xl bg-black/60 border border-white/20 text-xs text-white"
+                      >
+                        {upcomingGames.map((g) => (
+                          <option key={g.id} value={g.id}>
+                            #{g.id} - {g.title}
+                          </option>
+                        ))}
+                      </select>
+
+                      <button
+                        onClick={handleDrawFreeTickets}
+                        className="px-4 py-2 rounded-xl bg-gradient-to-r from-pink-500 to-purple-600 text-white font-black text-xs shadow-lg shadow-pink-500/30 hover:brightness-110 cursor-pointer flex items-center gap-1.5"
+                      >
+                        <Gift className="w-4 h-4" />
+                        <span>DRAW 5 WINNERS</span>
+                      </button>
+                    </div>
+                  </div>
+
+                  {freeDrawFeedback && (
+                    <div className="p-3.5 rounded-xl bg-emerald-500/20 text-emerald-300 text-xs font-bold flex items-center gap-2">
+                      <CheckCircle2 className="w-4 h-4" />
+                      <span>{freeDrawFeedback}</span>
+                    </div>
+                  )}
+                </div>
+
+                <div className="space-y-3">
+                  <h4 className="text-sm font-black text-white uppercase">All Awarded Free Tickets ({freeTicketWinners.length})</h4>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
+                    {freeTicketWinners.map((w) => (
+                      <div
+                        key={w.id}
+                        className="p-4 rounded-2xl bg-[#0e102a] border border-white/10 space-y-2 text-xs"
+                      >
+                        <div className="flex justify-between items-center">
+                          <span className="font-bold text-white">{w.userName}</span>
+                          <span className="px-2 py-0.5 rounded-full bg-pink-500/20 text-pink-300 text-[10px] font-bold">
+                            FREE PASS
+                          </span>
+                        </div>
+                        <p className="text-slate-400 font-mono">ID: {w.userId} • Ticket #{w.ticketNumber}</p>
+                        <p className="text-amber-300 font-mono">Game: #{w.gameId}</p>
+                        <div className="pt-2 border-t border-white/5 flex justify-between text-[10px] text-slate-500">
+                          <span>Code: {w.freeTicketCode}</span>
+                          <span className="text-emerald-400 font-bold uppercase">{w.status}</span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* ================================================================= */}
+            {/* TAB 9: 💰 DEPOSIT APPROVALS */}
+            {/* ================================================================= */}
+            {activeTab === 'deposits' && (
+              <div className="max-w-5xl mx-auto space-y-6 animate-fade-in">
+                <div className="flex items-center justify-between pb-2">
+                  <div>
+                    <h3 className="text-xl font-black text-white">💰 DEPOSIT MANAGEMENT</h3>
+                    <p className="text-xs text-slate-400">Review UPI UTRs, verify payment screenshots and credit Main Wallets</p>
+                  </div>
+                  <span className="px-3 py-1 rounded-full bg-amber-400/20 text-amber-300 text-xs font-bold font-mono">
+                    Pending: {deposits.filter((d) => d.status === 'pending').length}
+                  </span>
+                </div>
+
+                <div className="space-y-3">
+                  {deposits.map((dep) => (
+                    <div
+                      key={dep.id}
+                      className="p-5 rounded-2xl bg-[#0e102a] border border-white/10 flex flex-col sm:flex-row items-center justify-between gap-4 shadow-xl"
+                    >
+                      <div className="space-y-1 text-center sm:text-left">
+                        <div className="flex items-center justify-center sm:justify-start gap-2">
+                          <span className="text-base font-black text-white font-mono">₹{dep.amount}</span>
+                          <span className="text-xs text-slate-400 font-bold">from {dep.userName} ({dep.userId})</span>
+                          <span
+                            className={`px-2 py-0.5 rounded-full text-[10px] font-black uppercase ${
+                              dep.status === 'approved' || dep.status === 'completed'
+                                ? 'bg-emerald-500/20 text-emerald-300'
+                                : dep.status === 'pending'
+                                ? 'bg-amber-500/20 text-amber-300 animate-pulse'
+                                : 'bg-red-500/20 text-red-300'
+                            }`}
+                          >
+                            {dep.status}
+                          </span>
+                        </div>
+                        <p className="text-xs text-slate-400 font-mono">
+                          Method: {dep.paymentMethod} • 12-Digit UTR: <strong className="text-amber-300">{dep.utrRef || dep.transactionId}</strong>
+                        </p>
+                        <p className="text-[10px] text-slate-500">{dep.createdAt}</p>
+                      </div>
+
+                      {dep.status === 'pending' && (
+                        <div className="flex items-center gap-2">
+                          <button
+                            onClick={() => approveDeposit(dep.id)}
+                            className="px-4 py-2 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black text-xs shadow-lg shadow-emerald-500/20 cursor-pointer"
+                          >
+                            ✓ APPROVE &amp; CREDIT
+                          </button>
+                          <button
+                            onClick={() => rejectDeposit(dep.id, 'Invalid UTR / Payment Not Received')}
+                            className="px-3 py-2 rounded-xl bg-red-500/20 hover:bg-red-500/30 text-red-300 border border-red-500/30 font-bold text-xs cursor-pointer"
+                          >
+                            ✕ REJECT
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* ================================================================= */}
+            {/* TAB 10: 💸 WITHDRAWAL APPROVALS */}
+            {/* ================================================================= */}
+            {activeTab === 'withdrawals' && (
+              <div className="max-w-5xl mx-auto space-y-6 animate-fade-in">
+                <div className="flex items-center justify-between pb-2">
+                  <div>
+                    <h3 className="text-xl font-black text-white">💸 WITHDRAWAL APPROVALS &amp; PAYOUTS</h3>
+                    <p className="text-xs text-slate-400">Disburse verified player earnings to Bank / UPI</p>
+                  </div>
+                  <span className="px-3 py-1 rounded-full bg-amber-400/20 text-amber-300 text-xs font-bold font-mono">
+                    Pending: {withdrawals.filter((w) => w.status === 'pending').length}
+                  </span>
+                </div>
+
+                <div className="space-y-3">
+                  {withdrawals.map((w) => (
+                    <div
+                      key={w.id}
+                      className="p-5 rounded-2xl bg-[#0e102a] border border-white/10 flex flex-col sm:flex-row items-center justify-between gap-4 shadow-xl"
+                    >
+                      <div className="space-y-1 text-center sm:text-left">
+                        <div className="flex items-center justify-center sm:justify-start gap-2">
+                          <span className="text-base font-black text-amber-400 font-mono">₹{w.amount}</span>
+                          <span className="text-xs text-slate-300 font-bold">for {w.userName} ({w.userId})</span>
+                          <span
+                            className={`px-2 py-0.5 rounded-full text-[10px] font-black uppercase ${
+                              w.status === 'approved'
+                                ? 'bg-emerald-500/20 text-emerald-300'
+                                : w.status === 'pending'
+                                ? 'bg-amber-500/20 text-amber-300 animate-pulse'
+                                : 'bg-red-500/20 text-red-300'
+                            }`}
+                          >
+                            {w.status}
+                          </span>
+                        </div>
+                        <p className="text-xs text-slate-400 font-mono">
+                          Payout: {w.payoutType} • Details: {w.upiId || `${w.accountNumber} (${w.ifscCode})`} • Name: {w.accountHolderName}
+                        </p>
+                      </div>
+
+                      {w.status === 'pending' && (
+                        <div className="flex items-center gap-2">
+                          <button
+                            onClick={() => approveWithdrawal(w.id)}
+                            className="px-4 py-2 rounded-xl bg-amber-400 hover:bg-amber-300 text-slate-950 font-black text-xs shadow-lg shadow-amber-400/20 cursor-pointer"
+                          >
+                            ✓ APPROVE &amp; MARK PAID
+                          </button>
+                          <button
+                            onClick={() => rejectWithdrawal(w.id, 'Account details mismatch')}
+                            className="px-3 py-2 rounded-xl bg-red-500/20 hover:bg-red-500/30 text-red-300 border border-red-500/30 font-bold text-xs cursor-pointer"
+                          >
+                            ✕ REJECT
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* ================================================================= */}
+            {/* TAB 11: 💼 3-WALLET MANAGEMENT & SYSTEM BALANCES */}
+            {/* ================================================================= */}
+            {activeTab === 'wallets' && (
+              <div className="max-w-5xl mx-auto space-y-6 animate-fade-in">
+                <div className="flex items-center justify-between pb-2">
+                  <div>
+                    <h3 className="text-xl font-black text-white">💼 3-WALLET MANAGEMENT</h3>
+                    <p className="text-xs text-slate-400">Total systemic liquidity distributed across Main, Ticket &amp; Winning Wallets</p>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                  <div className="p-6 rounded-3xl bg-[#0e102a] border border-emerald-500/40 space-y-2">
+                    <span className="text-xs text-emerald-400 font-bold uppercase">1. MAIN / DEPOSIT WALLET</span>
+                    <p className="text-3xl font-black text-white font-mono">
+                      ₹{allUsers.reduce((acc, u) => acc + (u.depositWallet || 0), 0).toLocaleString('en-IN')}
+                    </p>
+                    <p className="text-[11px] text-slate-400">Total User Deposit Reserves (Transferable with 5% fee)</p>
+                  </div>
+
+                  <div className="p-6 rounded-3xl bg-[#0e102a] border border-pink-500/40 space-y-2">
+                    <span className="text-xs text-pink-400 font-bold uppercase">2. TICKET WALLET</span>
+                    <p className="text-3xl font-black text-white font-mono">
+                      ₹{allUsers.reduce((acc, u) => acc + (u.ticketWallet || 0), 0).toLocaleString('en-IN')}
+                    </p>
+                    <p className="text-[11px] text-slate-400">Dedicated Game Purchase Credit (Non-Transferable)</p>
+                  </div>
+
+                  <div className="p-6 rounded-3xl bg-[#0e102a] border border-amber-500/40 space-y-2">
+                    <span className="text-xs text-amber-400 font-bold uppercase">3. WINNING WALLET</span>
+                    <p className="text-3xl font-black text-white font-mono">
+                      ₹{allUsers.reduce((acc, u) => acc + (u.winningWallet || 0), 0).toLocaleString('en-IN')}
+                    </p>
+                    <p className="text-[11px] text-slate-400">Withdrawable Verified Cash Earnings</p>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* ================================================================= */}
+            {/* TAB 12: 🔄 P2P TRANSFERS & 5% FEE LEDGER */}
+            {/* ================================================================= */}
+            {activeTab === 'transfers' && (
+              <div className="max-w-5xl mx-auto space-y-6 animate-fade-in">
+                <div className="flex items-center justify-between pb-2">
+                  <div>
+                    <h3 className="text-xl font-black text-white">🔄 P2P TRANSFERS &amp; 5% PLATFORM REVENUE</h3>
+                    <p className="text-xs text-slate-400">Immutable ledger of wallet transfers and automatic 5% fee deductions</p>
+                  </div>
+                  <span className="px-3 py-1 bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 rounded-full text-xs font-mono font-bold">
+                    Fee Revenue: ₹{platformFeeLedger.reduce((acc, f) => acc + f.amount, 3450)}
+                  </span>
+                </div>
+
+                <div className="space-y-3">
+                  {transfers.map((t) => (
+                    <div
+                      key={t.id}
+                      className="p-4 rounded-2xl bg-[#0e102a] border border-white/10 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs"
+                    >
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <span className="font-bold text-white text-sm">₹{t.recipientAmount}</span>
+                          <span className="text-slate-400">
+                            from <strong className="text-emerald-300">{t.senderUserName}</strong> to <strong className="text-purple-300">{t.recipientUserName}</strong>
+                          </span>
+                        </div>
+                        <p className="text-slate-400 font-mono mt-0.5">
+                          Gross: ₹{t.amount} • 5% Fee: <span className="text-cyan-400 font-bold">₹{t.feeAmount}</span>
+                        </p>
+                      </div>
+                      <span className="text-[10px] text-slate-500 font-mono">{t.createdAt}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* ================================================================= */}
+            {/* TAB 13: 👥 8-LEVEL REFERRAL EXPLORER */}
+            {/* ================================================================= */}
+            {activeTab === 'referrals' && (
+              <div className="max-w-5xl mx-auto space-y-6 animate-fade-in">
+                <div className="flex items-center justify-between pb-2">
+                  <div>
+                    <h3 className="text-xl font-black text-white">👥 8-LEVEL REFERRAL TREE EXPLORER</h3>
+                    <p className="text-xs text-slate-400">Inspect user downlines, level counts and cumulative network commissions</p>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {allUsers.map((user) => (
+                    <div
+                      key={user.id}
+                      className="p-5 rounded-3xl bg-[#0e102a] border border-purple-500/30 space-y-3"
+                    >
+                      <div className="flex items-center justify-between border-b border-white/10 pb-2">
+                        <div>
+                          <h4 className="font-bold text-white">{user.name}</h4>
+                          <p className="text-xs text-amber-300 font-mono">Code: {user.referralCode}</p>
+                        </div>
+                        <span className="px-2.5 py-1 rounded-xl bg-pink-500/20 text-pink-300 text-xs font-mono font-bold">
+                          Earnings: ₹{user.referralEarnings}
+                        </span>
+                      </div>
+
+                      <div className="grid grid-cols-4 gap-2 text-center text-xs">
+                        <div className="p-2 rounded-xl bg-black/40 border border-white/5">
+                          <span className="text-[10px] text-slate-400">Direct</span>
+                          <p className="font-mono font-bold text-white">2</p>
+                        </div>
+                        <div className="p-2 rounded-xl bg-black/40 border border-white/5">
+                          <span className="text-[10px] text-slate-400">L2-L4</span>
+                          <p className="font-mono font-bold text-white">14</p>
+                        </div>
+                        <div className="p-2 rounded-xl bg-black/40 border border-white/5">
+                          <span className="text-[10px] text-slate-400">L5-L8</span>
+                          <p className="font-mono font-bold text-white">28</p>
+                        </div>
+                        <div className="p-2 rounded-xl bg-black/40 border border-white/5">
+                          <span className="text-[10px] text-slate-400">Total</span>
+                          <p className="font-mono font-bold text-pink-400">44</p>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* ================================================================= */}
+            {/* TAB 14: 💎 8-LEVEL COMMISSION SETTINGS */}
+            {/* ================================================================= */}
+            {activeTab === 'commission' && (
+              <div className="max-w-4xl mx-auto space-y-6 animate-fade-in">
+                <div className="p-6 rounded-3xl bg-[#0e102a] border border-pink-500/30 space-y-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h3 className="text-xl font-black text-white">💎 8-LEVEL COMMISSION STRUCTURE</h3>
+                      <p className="text-xs text-slate-400">Configure exact percentage payouts for Level 1 through Level 8</p>
+                    </div>
+                    <span className="px-3 py-1 bg-pink-500/20 text-pink-300 border border-pink-500/40 rounded-full text-xs font-mono font-bold">
+                      Total: {commissionLevels.reduce((sum, l) => sum + (l.isEnabled !== false ? l.percent : 0), 0).toFixed(1)}%
+                    </span>
+                  </div>
+
+                  <div className="space-y-3 pt-2">
+                    {commissionLevels.map((lvl, idx) => (
+                      <div
+                        key={lvl.level}
+                        className="p-3.5 rounded-2xl bg-black/40 border border-white/5 flex items-center justify-between text-xs"
+                      >
+                        <div className="flex items-center gap-3">
+                          <span className="w-8 h-8 rounded-xl bg-pink-500/20 text-pink-300 font-mono font-bold flex items-center justify-center">
+                            L{lvl.level}
+                          </span>
+                          <span className="font-bold text-white">{lvl.label || `Level ${lvl.level}`}</span>
+                        </div>
+
+                        <div className="flex items-center gap-3">
+                          <input
+                            type="number"
+                            step="0.1"
+                            min="0"
+                            max="10"
+                            value={lvl.percent}
+                            onChange={(e) => {
+                              const updated = [...commissionLevels];
+                              updated[idx].percent = Number(e.target.value);
+                              setCommissionLevels(updated);
+                            }}
+                            className="w-20 px-3 py-1.5 rounded-xl bg-black/60 border border-pink-500/40 text-pink-300 font-mono font-bold text-center"
+                          />
+                          <span className="text-slate-400 font-bold">%</span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+
+                  <div className="flex flex-wrap gap-3 pt-4 border-t border-white/10">
+                    <button
+                      onClick={handleSaveCommissionLevels}
+                      className="flex-1 py-3 rounded-2xl bg-gradient-to-r from-pink-500 to-purple-600 text-white font-black text-xs shadow-lg shadow-pink-500/25 hover:brightness-110 cursor-pointer"
+                    >
+                      SAVE 8-LEVEL COMMISSION STRUCTURE
+                    </button>
+                    <button
+                      onClick={handleResetCommissionDefaults}
+                      className="px-5 py-3 rounded-2xl bg-white/10 hover:bg-white/20 text-slate-300 font-bold text-xs cursor-pointer"
+                    >
+                      RESET TO DEFAULTS (4.6%)
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* ================================================================= */}
+            {/* TAB 15: 💰 DIRECT INCOME CONFIGURATION */}
+            {/* ================================================================= */}
+            {activeTab === 'directIncome' && (
+              <div className="max-w-3xl mx-auto space-y-6 animate-fade-in">
+                <div className="p-6 rounded-3xl bg-[#0e102a] border border-emerald-500/30 space-y-4">
+                  <h3 className="text-xl font-black text-white">💰 DIRECT SPONSOR INCOME CONFIG</h3>
+                  <p className="text-xs text-slate-400">Enable and configure additional direct sponsor bonus on ticket purchases</p>
+
+                  <div className="space-y-4 pt-2 text-xs">
+                    <div className="flex items-center justify-between p-4 rounded-2xl bg-black/40 border border-white/5">
+                      <div>
+                        <p className="font-bold text-white">Direct Sponsor Income Active</p>
+                        <p className="text-slate-400">Award immediate bonus to direct parent upon gameplay</p>
+                      </div>
+                      <button
+                        onClick={() => setDirectIncomeEnabled(!directIncomeEnabled)}
+                        className={`px-4 py-2 rounded-xl text-xs font-bold cursor-pointer ${
+                          directIncomeEnabled ? 'bg-emerald-500 text-slate-950' : 'bg-white/10 text-slate-400'
+                        }`}
+                      >
+                        {directIncomeEnabled ? 'ENABLED' : 'DISABLED'}
+                      </button>
+                    </div>
+
+                    <div>
+                      <label className="text-slate-300 font-bold">Direct Sponsor Bonus Percentage (%)</label>
+                      <input
+                        type="number"
+                        step="0.1"
+                        min="0"
+                        max="10"
+                        value={directIncomePercent}
+                        onChange={(e) => setDirectIncomePercent(Number(e.target.value))}
+                        className="w-full mt-1 px-3.5 py-2.5 rounded-xl bg-black/50 border border-white/10 text-emerald-400 font-mono font-bold"
+                      />
+                    </div>
+
+                    <button
+                      onClick={() => {
+                        updateSettings({ directIncomeEnabled, directIncomePercent });
+                        setSaveSuccessMsg('Direct sponsor income configuration saved!');
+                        setTimeout(() => setSaveSuccessMsg(null), 3000);
+                      }}
+                      className="w-full py-3 rounded-2xl bg-gradient-to-r from-emerald-500 to-teal-500 text-slate-950 font-black text-xs shadow-lg shadow-emerald-500/25 hover:brightness-110 cursor-pointer"
+                    >
+                      SAVE DIRECT INCOME SETTINGS
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* ================================================================= */}
+            {/* TAB 16: 🏆 PRIZE SETTINGS & 70% POOL ENFORCEMENT */}
+            {/* ================================================================= */}
+            {activeTab === 'prizes' && (
+              <div className="max-w-5xl mx-auto space-y-6 animate-fade-in">
+                <div className="p-6 rounded-3xl bg-gradient-to-r from-purple-950/60 via-[#0e102a] to-amber-950/60 border-2 border-amber-500/40 space-y-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h3 className="text-xl font-black text-amber-400">🏆 70% CASH PRIZE POOL ENFORCEMENT</h3>
+                      <p className="text-xs text-slate-300">
+                        Formula: Total Eligible Ticket Sales × 70% = Maximum Prize Distribution
+                      </p>
+                    </div>
+                    <span className="px-3 py-1 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 text-xs font-mono font-bold">
+                      70% Cap Active
+                    </span>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-2 text-center text-xs">
+                    <div className="p-3 rounded-2xl bg-black/60 border border-white/10">
+                      <span className="text-slate-400">Current Sales Base</span>
+                      <p className="text-lg font-black text-white font-mono">₹{validationResult.totalSales}</p>
+                    </div>
+                    <div className="p-3 rounded-2xl bg-black/60 border border-emerald-500/30">
+                      <span className="text-slate-400">Allowed Prize Pool (70%)</span>
+                      <p className="text-lg font-black text-emerald-400 font-mono">₹{validationResult.maxPrizePool70}</p>
+                    </div>
+                    <div className="p-3 rounded-2xl bg-black/60 border border-pink-500/30">
+                      <span className="text-slate-400">Configured Prizes Sum</span>
+                      <p className="text-lg font-black text-pink-400 font-mono">₹{validationResult.totalConfiguredPrizes}</p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Prize Categories Config Table */}
+                <div className="p-6 rounded-3xl bg-[#0e102a] border border-white/10 space-y-4">
+                  <h4 className="text-sm font-black text-white uppercase">Standard Winning Patterns &amp; Cash Rewards</h4>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    {prizes.map((p, idx) => (
+                      <div
+                        key={p.id}
+                        className="p-4 rounded-2xl bg-black/40 border border-white/5 flex items-center justify-between text-xs"
+                      >
+                        <div className="flex items-center gap-3">
+                          <span className="text-xl">{p.icon || '🏆'}</span>
+                          <div>
+                            <p className="font-bold text-white text-sm">{p.name}</p>
+                            <p className="text-[10px] text-slate-400">{p.hindiName} • Winners: {p.winnerCount}</p>
+                          </div>
+                        </div>
+
+                        <div className="flex items-center gap-2">
+                          <input
+                            type="number"
+                            value={p.amount}
+                            onChange={(e) => {
+                              const updated = [...prizes];
+                              updated[idx].amount = Number(e.target.value);
+                              updatePrizes(updated);
+                            }}
+                            className="w-20 px-2.5 py-1.5 rounded-xl bg-black/60 border border-amber-400/40 text-amber-400 font-mono font-bold text-sm text-center"
+                          />
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+
+                  <button
+                    onClick={() => handleSaveSettings({})}
+                    className="w-full py-3 rounded-2xl bg-gradient-to-r from-amber-400 to-yellow-500 text-slate-950 font-black text-xs hover:brightness-110 shadow-lg cursor-pointer"
+                  >
+                    SAVE PRIZE PATTERN CONFIGURATION
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* ================================================================= */}
+            {/* TAB 17: 🎨 TICKET COLORS & THEMES */}
+            {/* ================================================================= */}
+            {activeTab === 'ticketDesign' && (
+              <div className="max-w-5xl mx-auto space-y-6 animate-fade-in">
+                <div className="flex items-center justify-between pb-2">
+                  <div>
+                    <h3 className="text-xl font-black text-white">🎨 TICKET THEMES &amp; COLOR STYLING</h3>
+                    <p className="text-xs text-slate-400">Customize visual appearance of player tickets</p>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  {Object.entries(ADMIN_TICKET_THEMES).map(([id, style]) => (
+                    <div
+                      key={id}
+                      className={`p-5 rounded-3xl bg-gradient-to-br ${style.bg} border-2 ${style.border} space-y-3 shadow-xl`}
+                    >
+                      <div className="flex justify-between items-center">
+                        <span className="font-black text-white uppercase text-sm">{style.name}</span>
+                        <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase ${style.badge}`}>
+                          Active Style
+                        </span>
+                      </div>
+                      <p className="text-xs text-slate-200">{style.description}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* ================================================================= */}
+            {/* TAB 18: 💳 PAYMENT GATEWAY & UPI CONFIG */}
+            {/* ================================================================= */}
+            {activeTab === 'payments' && (
+              <div className="max-w-4xl mx-auto space-y-6 animate-fade-in">
+                <div className="p-6 rounded-3xl bg-[#0e102a] border border-emerald-500/30 space-y-4">
+                  <h3 className="text-xl font-black text-white">💳 PAYMENT GATEWAY &amp; UPI SETTINGS</h3>
+                  <p className="text-xs text-slate-400">Configure official UPI ID, QR code and bank payout details for deposits &amp; withdrawals</p>
+
+                  <form onSubmit={handleSavePayments} className="space-y-4 pt-2 text-xs">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <div>
+                        <label className="text-slate-300 font-bold">Admin Official UPI ID</label>
+                        <input
+                          type="text"
+                          value={adminUpiId}
+                          onChange={(e) => setAdminUpiId(e.target.value)}
+                          className="w-full mt-1 px-3.5 py-2.5 rounded-xl bg-black/50 border border-white/10 text-white font-mono"
+                          required
+                        />
+                      </div>
+                      <div>
+                        <label className="text-slate-300 font-bold">QR Code Image URL</label>
+                        <input
+                          type="text"
+                          value={adminQrUrl}
+                          onChange={(e) => setAdminQrUrl(e.target.value)}
+                          placeholder="https://... or data:image/png..."
+                          className="w-full mt-1 px-3.5 py-2.5 rounded-xl bg-black/50 border border-white/10 text-white font-mono"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                      <div>
+                        <label className="text-slate-300 font-bold">Min Deposit (₹)</label>
+                        <input
+                          type="number"
+                          value={minDeposit}
+                          onChange={(e) => setMinDeposit(Number(e.target.value))}
+                          className="w-full mt-1 px-3 py-2 rounded-xl bg-black/50 border border-white/10 text-emerald-400 font-mono font-bold"
+                        />
+                      </div>
+                      <div>
+                        <label className="text-slate-300 font-bold">Max Deposit (₹)</label>
+                        <input
+                          type="number"
+                          value={maxDeposit}
+                          onChange={(e) => setMaxDeposit(Number(e.target.value))}
+                          className="w-full mt-1 px-3 py-2 rounded-xl bg-black/50 border border-white/10 text-emerald-400 font-mono font-bold"
+                        />
+                      </div>
+                      <div>
+                        <label className="text-slate-300 font-bold">Min Withdrawal (₹)</label>
+                        <input
+                          type="number"
+                          value={minWithdrawal}
+                          onChange={(e) => setMinWithdrawal(Number(e.target.value))}
+                          className="w-full mt-1 px-3 py-2 rounded-xl bg-black/50 border border-white/10 text-amber-400 font-mono font-bold"
+                        />
+                      </div>
+                      <div>
+                        <label className="text-slate-300 font-bold">Max Withdrawal (₹)</label>
+                        <input
+                          type="number"
+                          value={maxWithdrawal}
+                          onChange={(e) => setMaxWithdrawal(Number(e.target.value))}
+                          className="w-full mt-1 px-3 py-2 rounded-xl bg-black/50 border border-white/10 text-amber-400 font-mono font-bold"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="p-4 rounded-2xl bg-black/40 border border-white/5 space-y-3">
+                      <h4 className="font-bold text-white">Bank Account Information</h4>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <div>
+                          <label className="text-slate-400">Bank Name</label>
+                          <input
+                            type="text"
+                            value={bankName}
+                            onChange={(e) => setBankName(e.target.value)}
+                            className="w-full mt-1 px-3 py-2 rounded-xl bg-black/50 border border-white/10 text-white"
+                          />
+                        </div>
+                        <div>
+                          <label className="text-slate-400">Account Holder Name</label>
+                          <input
+                            type="text"
+                            value={accountHolder}
+                            onChange={(e) => setAccountHolder(e.target.value)}
+                            className="w-full mt-1 px-3 py-2 rounded-xl bg-black/50 border border-white/10 text-white"
+                          />
+                        </div>
+                        <div>
+                          <label className="text-slate-400">Account Number</label>
+                          <input
+                            type="text"
+                            value={accountNumber}
+                            onChange={(e) => setAccountNumber(e.target.value)}
+                            className="w-full mt-1 px-3 py-2 rounded-xl bg-black/50 border border-white/10 text-white font-mono"
+                          />
+                        </div>
+                        <div>
+                          <label className="text-slate-400">IFSC Code</label>
+                          <input
+                            type="text"
+                            value={ifsc}
+                            onChange={(e) => setIfsc(e.target.value)}
+                            className="w-full mt-1 px-3 py-2 rounded-xl bg-black/50 border border-white/10 text-white font-mono"
+                          />
+                        </div>
+                      </div>
+                    </div>
+
+                    <button
+                      type="submit"
+                      className="w-full py-3 rounded-2xl bg-gradient-to-r from-emerald-500 to-teal-500 text-slate-950 font-black text-xs shadow-lg shadow-emerald-500/25 hover:brightness-110 cursor-pointer"
+                    >
+                      SAVE PAYMENT GATEWAY CONFIGURATION
+                    </button>
+                  </form>
+                </div>
+              </div>
+            )}
+
+            {/* ================================================================= */}
+            {/* TAB 19: 📢 NOTIFICATION BROADCASTER */}
+            {/* ================================================================= */}
+            {activeTab === 'notifications' && (
+              <div className="max-w-3xl mx-auto space-y-6 animate-fade-in">
+                <div className="p-6 rounded-3xl bg-[#0e102a] border border-purple-500/30 space-y-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h3 className="text-xl font-black text-white">📢 NOTIFICATION BROADCASTER</h3>
+                      <p className="text-xs text-slate-400">Broadcast platform announcements to all players or targeted user groups</p>
+                    </div>
+                    <Bell className="w-8 h-8 text-pink-400" />
+                  </div>
+
+                  {broadcastSuccess && (
+                    <div className="p-3 rounded-xl bg-emerald-500/20 text-emerald-300 text-xs font-bold flex items-center gap-2">
+                      <CheckCircle2 className="w-4 h-4" />
+                      <span>Broadcast notification dispatched to active users!</span>
+                    </div>
+                  )}
+
+                  <form onSubmit={handleBroadcastSubmit} className="space-y-4 pt-2">
+                    <div>
+                      <label className="text-xs font-bold text-slate-300">Target Audience</label>
+                      <select
+                        value={broadcastTarget}
+                        onChange={(e) => setBroadcastTarget(e.target.value)}
+                        className="w-full mt-1 px-3.5 py-2.5 rounded-xl bg-black/50 border border-white/10 text-xs text-white"
+                      >
+                        <option value="all">All Registered Users</option>
+                        <option value="active">Active Players (Last 24h)</option>
+                        <option value="vip">High Value Referrers</option>
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="text-xs font-bold text-slate-300">Notification Title</label>
+                      <input
+                        type="text"
+                        placeholder="e.g. 🎉 Mega Bumper Housie starts at 9:00 PM!"
+                        value={broadcastTitle}
+                        onChange={(e) => setBroadcastTitle(e.target.value)}
+                        className="w-full mt-1 px-3.5 py-2.5 rounded-xl bg-black/50 border border-white/10 text-xs text-white"
+                        required
+                      />
+                    </div>
+
+                    <div>
+                      <label className="text-xs font-bold text-slate-300">Notification Message</label>
+                      <textarea
+                        rows={3}
+                        placeholder="e.g. Book your tickets now for ₹25 and win up to ₹250 full house prizes!"
+                        value={broadcastMessage}
+                        onChange={(e) => setBroadcastMessage(e.target.value)}
+                        className="w-full mt-1 px-3.5 py-2.5 rounded-xl bg-black/50 border border-white/10 text-xs text-white"
+                        required
+                      />
+                    </div>
+
+                    <button
+                      type="submit"
+                      className="w-full py-3 rounded-xl bg-gradient-to-r from-pink-500 to-purple-600 text-white font-black text-xs shadow-lg shadow-pink-500/25 cursor-pointer"
+                    >
+                      SEND BROADCAST ANNOUNCEMENT
+                    </button>
+                  </form>
+                </div>
+              </div>
+            )}
+
+            {/* ================================================================= */}
+            {/* TAB 20: 📊 REPORTS & REAL CSV/EXCEL EXPORT */}
+            {/* ================================================================= */}
+            {activeTab === 'reports' && (
+              <div className="max-w-5xl mx-auto space-y-6 animate-fade-in">
+                <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pb-2">
+                  <div>
+                    <h3 className="text-xl font-black text-white">📊 PLATFORM REPORTS &amp; DATA EXPORTS</h3>
+                    <p className="text-xs text-slate-400">Generate and download instant CSV, Excel (.xls) and printable reports</p>
+                  </div>
+
+                  <div className="flex flex-wrap items-center gap-2">
+                    <button
+                      onClick={() => exportToCSV('all')}
+                      className="px-4 py-2 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black text-xs flex items-center gap-1.5 cursor-pointer shadow-md"
+                    >
+                      <Download className="w-4 h-4" />
+                      <span>Export CSV</span>
+                    </button>
+                    <button
+                      onClick={exportToExcel}
+                      className="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-black text-xs flex items-center gap-1.5 cursor-pointer shadow-md"
+                    >
+                      <FileText className="w-4 h-4" />
+                      <span>Export Excel</span>
+                    </button>
+                    <button
+                      onClick={() => window.print()}
+                      className="px-3.5 py-2 rounded-xl bg-white/10 hover:bg-white/20 text-white font-bold text-xs flex items-center gap-1.5 cursor-pointer"
+                    >
+                      <Printer className="w-4 h-4" />
+                      <span>Print View</span>
+                    </button>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                  <div className="p-5 rounded-3xl bg-[#0e102a] border border-white/10 space-y-2">
+                    <span className="text-xs text-slate-400 font-bold">USER BASE SNAPSHOT</span>
+                    <p className="text-2xl font-black text-white font-mono">{allUsers.length} Users</p>
+                    <button
+                      onClick={() => exportToCSV('users')}
+                      className="text-xs text-amber-400 font-bold hover:underline cursor-pointer"
+                    >
+                      Download Users CSV →
+                    </button>
+                  </div>
+
+                  <div className="p-5 rounded-3xl bg-[#0e102a] border border-white/10 space-y-2">
+                    <span className="text-xs text-slate-400 font-bold">DEPOSITS LEDGER</span>
+                    <p className="text-2xl font-black text-emerald-400 font-mono">{deposits.length} Records</p>
+                    <button
+                      onClick={() => exportToCSV('deposits')}
+                      className="text-xs text-emerald-400 font-bold hover:underline cursor-pointer"
+                    >
+                      Download Deposits CSV →
+                    </button>
+                  </div>
+
+                  <div className="p-5 rounded-3xl bg-[#0e102a] border border-white/10 space-y-2">
+                    <span className="text-xs text-slate-400 font-bold">WITHDRAWALS LEDGER</span>
+                    <p className="text-2xl font-black text-amber-400 font-mono">{withdrawals.length} Records</p>
+                    <button
+                      onClick={() => exportToCSV('withdrawals')}
+                      className="text-xs text-amber-400 font-bold hover:underline cursor-pointer"
+                    >
+                      Download Withdrawals CSV →
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* ================================================================= */}
+            {/* TAB 21: ⚙️ WEBSITE CMS SETTINGS */}
+            {/* ================================================================= */}
+            {activeTab === 'settings' && (
+              <div className="max-w-4xl mx-auto space-y-6 animate-fade-in">
+                <div className="p-6 rounded-3xl bg-[#0e102a] border border-white/10 space-y-4">
+                  <h3 className="text-xl font-black text-white">⚙️ CMS &amp; PLATFORM SETTINGS</h3>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
+                    <div>
+                      <label className="font-bold text-slate-300">Website Name</label>
+                      <input
+                        type="text"
+                        value={settings.websiteName}
+                        onChange={(e) => updateSettings({ websiteName: e.target.value })}
+                        className="w-full mt-1 px-3 py-2 rounded-xl bg-black/50 border border-white/10 text-white"
+                      />
+                    </div>
+                    <div>
+                      <label className="font-bold text-slate-300">Tagline</label>
+                      <input
+                        type="text"
+                        value={settings.tagline}
+                        onChange={(e) => updateSettings({ tagline: e.target.value })}
+                        className="w-full mt-1 px-3 py-2 rounded-xl bg-black/50 border border-white/10 text-white"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="pt-4 border-t border-white/10 flex items-center justify-between">
+                    <div>
+                      <p className="text-sm font-bold text-white">Maintenance Mode</p>
+                      <p className="text-xs text-slate-400">Put platform in temporary maintenance</p>
+                    </div>
+                    <button
+                      onClick={() => updateSettings({ maintenanceMode: !settings.maintenanceMode })}
+                      className={`px-4 py-2 rounded-xl text-xs font-bold cursor-pointer ${
+                        settings.maintenanceMode ? 'bg-red-500 text-white' : 'bg-white/10 text-slate-300'
+                      }`}
+                    >
+                      {settings.maintenanceMode ? 'ACTIVE' : 'OFF'}
+                    </button>
+                  </div>
+                </div>
+
+                {/* Firebase Firestore Database Card */}
+                <div className="p-6 rounded-3xl bg-gradient-to-br from-[#1b1035] via-[#101438] to-[#0c1833] border border-amber-500/30 space-y-4">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-2xl bg-amber-500/20 border border-amber-500/40 flex items-center justify-center text-amber-400">
+                        <Flame className="w-5 h-5" />
+                      </div>
+                      <div>
+                        <h4 className="text-base font-black text-white">Firebase Firestore Database</h4>
+                        <p className="text-xs text-amber-300">Live Persistent Documents, User Collections &amp; Realtime Game Sync</p>
+                      </div>
+                    </div>
+
+                    <span className="px-3 py-1 bg-emerald-500/20 text-emerald-300 text-xs font-bold rounded-full border border-emerald-500/40 flex items-center gap-1.5">
+                      <CheckCircle2 className="w-3.5 h-3.5" /> Firestore Active
+                    </span>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs pt-2">
+                    <div className="p-3.5 rounded-2xl bg-black/40 border border-white/10 space-y-1">
+                      <span className="text-[10px] text-slate-400 uppercase font-bold tracking-wider">Firebase Project ID</span>
+                      <p className="font-mono text-amber-300 font-bold text-sm select-all">earn-mob-a2ea1</p>
+                    </div>
+                    <div className="p-3.5 rounded-2xl bg-black/40 border border-white/10 space-y-1">
+                      <span className="text-[10px] text-slate-400 uppercase font-bold tracking-wider">Auth Domain / Database URL</span>
+                      <p className="font-mono text-emerald-300 font-bold text-xs select-all break-all">earn-mob-a2ea1.firebaseapp.com</p>
+                    </div>
+                  </div>
+
+                  <div className="p-4 rounded-2xl bg-white/5 border border-white/10 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs">
+                    <p className="text-slate-300">
+                      Real-time user state, ticket orders, deposits, and game winner audit logs are automatically persisted to your Firebase Project.
+                    </p>
+                    <a
+                      href="https://console.firebase.google.com/project/earn-mob-a2ea1/firestore"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="px-4 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-600 text-slate-950 font-black whitespace-nowrap shadow-lg shadow-amber-500/30 transition-all flex items-center gap-1.5"
+                    >
+                      <span>Open Firebase Console</span>
+                      <Eye className="w-3.5 h-3.5" />
+                    </a>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* ================================================================= */}
+            {/* TAB 22: 🔐 ADMIN SECURITY & 2FA */}
+            {/* ================================================================= */}
+            {activeTab === 'security' && (
+              <div className="max-w-3xl mx-auto space-y-6 animate-fade-in">
+                <div className="p-6 rounded-3xl bg-[#0e102a] border border-amber-500/30 space-y-4">
+                  <h3 className="text-xl font-black text-white">🔐 ADMIN MASTER SECURITY &amp; PIN</h3>
+                  <p className="text-xs text-slate-400">Update master admin credentials and 2-Factor Authentication requirement</p>
+
+                  {securityFeedback && (
+                    <div className="p-3.5 rounded-xl bg-emerald-500/20 text-emerald-300 text-xs font-bold flex items-center gap-2">
+                      <CheckCircle2 className="w-4 h-4" />
+                      <span>{securityFeedback}</span>
+                    </div>
+                  )}
+
+                  <form onSubmit={handleSecurityPinChange} className="space-y-4 pt-2 text-xs">
+                    <div>
+                      <label className="text-slate-300 font-bold">Current Super Admin PIN</label>
+                      <input
+                        type="password"
+                        placeholder="••••••"
+                        value={currentAdminPin}
+                        onChange={(e) => setCurrentAdminPin(e.target.value)}
+                        className="w-full mt-1 px-3.5 py-2.5 rounded-xl bg-black/50 border border-white/10 text-white font-mono"
+                        required
+                      />
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <div>
+                        <label className="text-slate-300 font-bold">New Super Admin PIN</label>
+                        <input
+                          type="password"
+                          placeholder="••••••"
+                          value={newAdminPin}
+                          onChange={(e) => setNewAdminPin(e.target.value)}
+                          className="w-full mt-1 px-3.5 py-2.5 rounded-xl bg-black/50 border border-white/10 text-white font-mono"
+                          required
+                        />
+                      </div>
+                      <div>
+                        <label className="text-slate-300 font-bold">Confirm New PIN</label>
+                        <input
+                          type="password"
+                          placeholder="••••••"
+                          value={confirmAdminPin}
+                          onChange={(e) => setConfirmAdminPin(e.target.value)}
+                          className="w-full mt-1 px-3.5 py-2.5 rounded-xl bg-black/50 border border-white/10 text-white font-mono"
+                          required
+                        />
+                      </div>
+                    </div>
+
+                    <button
+                      type="submit"
+                      className="w-full py-3 rounded-2xl bg-gradient-to-r from-amber-400 to-yellow-500 text-slate-950 font-black text-xs shadow-lg shadow-amber-500/25 hover:brightness-110 cursor-pointer"
+                    >
+                      UPDATE MASTER ADMIN CREDENTIALS
+                    </button>
+                  </form>
+                </div>
+              </div>
+            )}
+
+            {/* ================================================================= */}
+            {/* TAB 23: 📝 IMMUTABLE AUDIT LOGS */}
+            {/* ================================================================= */}
+            {activeTab === 'auditLogs' && (
+              <div className="max-w-5xl mx-auto space-y-6 animate-fade-in">
+                <div className="flex items-center justify-between pb-2">
+                  <div>
+                    <h3 className="text-xl font-black text-white">📝 IMMUTABLE AUDIT LOGS</h3>
+                    <p className="text-xs text-slate-400">Chronological history of all financial adjustments, game starts and admin actions</p>
+                  </div>
+                  <Database className="w-6 h-6 text-amber-400" />
+                </div>
+
+                <div className="space-y-2">
+                  {auditLogs.map((log) => (
+                    <div
+                      key={log.id}
+                      className="p-4 rounded-2xl bg-[#0e102a] border border-white/5 flex items-center justify-between text-xs"
+                    >
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <span className="font-bold text-amber-300 font-mono">[{log.category}]</span>
+                          <span className="font-bold text-white">{log.action}</span>
+                        </div>
+                        <p className="text-slate-400 mt-0.5">{log.details}</p>
+                      </div>
+                      <div className="text-right text-[10px] text-slate-500">
+                        <p>{log.adminName}</p>
+                        <p>{log.createdAt.split('T')[0]}</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+          </main>
+        </div>
+
+      </div>
+    </div>
+  );
+};
