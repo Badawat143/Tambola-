@@ -72,6 +72,75 @@ export function validatePrizePool(
 /**
  * Validates whether a winning claim on a ticket is genuine against called numbers.
  */
+export function evaluateTicketPatterns(
+  grid: (number | null)[][],
+  calledNumbers: number[]
+): {
+  isStar: boolean;
+  isEarly5: boolean;
+  isTopLine: boolean;
+  isMiddleLine: boolean;
+  isBottomLine: boolean;
+  isFullHouse: boolean;
+  starNumbers: number[];
+  early5Numbers: number[];
+  topLineNumbers: number[];
+  middleLineNumbers: number[];
+  bottomLineNumbers: number[];
+  allNumbers: number[];
+} {
+  const calledSet = new Set(calledNumbers);
+  const row0 = grid[0].filter((n): n is number => n !== null && n > 0);
+  const row1 = grid[1].filter((n): n is number => n !== null && n > 0);
+  const row2 = grid[2].filter((n): n is number => n !== null && n > 0);
+  const all15 = [...row0, ...row1, ...row2];
+
+  const calledOnTicket = all15.filter((n) => calledSet.has(n));
+  const isEarly5 = calledOnTicket.length >= 5;
+
+  // Star in Indian Tambola: 4 corners + 1 center number
+  // Corner 1: row 0 first number
+  // Corner 2: row 0 last number
+  // Corner 3: row 2 first number
+  // Corner 4: row 2 last number
+  // Center: row 1 center number (index 2)
+  let isStar = false;
+  let starNums: number[] = [];
+  if (row0.length >= 2 && row2.length >= 2 && row1.length >= 3) {
+    starNums = [
+      row0[0],
+      row0[row0.length - 1],
+      row2[0],
+      row2[row2.length - 1],
+      row1[Math.floor(row1.length / 2)],
+    ];
+    isStar = starNums.every((n) => calledSet.has(n));
+  } else if (calledOnTicket.length >= 5) {
+    isStar = calledOnTicket.length >= 5;
+    starNums = calledOnTicket.slice(0, 5);
+  }
+
+  const isTopLine = row0.length > 0 && row0.every((n) => calledSet.has(n));
+  const isMiddleLine = row1.length > 0 && row1.every((n) => calledSet.has(n));
+  const isBottomLine = row2.length > 0 && row2.every((n) => calledSet.has(n));
+  const isFullHouse = all15.length === 15 && all15.every((n) => calledSet.has(n));
+
+  return {
+    isStar,
+    isEarly5,
+    isTopLine,
+    isMiddleLine,
+    isBottomLine,
+    isFullHouse,
+    starNumbers: starNums,
+    early5Numbers: calledOnTicket.slice(0, 5),
+    topLineNumbers: row0,
+    middleLineNumbers: row1,
+    bottomLineNumbers: row2,
+    allNumbers: all15,
+  };
+}
+
 export function verifyWinningClaim(
   grid: (number | null)[][],
   markedNumbers: number[],
@@ -88,51 +157,36 @@ export function verifyWinningClaim(
     });
   });
 
-  // Verify all marked numbers are actually on the ticket and have been called
   const validMarked = markedNumbers.filter((n) => allTicketNumbers.includes(n) && calledSet.has(n));
+  const evaluation = evaluateTicketPatterns(grid, calledNumbers);
 
   switch (patternCode) {
     case 'EARLY5': {
-      if (validMarked.length >= 5) {
-        return { isValid: true, reason: 'Valid Early 5: 5 or more called numbers marked.' };
+      if (evaluation.isEarly5) {
+        return { isValid: true, reason: 'Valid Early 5: 5 or more called numbers marked on ticket.' };
       }
-      return { isValid: false, reason: `Early 5 requires at least 5 called numbers. Marked: ${validMarked.length}` };
+      return { isValid: false, reason: `Early 5 requires at least 5 called numbers. Called & marked: ${validMarked.length}/5` };
     }
     case 'STAR': {
-      // Star pattern: 4 corners + center cell OR any 5 key points
-      // Row 0, col of 1st num; Row 0, col of last num; Row 2, col of 1st num; Row 2, col of last num; Row 1, col 4/5
-      const row0 = grid[0].filter((n): n is number => n !== null && calledSet.has(n));
-      const row1 = grid[1].filter((n): n is number => n !== null && calledSet.has(n));
-      const row2 = grid[2].filter((n): n is number => n !== null && calledSet.has(n));
-
-      if (row0.length >= 2 && row2.length >= 2 && row1.length >= 1) {
-        return { isValid: true, reason: 'Valid STAR: Corner & center numbers completed.' };
+      if (evaluation.isStar) {
+        return { isValid: true, reason: 'Valid STAR: 4 corners + center number completed!' };
       }
-      if (validMarked.length >= 5) {
-        return { isValid: true, reason: 'Valid STAR pattern criteria met.' };
-      }
-      return { isValid: false, reason: 'Star pattern requires corners & center number marked.' };
+      return { isValid: false, reason: 'Star pattern requires all 4 corner numbers and the center number to be called.' };
     }
     case 'TOPLINE': {
-      const row0Numbers = grid[0].filter((n): n is number => n !== null);
-      const row0Completed = row0Numbers.every((n) => calledSet.has(n) && markedNumbers.includes(n));
-      if (row0Completed) {
+      if (evaluation.isTopLine) {
         return { isValid: true, reason: 'Valid TOP LINE: All 5 numbers in Row 1 completed.' };
       }
       return { isValid: false, reason: 'Top Line row not fully completed.' };
     }
     case 'MIDDLELINE': {
-      const row1Numbers = grid[1].filter((n): n is number => n !== null);
-      const row1Completed = row1Numbers.every((n) => calledSet.has(n) && markedNumbers.includes(n));
-      if (row1Completed) {
+      if (evaluation.isMiddleLine) {
         return { isValid: true, reason: 'Valid MIDDLE LINE: All 5 numbers in Row 2 completed.' };
       }
       return { isValid: false, reason: 'Middle Line row not fully completed.' };
     }
     case 'BOTTOMLINE': {
-      const row2Numbers = grid[2].filter((n): n is number => n !== null);
-      const row2Completed = row2Numbers.every((n) => calledSet.has(n) && markedNumbers.includes(n));
-      if (row2Completed) {
+      if (evaluation.isBottomLine) {
         return { isValid: true, reason: 'Valid BOTTOM LINE: All 5 numbers in Row 3 completed.' };
       }
       return { isValid: false, reason: 'Bottom Line row not fully completed.' };
@@ -140,18 +194,17 @@ export function verifyWinningClaim(
     case 'FULLHOUSE1':
     case 'FULLHOUSE2':
     case 'FULLHOUSE3': {
-      const allCompleted = allTicketNumbers.every((n) => calledSet.has(n) && markedNumbers.includes(n));
-      if (allCompleted) {
+      if (evaluation.isFullHouse) {
         return { isValid: true, reason: `Valid ${patternCode}: All 15 numbers completed on ticket.` };
       }
       return {
         isValid: false,
-        reason: `Full House requires all 15 numbers marked. Marked: ${validMarked.length}/15`,
+        reason: `Full House requires all 15 numbers completed. Completed: ${validMarked.length}/15`,
       };
     }
     default:
       if (validMarked.length >= 5) {
-        return { isValid: true, reason: 'Custom pattern verified.' };
+        return { isValid: true, reason: 'Pattern verified.' };
       }
       return { isValid: false, reason: 'Pattern criteria not met.' };
   }

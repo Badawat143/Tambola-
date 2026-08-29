@@ -47,6 +47,7 @@ import {
 } from '../data/mockData';
 import {
   calculateReferralDownline,
+  evaluateTicketPatterns,
   INITIAL_SEED_USERS,
   validatePrizePool,
   verifyWinningClaim,
@@ -203,6 +204,7 @@ interface TambolaContextType {
   ) => { success: boolean; message: string; prizeAmount?: number; categoryName?: string };
 
   // Game Management & Live Caller Actions
+  selectLiveGameRoom: (gameId: string) => void;
   startLiveCaller: () => void;
   pauseLiveCaller: () => void;
   callNextNumber: () => number | null;
@@ -2019,25 +2021,250 @@ export const TambolaProvider: React.FC<{ children: React.ReactNode }> = ({ child
     };
   };
 
-  // 9. LIVE CALLER ENGINE & INSTANT TICKET MARKING
-  // Automatic Instant Ticket Marking for all user tickets
-  useEffect(() => {
-    if (liveCalledNumbers.length === 0) return;
-    setMyTickets((prev) =>
-      prev.map((t) => {
-        const numbersInGrid = t.grid.flat().filter((n) => n > 0);
-        const shouldBeMarked = numbersInGrid.filter((n) => liveCalledNumbers.includes(n));
-        const newMarked = Array.from(new Set([...t.markedNumbers, ...shouldBeMarked]));
-        if (newMarked.length !== t.markedNumbers.length) {
+  // 9. LIVE CALLER ENGINE, ISOLATED TICKET MARKING & AUTOMATIC PRIZE CLAIM ENGINE
+  const selectLiveGameRoom = (gameId: string) => {
+    const target = upcomingGames.find((g) => g.id === gameId);
+    if (!target) return;
+    setActiveLiveGame(target);
+    const targetCalled = target.calledNumbers || [];
+    setLiveCalledNumbers(targetCalled);
+    setCurrentCalledNumber(targetCalled.length > 0 ? targetCalled[targetCalled.length - 1] : null);
+    if (target.prizeCategories && target.prizeCategories.length > 0) {
+      setPrizes(target.prizeCategories);
+    }
+  };
+
+  // Core Autonomous Draw Processor: Cuts numbers ONLY on this game's tickets, auto-claims prizes with equal splitting, and auto-ends game
+  const processDrawnNumberAndAutoClaims = (nextNum: number) => {
+    const updatedCalled = [...liveCalledNumbers, nextNum];
+    setLiveCalledNumbers(updatedCalled);
+    setCurrentCalledNumber(nextNum);
+
+    // Synchronize called numbers with activeLiveGame and upcomingGames
+    setActiveLiveGame((prev) => ({
+      ...prev,
+      calledNumbers: updatedCalled,
+      currentNumber: nextNum,
+    }));
+    setUpcomingGames((prev) =>
+      prev.map((g) =>
+        g.id === activeLiveGame.id
+          ? { ...g, calledNumbers: updatedCalled, currentNumber: nextNum }
+          : g
+      )
+    );
+
+    // Audio & voice announce
+    soundFx.playNumberCalled();
+    speakNumber(nextNum);
+
+    // 1. Automatic Isolated Ticket Marking: ONLY tickets for the active game get their numbers cut
+    let markedTicketsSnapshot: TambolaTicket[] = [];
+    setMyTickets((prevTickets) => {
+      const updated = prevTickets.map((t) => {
+        if (t.gameId !== activeLiveGame.id) return t;
+        const numbersInGrid = t.grid.flat().filter((n): n is number => n !== null && n > 0);
+        if (numbersInGrid.includes(nextNum) && !t.markedNumbers.includes(nextNum)) {
           return {
             ...t,
-            markedNumbers: newMarked,
+            markedNumbers: [...t.markedNumbers, nextNum],
           };
         }
         return t;
-      })
+      });
+      markedTicketsSnapshot = updated;
+      return updated;
+    });
+
+    // 2. Autonomous Pattern Detection & Equal-Split Auto-Claim Engine
+    const targetTickets = (markedTicketsSnapshot.length > 0 ? markedTicketsSnapshot : myTickets).filter(
+      (t) => t.gameId === activeLiveGame.id
     );
-  }, [liveCalledNumbers]);
+
+    let currentPrizes = [...prizes];
+    let usersList = [...allUsers];
+    let activeUserUpdated = { ...currentUser };
+    const newPrizeLedgerItems: PrizeLedgerItem[] = [];
+    const newWinnersList: WinnerItem[] = [];
+    let winnerFlashData: any = null;
+
+    currentPrizes = currentPrizes.map((prize) => {
+      if (!prize.isEnabled) return prize;
+
+      const existingClaims = prize.claimedBy || [];
+      const maxSlots = prize.winnerCount || 1;
+      if (existingClaims.length >= maxSlots) {
+        return prize; // Already fully claimed
+      }
+
+      // Find tickets for this game that qualify on this draw and haven't claimed this prize yet
+      const newlyQualifiedTickets = targetTickets.filter((t) => {
+        const alreadyClaimedThisTicket = existingClaims.some((c) => c.ticketId === t.id);
+        if (alreadyClaimedThisTicket) return false;
+
+        const evalResult = evaluateTicketPatterns(t.grid, updatedCalled);
+        switch (prize.code) {
+          case 'STAR':
+            return evalResult.isStar;
+          case 'EARLY5':
+            return evalResult.isEarly5;
+          case 'TOPLINE':
+            return evalResult.isTopLine;
+          case 'MIDDLELINE':
+            return evalResult.isMiddleLine;
+          case 'BOTTOMLINE':
+            return evalResult.isBottomLine;
+          case 'FULLHOUSE1':
+          case 'FULLHOUSE2':
+          case 'FULLHOUSE3':
+            return evalResult.isFullHouse;
+          default:
+            return evalResult.isEarly5;
+        }
+      });
+
+      if (newlyQualifiedTickets.length === 0) {
+        return prize;
+      }
+
+      // Multi-Winner Equal Prize Distribution Calculation
+      const winnerCount = newlyQualifiedTickets.length;
+      const totalPrizeAmount = prize.amount || 25;
+      const splitAmount = Math.round((totalPrizeAmount / winnerCount) * 100) / 100;
+
+      const addedClaims: any[] = [];
+
+      newlyQualifiedTickets.forEach((winTicket) => {
+        const ticketOwner = usersList.find((u) => u.id === winTicket.userId) || currentUser;
+
+        // Credit to Winning Wallet and Total Balance
+        const newWinWallet = Math.round(((ticketOwner.winningWallet || 0) + splitAmount) * 100) / 100;
+        const newTotalBalance = Math.round(
+          ((ticketOwner.depositWallet || 0) + (ticketOwner.ticketWallet || 0) + newWinWallet) * 100
+        ) / 100;
+        const newGameWinnings = Math.round(((ticketOwner.gameWinnings || 0) + splitAmount) * 100) / 100;
+
+        const updatedUserObj: User = {
+          ...ticketOwner,
+          winningWallet: newWinWallet,
+          walletBalance: newTotalBalance,
+          gameWinnings: newGameWinnings,
+        };
+
+        usersList = usersList.map((u) => (u.id === updatedUserObj.id ? updatedUserObj : u));
+        if (currentUser.id === updatedUserObj.id) {
+          activeUserUpdated = updatedUserObj;
+        }
+
+        // Claim record with split metadata
+        const claimRecord = {
+          userId: updatedUserObj.id,
+          userName: updatedUserObj.name,
+          ticketId: winTicket.id,
+          ticketNumber: winTicket.ticketNumber,
+          claimedAt: new Date().toISOString(),
+          amountWon: splitAmount,
+          isShared: winnerCount > 1,
+          totalShareCount: winnerCount,
+        };
+        addedClaims.push(claimRecord);
+
+        // Prize Ledger record
+        const ledgerRecord: PrizeLedgerItem = {
+          id: `PRZ-${Date.now()}-${Math.floor(100 + Math.random() * 900)}`,
+          gameId: activeLiveGame.id,
+          gameTitle: activeLiveGame.title,
+          userId: updatedUserObj.id,
+          userName: updatedUserObj.name,
+          ticketId: winTicket.id,
+          ticketNumber: winTicket.ticketNumber,
+          prizeCategory: winnerCount > 1 ? `${prize.name} (Split among ${winnerCount} winners)` : prize.name,
+          amount: splitAmount,
+          claimedAt: new Date().toISOString(),
+        };
+        newPrizeLedgerItems.push(ledgerRecord);
+
+        // Public Live Winners Board
+        const winItem: WinnerItem = {
+          id: `WIN-${Date.now()}-${Math.floor(10 + Math.random() * 90)}`,
+          winnerName: updatedUserObj.name,
+          userId: updatedUserObj.id,
+          gameId: activeLiveGame.id,
+          ticketNumber: winTicket.ticketNumber,
+          prizeCategory: winnerCount > 1 ? `${prize.name} (Split: ₹${splitAmount})` : prize.name,
+          prizeAmount: splitAmount,
+          date: 'Just Now',
+          avatar: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=100&auto=format&fit=crop&q=60',
+          city: updatedUserObj.stateOfResidence || 'India',
+        };
+        newWinnersList.push(winItem);
+        recordWinnerToFirestore(winItem);
+        syncUserToFirestore(updatedUserObj);
+
+        // In-App Notification
+        addNotification(
+          `🏆 AUTO-CLAIMED: ${prize.name}!`,
+          `Congratulations ${updatedUserObj.name}! You won ₹${splitAmount}${
+            winnerCount > 1 ? ` (Split equally among ${winnerCount} winners)` : ''
+          } on Ticket #${winTicket.ticketNumber}. Amount credited directly to your Winning Wallet!`,
+          'winner',
+          updatedUserObj.id
+        );
+
+        // Winner Flash modal trigger for current active viewer
+        if (updatedUserObj.id === currentUser.id) {
+          winnerFlashData = {
+            userName: updatedUserObj.name,
+            userId: updatedUserObj.id,
+            ticketNumber: winTicket.ticketNumber,
+            prizeName: winnerCount > 1 ? `${prize.name} (Split between ${winnerCount} winners)` : prize.name,
+            prizeAmount: splitAmount,
+          };
+        }
+      });
+
+      return {
+        ...prize,
+        claimedBy: [...existingClaims, ...addedClaims],
+      };
+    });
+
+    // Apply updates to state
+    setPrizes(currentPrizes);
+    setAllUsers(usersList);
+    if (activeUserUpdated.id === currentUser.id) {
+      setCurrentUser(activeUserUpdated);
+    }
+    if (newPrizeLedgerItems.length > 0) {
+      setPrizeLedger((prev) => [...newPrizeLedgerItems, ...prev]);
+    }
+    if (newWinnersList.length > 0) {
+      setWinners((prev) => [...newWinnersList, ...prev]);
+    }
+    if (winnerFlashData) {
+      setActiveWinnerFlash(winnerFlashData);
+      triggerConfetti();
+    }
+
+    // 3. Autonomous Game Closure: Game automatically shuts down once all enabled prizes are claimed or 90 balls reached
+    const allPrizesClaimed = currentPrizes
+      .filter((p) => p.isEnabled)
+      .every((p) => (p.claimedBy?.length || 0) >= (p.winnerCount || 1));
+
+    if (allPrizesClaimed || updatedCalled.length >= 90) {
+      setIsGameCalling(false);
+      setActiveLiveGame((prev) => ({ ...prev, status: 'completed' }));
+      setUpcomingGames((prev) =>
+        prev.map((g) => (g.id === activeLiveGame.id ? { ...g, status: 'completed' } : g))
+      );
+      addNotification(
+        '🎉 TOURNAMENT COMPLETED - ALL PRIZES CLAIMED!',
+        `The game ${activeLiveGame.title} has completed as all prize categories have been claimed. All winning payouts have been distributed to players' wallets.`,
+        'system',
+        'all'
+      );
+    }
+  };
 
   const callNextNumber = () => {
     if (liveCalledNumbers.length >= 90) {
@@ -2052,19 +2279,15 @@ export const TambolaProvider: React.FC<{ children: React.ReactNode }> = ({ child
       }
     }
 
-    if (available.length === 0) return null;
+    if (available.length === 0) {
+      setIsGameCalling(false);
+      return null;
+    }
 
     const randomIndex = Math.floor(Math.random() * available.length);
     const nextNum = available[randomIndex];
 
-    const updatedCalled = [...liveCalledNumbers, nextNum];
-    setLiveCalledNumbers(updatedCalled);
-    setCurrentCalledNumber(nextNum);
-
-    // Play sound & TTS speech voice
-    soundFx.playNumberCalled();
-    speakNumber(nextNum);
-
+    processDrawnNumberAndAutoClaims(nextNum);
     return nextNum;
   };
 
@@ -2077,16 +2300,10 @@ export const TambolaProvider: React.FC<{ children: React.ReactNode }> = ({ child
       return { success: false, message: `Number ${n} has already been called!` };
     }
 
-    const updatedCalled = [...liveCalledNumbers, n];
-    setLiveCalledNumbers(updatedCalled);
-    setCurrentCalledNumber(n);
-
-    soundFx.playNumberCalled();
-    speakNumber(n);
-
+    processDrawnNumberAndAutoClaims(n);
     return {
       success: true,
-      message: `Number ${n} called and broadcast to all tickets!`,
+      message: `Number ${n} called, ticket numbers marked, and prizes auto-evaluated!`,
       number: n,
     };
   };
@@ -2100,12 +2317,16 @@ export const TambolaProvider: React.FC<{ children: React.ReactNode }> = ({ child
     setLiveCalledNumbers(newCalled);
     setCurrentCalledNumber(newCalled.length > 0 ? newCalled[newCalled.length - 1] : null);
 
-    // Unmark undone number from all tickets
+    // Unmark undone number from tickets for this game
     setMyTickets((prev) =>
-      prev.map((t) => ({
-        ...t,
-        markedNumbers: t.markedNumbers.filter((n) => n !== undoneNum),
-      }))
+      prev.map((t) =>
+        t.gameId === activeLiveGame.id
+          ? {
+              ...t,
+              markedNumbers: t.markedNumbers.filter((n) => n !== undoneNum),
+            }
+          : t
+      )
     );
 
     return {
@@ -2127,8 +2348,12 @@ export const TambolaProvider: React.FC<{ children: React.ReactNode }> = ({ child
     setLiveCalledNumbers([]);
     setCurrentCalledNumber(null);
     setIsGameCalling(false);
-    // Reset prize claims
+    // Reset prize claims for active game
     setPrizes((prev) => prev.map((p) => ({ ...p, claimedBy: [] })));
+    // Reset markings on tickets for this game
+    setMyTickets((prev) =>
+      prev.map((t) => (t.gameId === activeLiveGame.id ? { ...t, markedNumbers: [] } : t))
+    );
   };
 
   // Automatic Game Caller Loop
@@ -2136,31 +2361,26 @@ export const TambolaProvider: React.FC<{ children: React.ReactNode }> = ({ child
     let interval: any = null;
     if (isGameCalling) {
       interval = setInterval(() => {
-        setLiveCalledNumbers((prev) => {
-          if (prev.length >= 90) {
-            setIsGameCalling(false);
-            return prev;
-          }
-          const available: number[] = [];
-          for (let i = 1; i <= 90; i++) {
-            if (!prev.includes(i)) available.push(i);
-          }
-          if (available.length === 0) {
-            setIsGameCalling(false);
-            return prev;
-          }
-          const next = available[Math.floor(Math.random() * available.length)];
-          setCurrentCalledNumber(next);
-          soundFx.playNumberCalled();
-          speakNumber(next);
-          return [...prev, next];
-        });
+        if (liveCalledNumbers.length >= 90) {
+          setIsGameCalling(false);
+          return;
+        }
+        const available: number[] = [];
+        for (let i = 1; i <= 90; i++) {
+          if (!liveCalledNumbers.includes(i)) available.push(i);
+        }
+        if (available.length === 0) {
+          setIsGameCalling(false);
+          return;
+        }
+        const next = available[Math.floor(Math.random() * available.length)];
+        processDrawnNumberAndAutoClaims(next);
       }, 4000); // Calls number every 4 seconds
     }
     return () => {
       if (interval) clearInterval(interval);
     };
-  }, [isGameCalling, speechCallerEnabled]);
+  }, [isGameCalling, liveCalledNumbers, activeLiveGame, prizes, myTickets, allUsers, currentUser]);
 
   // 15. Create Game with 70% Prize Pool Validator Check
   const createGame = (gameData: Partial<GameItem>) => {
@@ -2526,6 +2746,7 @@ export const TambolaProvider: React.FC<{ children: React.ReactNode }> = ({ child
         claimPrizeWithPattern,
         verifyClaim: claimPrizeWithPattern,
 
+        selectLiveGameRoom,
         startLiveCaller,
         pauseLiveCaller,
         callNextNumber,
