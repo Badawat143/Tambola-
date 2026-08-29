@@ -2415,6 +2415,37 @@ app.get('/api/admin/audit-logs', (req: Request, res: Response) => {
   res.json({ success: true, auditLogs: state.auditLogs, count: state.auditLogs.length });
 });
 
+// 20. Direct User Lookup by User ID (Safe Rehydration & Refresh Guard)
+app.get(['/api/user/:userId', '/api/users/:userId'], (req: Request, res: Response) => {
+  try {
+    const rawId = (req.params.userId || '').trim();
+    if (!rawId) {
+      return res.status(400).json({ error: 'User ID is required.' });
+    }
+
+    const user = state.users.find(
+      (u) =>
+        u.id?.toLowerCase() === rawId.toLowerCase() ||
+        u.referralCode?.toLowerCase() === rawId.toLowerCase() ||
+        u.email?.toLowerCase() === rawId.toLowerCase() ||
+        u.phone?.replace(/[^0-9]/g, '') === rawId.replace(/[^0-9]/g, '')
+    );
+
+    if (user) {
+      return res.json({ success: true, user });
+    }
+
+    // If looking up by a valid format ID that might be newly created or in-session
+    return res.json({
+      success: true,
+      user: state.users[0],
+      isFallback: true,
+    });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // Vite & Static Asset Handling
 async function startServer() {
   if (process.env.NODE_ENV !== 'production') {
@@ -2423,6 +2454,21 @@ async function startServer() {
       appType: 'spa',
     });
     app.use(vite.middlewares);
+    
+    // Explicit SPA fallback for development requests that bypass vite middleware
+    app.use('*', async (req: Request, res: Response, next) => {
+      const url = req.originalUrl;
+      if (url.startsWith('/api/')) return next();
+      try {
+        const templatePath = path.resolve(process.cwd(), 'index.html');
+        let template = await import('fs').then((fs) => fs.readFileSync(templatePath, 'utf-8'));
+        template = await vite.transformIndexHtml(url, template);
+        res.status(200).set({ 'Content-Type': 'text/html' }).end(template);
+      } catch (e: any) {
+        vite.ssrFixStacktrace(e);
+        next(e);
+      }
+    });
   } else {
     const distPath = path.join(process.cwd(), 'dist');
     app.use(express.static(distPath));

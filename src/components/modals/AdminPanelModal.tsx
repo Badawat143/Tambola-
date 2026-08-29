@@ -44,6 +44,18 @@ import {
   UserCheck,
   Tag,
   Coins,
+  Globe,
+  MessageSquare,
+  Maximize2,
+  ChevronRight,
+  ChevronDown,
+  Crown,
+  Gamepad2,
+  History,
+  LifeBuoy,
+  LayoutDashboard,
+  Ticket,
+  ArrowRight,
 } from 'lucide-react';
 import {
   SiteSettings,
@@ -55,6 +67,7 @@ import {
 } from '../../types/tambola';
 import { validatePrizePool } from '../../utils/referralEngine';
 import { TAMBOLA_CALLS } from '../../utils/soundEffects';
+import { AdminOverviewDashboard } from '../admin/AdminOverviewDashboard';
 
 interface ExtendedReferralLevel {
   level: number;
@@ -506,76 +519,136 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({ isPageMode = f
     URL.revokeObjectURL(url);
   };
 
-  // 23 Admin Menu Items
-  const adminMenuItems: { tab: AdminTab; label: string; icon: any; badge?: string | number }[] = [
-    { tab: 'overview', label: '1. 🏠 Dashboard Overview', icon: Sliders },
-    { tab: 'users', label: '2. 👥 User Management', icon: Users, badge: allUsers.length },
-    { tab: 'games', label: '3. 🎮 Game Management', icon: Trophy, badge: upcomingGames.length },
-    { tab: 'tickets', label: '4. 🎟️ Ticket Management', icon: FileText },
-    { tab: 'liveGameControl', label: '5. 🔴 Live Game Control', icon: Radio, badge: 'LIVE' },
-    { tab: 'numberControl', label: '6. 🎱 1-90 Number Caller', icon: RotateCcw },
-    { tab: 'winners', label: '7. 🏆 Winner Verifications', icon: Award },
-    { tab: 'freeTicketWinners', label: '8. 🎁 Free Ticket Winners', icon: Gift, badge: freeTicketWinners.length },
-    { tab: 'deposits', label: '9. 💰 Deposit Approvals', icon: ArrowDownToLine, badge: deposits.filter((d) => d.status === 'pending').length },
-    { tab: 'withdrawals', label: '10. 💸 Withdrawal Approvals', icon: ArrowUpFromLine, badge: withdrawals.filter((w) => w.status === 'pending').length },
-    { tab: 'wallets', label: '11. 💼 3-Wallet Management', icon: Wallet },
-    { tab: 'transfers', label: '12. 🔄 P2P Transfers & Fees', icon: Send, badge: transfers.length },
-    { tab: 'referrals', label: '13. 👥 8-Level Referrals', icon: Users },
-    { tab: 'commission', label: '14. 💎 Commission Settings', icon: Percent },
-    { tab: 'directIncome', label: '15. 💰 Direct Income Config', icon: TrendingUp },
-    { tab: 'prizes', label: '16. 🏆 Prize & 70% Pool Validation', icon: Trophy },
-    { tab: 'ticketDesign', label: '17. 🎨 Ticket Colors & Themes', icon: Palette },
-    { tab: 'payments', label: '18. 💳 Payment & Gateway Config', icon: CreditCard },
-    { tab: 'notifications', label: '19. 📢 Notification Broadcaster', icon: Bell },
-    { tab: 'reports', label: '20. 📊 Reports & CSV Export', icon: Download },
-    { tab: 'settings', label: '21. ⚙️ Website CMS Settings', icon: Settings },
-    { tab: 'security', label: '22. 🔐 Admin Security & 2FA', icon: ShieldCheck },
-    { tab: 'auditLogs', label: '23. 📝 Immutable Audit Logs', icon: Database, badge: auditLogs.length },
+  // Admin Navigation Menu Items matching UI Screenshot
+  const adminMenuItems: { tab: AdminTab; label: string; icon: any; badge?: string | number; hasChevron?: boolean }[] = [
+    { tab: 'overview', label: 'Dashboard', icon: LayoutDashboard, hasChevron: false },
+    { tab: 'users', label: 'Users Management', icon: Users, badge: allUsers.length, hasChevron: true },
+    { tab: 'games', label: 'Games Management', icon: Gamepad2, badge: upcomingGames.length, hasChevron: true },
+    { tab: 'tickets', label: 'Ticket Management', icon: Ticket, hasChevron: true },
+    { tab: 'liveGameControl', label: 'Live Game Management', icon: Radio, badge: 'LIVE', hasChevron: true },
+    { tab: 'numberControl', label: 'Number Management', icon: RotateCcw, hasChevron: true },
+    { tab: 'winners', label: 'Winner Management', icon: Trophy, hasChevron: true },
+    { tab: 'wallets', label: 'Wallet Management', icon: Wallet, hasChevron: true },
+    { tab: 'deposits', label: 'Deposit Management', icon: ArrowDownToLine, badge: deposits.filter((d) => d.status === 'pending').length || undefined, hasChevron: true },
+    { tab: 'withdrawals', label: 'Withdrawal Management', icon: ArrowUpFromLine, badge: withdrawals.filter((w) => w.status === 'pending').length || undefined, hasChevron: true },
+    { tab: 'commission', label: 'Commission Management', icon: Percent, hasChevron: true },
+    { tab: 'referrals', label: 'Referral Management', icon: Users, hasChevron: true },
+    { tab: 'transfers', label: 'Transaction Management', icon: CreditCard, hasChevron: true },
+    { tab: 'notifications', label: 'Notification Management', icon: Bell, hasChevron: true },
+    { tab: 'reports', label: 'Support & Ticket', icon: LifeBuoy, hasChevron: true },
+    { tab: 'reports', label: 'Report & Analytics', icon: FileText, hasChevron: true },
+    { tab: 'settings', label: 'CMS Management', icon: Palette, hasChevron: true },
+    { tab: 'settings', label: 'System Settings', icon: Settings, hasChevron: true },
+    { tab: 'security', label: 'Security Settings', icon: ShieldCheck, hasChevron: true },
+    { tab: 'auditLogs', label: 'Activity Log', icon: History, hasChevron: false },
+    { tab: 'auditLogs', label: 'Backup Management', icon: Database, hasChevron: false },
   ];
 
   const adminContainerContent = (
-    <div className={`relative w-full ${isPageMode ? 'flex-1 min-h-[calc(100vh-100px)] rounded-2xl' : 'max-w-7xl h-full sm:h-[95vh] rounded-none sm:rounded-3xl'} flex flex-col bg-[#070818] border-0 sm:border-2 border-amber-500/40 shadow-2xl overflow-hidden`}>
+    <div className={`relative w-full ${isPageMode ? 'flex-1 min-h-[calc(100vh-80px)] rounded-2xl' : 'max-w-7xl h-full sm:h-[95vh] rounded-none sm:rounded-3xl'} flex flex-col bg-[#0b0d1e] border-0 sm:border border-slate-800/80 shadow-2xl overflow-hidden font-['Outfit',sans-serif]`}>
       
       {/* ========================================================================= */}
-      {/* ADMIN HEADER BAR */}
+      {/* ADMIN HEADER BAR (MATCHING SCREENSHOT) */}
       {/* ========================================================================= */}
-      <header className="h-16 shrink-0 px-4 sm:px-6 bg-[#0c0d24] border-b border-amber-500/30 flex items-center justify-between z-30">
-        <div className="flex items-center gap-3">
+      <header className="h-16 shrink-0 px-4 sm:px-6 bg-[#0e1128] border-b border-slate-800/80 flex items-center justify-between z-30">
+        <div className="flex items-center gap-4">
           <button
             onClick={() => setMobileDrawerOpen(!mobileDrawerOpen)}
-            className="lg:hidden p-2 rounded-xl bg-white/10 text-slate-300 hover:text-white cursor-pointer"
+            className="lg:hidden p-2 rounded-xl bg-slate-800/50 text-slate-300 hover:text-white cursor-pointer"
           >
             <Menu className="w-5 h-5" />
           </button>
 
-          <div className="flex items-center gap-2.5">
-            <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-amber-400 to-yellow-600 p-[2px] shadow-lg shadow-amber-500/30">
-              <div className="w-full h-full bg-[#070818] rounded-[10px] flex items-center justify-center font-black text-amber-400 text-sm">
-                ⚡
-              </div>
-            </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <span className="font-black text-base tracking-tight text-white font-['Outfit']">
-                  APNA TAMBOLA <span className="text-amber-400">ADMIN SUITE</span>
-                </span>
-                <span className="text-[9px] font-black uppercase px-2 py-0.5 bg-amber-400 text-slate-950 rounded-full">
-                  SUPER ADMIN
-                </span>
-              </div>
-              <p className="hidden sm:block text-[9px] tracking-wider text-slate-400 uppercase font-bold">
-                MASTER CONTROL DASHBOARD • 70% POOL ENFORCED
-              </p>
-            </div>
+          <div>
+            <h2 className="font-extrabold text-lg sm:text-xl text-white tracking-tight leading-none">
+              Dashboard
+            </h2>
+            <p className="text-xs text-slate-400 font-medium mt-0.5">
+              Welcome back, Admin! 👋
+            </p>
           </div>
         </div>
 
-        <div className="flex items-center gap-3">
-          <div className="hidden md:flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-xs font-mono font-bold">
-            <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
-            70% Prize Pool Validator: ACTIVE
+        {/* Header Center Search */}
+        <div className="hidden md:flex items-center flex-1 max-w-md mx-6">
+          <div className="relative w-full">
+            <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
+            <input
+              type="text"
+              placeholder="Search here..."
+              className="w-full pl-9 pr-4 py-2 rounded-full bg-[#141836] border border-slate-700/60 text-xs text-white placeholder-slate-400 focus:outline-none focus:border-indigo-500 transition-all"
+            />
+          </div>
+        </div>
+
+        {/* Header Right Actions */}
+        <div className="flex items-center gap-2.5 sm:gap-3.5">
+          {/* Visit Website */}
+          <button
+            onClick={() => {
+              if (onNavigate) {
+                onNavigate('/');
+              } else {
+                setActiveModal(null);
+              }
+            }}
+            className="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-full bg-[#181d42] hover:bg-[#202758] border border-slate-700/60 text-xs font-semibold text-slate-200 transition-colors cursor-pointer"
+          >
+            <Globe className="w-3.5 h-3.5 text-indigo-400" />
+            <span>Visit Website</span>
+          </button>
+
+          {/* Bell Notifications */}
+          <button
+            onClick={() => setActiveTab('notifications')}
+            className="relative p-2 rounded-full bg-[#181d42] hover:bg-[#202758] text-slate-300 hover:text-white transition-colors cursor-pointer"
+          >
+            <Bell className="w-4 h-4" />
+            <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-rose-500 text-white font-black text-[9px] flex items-center justify-center">
+              8
+            </span>
+          </button>
+
+          {/* Messages */}
+          <button
+            onClick={() => setActiveTab('reports')}
+            className="relative p-2 rounded-full bg-[#181d42] hover:bg-[#202758] text-slate-300 hover:text-white transition-colors cursor-pointer"
+          >
+            <MessageSquare className="w-4 h-4" />
+            <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-emerald-500 text-white font-black text-[9px] flex items-center justify-center">
+              12
+            </span>
+          </button>
+
+          {/* Fullscreen toggle */}
+          <button
+            onClick={() => {
+              if (!document.fullscreenElement) {
+                document.documentElement.requestFullscreen().catch(() => {});
+              } else {
+                document.exitFullscreen().catch(() => {});
+              }
+            }}
+            className="hidden sm:flex p-2 rounded-full bg-[#181d42] hover:bg-[#202758] text-slate-300 hover:text-white transition-colors cursor-pointer"
+            title="Toggle Fullscreen"
+          >
+            <Maximize2 className="w-4 h-4" />
+          </button>
+
+          {/* Admin User Chip */}
+          <div className="flex items-center gap-2 pl-2 sm:pl-3 border-l border-slate-800">
+            <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-indigo-500 to-purple-600 p-[1.5px]">
+              <div className="w-full h-full rounded-full bg-[#141836] flex items-center justify-center font-black text-xs text-white">
+                AD
+              </div>
+            </div>
+            <div className="hidden sm:block text-left">
+              <div className="text-xs font-bold text-white leading-tight">Admin</div>
+              <div className="text-[10px] font-semibold text-slate-400 leading-none">Super Admin</div>
+            </div>
           </div>
 
+          {/* Close Modal Button */}
           <button
             onClick={() => {
               if (isPageMode && onNavigate) {
@@ -584,272 +657,171 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({ isPageMode = f
                 setActiveModal(null);
               }
             }}
-            className="p-2 rounded-xl bg-white/10 hover:bg-red-500/20 text-slate-300 hover:text-red-400 transition-colors cursor-pointer"
+            className="p-2 rounded-xl bg-slate-800/40 hover:bg-rose-500/20 text-slate-400 hover:text-rose-400 transition-colors cursor-pointer ml-1"
             title={isPageMode ? 'Return to Home' : 'Close Admin Panel'}
           >
-            <X className="w-5 h-5" />
+            <X className="w-4 h-4" />
           </button>
         </div>
       </header>
 
-        {/* ========================================================================= */}
-        {/* MAIN BODY: 23 TABS ADMIN SIDEBAR + WORKSPACE */}
-        {/* ========================================================================= */}
-        <div className="flex-1 flex overflow-hidden relative">
-          
-          {/* DESKTOP SIDEBAR */}
-          <aside className="hidden lg:flex w-64 shrink-0 bg-[#050614] border-r border-amber-500/20 flex-col justify-between overflow-y-auto custom-scrollbar">
-            <div className="p-3 space-y-1">
-              <div className="px-3 py-2 text-[10px] font-black uppercase tracking-widest text-amber-400/80">
-                ADMINISTRATION MODULES (23)
+      {/* ========================================================================= */}
+      {/* MAIN BODY: SIDEBAR + WORKSPACE */}
+      {/* ========================================================================= */}
+      <div className="flex-1 flex overflow-hidden relative">
+        
+        {/* DESKTOP SIDEBAR (MATCHING SCREENSHOT) */}
+        <aside className="hidden lg:flex w-64 shrink-0 bg-[#0e1128] border-r border-slate-800/80 flex-col justify-between overflow-y-auto custom-scrollbar select-none">
+          <div className="p-3.5 space-y-1">
+            {/* Sidebar Logo */}
+            <div className="flex items-center gap-2.5 px-3 py-3 mb-2 border-b border-slate-800/80">
+              <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-amber-400 via-orange-500 to-purple-600 p-0.5 flex items-center justify-center shadow-md shadow-orange-500/20">
+                <Crown className="w-4 h-4 text-white" />
               </div>
-              {adminMenuItems.map((item) => {
-                const Icon = item.icon;
-                const isActive = activeTab === item.tab;
-                return (
-                  <button
-                    key={item.tab}
-                    onClick={() => {
-                      setActiveTab(item.tab);
-                      setMobileDrawerOpen(false);
-                    }}
-                    className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-                      isActive
-                        ? 'bg-gradient-to-r from-amber-500 to-yellow-600 text-slate-950 font-black shadow-lg shadow-amber-500/30'
-                        : 'text-slate-400 hover:text-white hover:bg-white/5'
-                    }`}
-                  >
-                    <div className="flex items-center gap-2.5 truncate">
-                      <Icon className={`w-4 h-4 shrink-0 ${isActive ? 'text-slate-950' : 'text-amber-400/80'}`} />
-                      <span className="truncate">{item.label}</span>
-                    </div>
+              <div>
+                <div className="font-black text-sm text-white tracking-wider font-['Outfit']">
+                  APNA TAMBOLA
+                </div>
+                <div className="text-[9px] font-bold text-slate-400 uppercase tracking-widest -mt-0.5">
+                  ADMIN PANEL
+                </div>
+              </div>
+            </div>
+
+            {/* Sidebar Nav Items */}
+            {adminMenuItems.map((item, idx) => {
+              const Icon = item.icon;
+              const isActive = activeTab === item.tab;
+              return (
+                <button
+                  key={`${item.tab}-${item.label}-${idx}`}
+                  onClick={() => {
+                    setActiveTab(item.tab);
+                    setMobileDrawerOpen(false);
+                  }}
+                  className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-semibold transition-all cursor-pointer group ${
+                    isActive
+                      ? 'bg-[#6366f1] text-white font-bold shadow-lg shadow-indigo-600/30'
+                      : 'text-slate-400 hover:text-slate-200 hover:bg-[#141836]/60'
+                  }`}
+                >
+                  <div className="flex items-center gap-3 truncate">
+                    <Icon
+                      className={`w-4 h-4 shrink-0 transition-colors ${
+                        isActive ? 'text-white' : 'text-slate-400 group-hover:text-slate-200'
+                      }`}
+                    />
+                    <span className="truncate">{item.label}</span>
+                  </div>
+
+                  <div className="flex items-center gap-1.5">
                     {item.badge !== undefined && (
                       <span
-                        className={`text-[10px] font-black px-2 py-0.5 rounded-full ${
-                          isActive ? 'bg-black text-amber-300' : 'bg-white/10 text-amber-300'
+                        className={`text-[10px] font-bold px-1.5 py-0.2 rounded-full ${
+                          isActive
+                            ? 'bg-black/30 text-white'
+                            : item.badge === 'LIVE'
+                            ? 'bg-rose-500/20 text-rose-400 animate-pulse'
+                            : 'bg-indigo-500/20 text-indigo-300'
                         }`}
                       >
                         {item.badge}
                       </span>
                     )}
+                    {item.hasChevron && (
+                      <ChevronRight
+                        className={`w-3.5 h-3.5 transition-transform ${
+                          isActive ? 'text-white/80 rotate-90' : 'text-slate-500 group-hover:text-slate-300'
+                        }`}
+                      />
+                    )}
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+
+          {/* Sidebar Bottom Card: Total Online Users */}
+          <div className="p-3.5 m-3 rounded-2xl bg-gradient-to-b from-[#161a3d] to-[#121533] border border-indigo-900/40 text-left">
+            <div className="flex items-center gap-2 mb-1.5">
+              <div className="w-7 h-7 rounded-lg bg-indigo-500/20 flex items-center justify-center text-indigo-400">
+                <Users className="w-4 h-4" />
+              </div>
+              <span className="text-[11px] font-bold text-slate-300">Total Online Users</span>
+            </div>
+            <div className="text-2xl font-black text-white font-mono my-0.5">256</div>
+            <button
+              onClick={() => setActiveTab('users')}
+              className="text-[11px] font-bold text-indigo-400 hover:text-indigo-300 flex items-center gap-1 mt-1 transition-colors"
+            >
+              <span>View Live Users</span>
+              <ArrowRight className="w-3 h-3" />
+            </button>
+          </div>
+        </aside>
+
+        {/* MOBILE DRAWER */}
+        {mobileDrawerOpen && (
+          <div className="lg:hidden fixed inset-0 z-40 bg-black/80 backdrop-blur-sm flex">
+            <div className="w-72 bg-[#0e1128] border-r border-slate-800 h-full flex flex-col justify-between overflow-y-auto p-4 animate-slide-right">
+              <div className="space-y-1">
+                <div className="flex items-center justify-between pb-3 border-b border-slate-800">
+                  <span className="text-xs font-black uppercase text-indigo-400">APNA TAMBOLA ADMIN</span>
+                  <button onClick={() => setMobileDrawerOpen(false)} className="p-1 text-slate-400 hover:text-white">
+                    <X className="w-5 h-5" />
                   </button>
-                );
-              })}
-            </div>
-
-            <div className="p-3 border-t border-white/5 bg-black/40 text-[10px] text-slate-400 text-center">
-              Session: Super Admin (Encrypted)
-            </div>
-          </aside>
-
-          {/* MOBILE DRAWER */}
-          {mobileDrawerOpen && (
-            <div className="lg:hidden fixed inset-0 z-40 bg-black/80 backdrop-blur-sm flex">
-              <div className="w-72 bg-[#050614] border-r border-amber-500/30 h-full flex flex-col justify-between overflow-y-auto p-4 animate-slide-right">
-                <div className="space-y-1">
-                  <div className="flex items-center justify-between pb-3 border-b border-white/10">
-                    <span className="text-xs font-black uppercase text-amber-400">ADMIN SUITE (23 TABS)</span>
-                    <button onClick={() => setMobileDrawerOpen(false)} className="p-1 text-slate-400 hover:text-white">
-                      <X className="w-5 h-5" />
-                    </button>
-                  </div>
-                  <div className="py-2 space-y-1">
-                    {adminMenuItems.map((item) => {
-                      const Icon = item.icon;
-                      const isActive = activeTab === item.tab;
-                      return (
-                        <button
-                          key={item.tab}
-                          onClick={() => {
-                            setActiveTab(item.tab);
-                            setMobileDrawerOpen(false);
-                          }}
-                          className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-bold transition-all ${
-                            isActive
-                              ? 'bg-amber-400 text-slate-950 font-black shadow-md'
-                              : 'text-slate-300 hover:bg-white/5'
-                          }`}
-                        >
-                          <div className="flex items-center gap-2">
-                            <Icon className="w-4 h-4" />
-                            <span>{item.label}</span>
-                          </div>
-                        </button>
-                      );
-                    })}
-                  </div>
+                </div>
+                <div className="py-2 space-y-1">
+                  {adminMenuItems.map((item, idx) => {
+                    const Icon = item.icon;
+                    const isActive = activeTab === item.tab;
+                    return (
+                      <button
+                        key={`mob-${item.tab}-${idx}`}
+                        onClick={() => {
+                          setActiveTab(item.tab);
+                          setMobileDrawerOpen(false);
+                        }}
+                        className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-bold transition-all ${
+                          isActive
+                            ? 'bg-[#6366f1] text-white shadow-md'
+                            : 'text-slate-400 hover:text-white hover:bg-white/5'
+                        }`}
+                      >
+                        <div className="flex items-center gap-2.5 truncate">
+                          <Icon className="w-4 h-4 shrink-0" />
+                          <span className="truncate">{item.label}</span>
+                        </div>
+                        {item.badge !== undefined && (
+                          <span className="text-[10px] font-black px-2 py-0.5 rounded-full bg-black/30 text-white">
+                            {item.badge}
+                          </span>
+                        )}
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
-              <div className="flex-1" onClick={() => setMobileDrawerOpen(false)} />
+            </div>
+            <div className="flex-1" onClick={() => setMobileDrawerOpen(false)}></div>
+          </div>
+        )}
+
+        {/* MAIN WORKSPACE CONTENT */}
+        <main className="flex-1 overflow-y-auto p-4 sm:p-6 bg-[#090b1c] custom-scrollbar">
+          {saveSuccessMsg && (
+            <div className="mb-6 p-4 rounded-2xl bg-emerald-500/20 border border-emerald-500/40 text-emerald-300 text-xs font-bold flex items-center gap-2 animate-fade-in">
+              <CheckCircle2 className="w-5 h-5" />
+              <span>{saveSuccessMsg}</span>
             </div>
           )}
 
-          {/* WORKSPACE CONTENT AREA */}
-          <main className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8 bg-[#08091a] custom-scrollbar">
-            
-            {saveSuccessMsg && (
-              <div className="mb-6 p-4 rounded-2xl bg-emerald-500/20 border border-emerald-500/40 text-emerald-300 text-xs font-bold flex items-center gap-2 animate-fade-in">
-                <CheckCircle2 className="w-5 h-5" />
-                <span>{saveSuccessMsg}</span>
-              </div>
-            )}
-
-            {/* ================================================================= */}
-            {/* TAB 1: 🏠 DASHBOARD OVERVIEW (10 KPI SUMMARY CARDS + CHARTS) */}
-            {/* ================================================================= */}
-            {activeTab === 'overview' && (
-              <div className="max-w-6xl mx-auto space-y-6 animate-fade-in">
-                <div className="flex items-center justify-between pb-2">
-                  <div>
-                    <h3 className="text-xl font-black text-white">🏠 APNA TAMBOLA ANALYTICS &amp; KPIS</h3>
-                    <p className="text-xs text-slate-400">Live platform health, ticket sales, cash reserves and ledger summary</p>
-                  </div>
-                  <span className="px-3 py-1 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/40 text-xs font-bold font-mono">
-                    ● Real-Time Metrics
-                  </span>
-                </div>
-
-                {/* 10 Top KPI Summary Cards */}
-                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
-                  <div className="p-4 rounded-2xl bg-[#0e102a] border border-blue-500/30">
-                    <span className="text-[10px] text-slate-400 font-bold uppercase">👥 TOTAL USERS</span>
-                    <p className="text-2xl font-black text-white font-mono mt-1">{allUsers.length}</p>
-                    <span className="text-[10px] text-emerald-400">100% Registered</span>
-                  </div>
-
-                  <div className="p-4 rounded-2xl bg-[#0e102a] border border-emerald-500/30">
-                    <span className="text-[10px] text-slate-400 font-bold uppercase">🟢 ACTIVE PLAYERS</span>
-                    <p className="text-2xl font-black text-emerald-400 font-mono mt-1">
-                      {allUsers.filter((u) => !u.isBlocked).length}
-                    </p>
-                    <span className="text-[10px] text-emerald-400">Live Today</span>
-                  </div>
-
-                  <div className="p-4 rounded-2xl bg-[#0e102a] border border-pink-500/30">
-                    <span className="text-[10px] text-slate-400 font-bold uppercase">🎟️ TICKETS SOLD</span>
-                    <p className="text-2xl font-black text-pink-400 font-mono mt-1">
-                      {upcomingGames.reduce((acc, g) => acc + (g.ticketsSoldCount || 0), 1250)}
-                    </p>
-                    <span className="text-[10px] text-pink-300">Across {upcomingGames.length} Tournaments</span>
-                  </div>
-
-                  <div className="p-4 rounded-2xl bg-[#0e102a] border border-purple-500/30">
-                    <span className="text-[10px] text-slate-400 font-bold uppercase">🎮 TOTAL GAMES</span>
-                    <p className="text-2xl font-black text-purple-400 font-mono mt-1">{upcomingGames.length}</p>
-                    <span className="text-[10px] text-purple-300">Active &amp; Scheduled</span>
-                  </div>
-
-                  <div className="p-4 rounded-2xl bg-[#0e102a] border border-emerald-500/40 bg-emerald-950/20">
-                    <span className="text-[10px] text-slate-400 font-bold uppercase">💰 TOTAL DEPOSITS</span>
-                    <p className="text-2xl font-black text-emerald-400 font-mono mt-1">
-                      ₹{deposits.reduce((acc, d) => acc + (d.status === 'completed' || d.status === 'approved' ? d.amount : 0), 125000).toLocaleString('en-IN')}
-                    </p>
-                    <span className="text-[10px] text-emerald-300">Verified UPI Inflow</span>
-                  </div>
-
-                  <div className="p-4 rounded-2xl bg-[#0e102a] border border-amber-500/40 bg-amber-950/20">
-                    <span className="text-[10px] text-slate-400 font-bold uppercase">💸 TOTAL WITHDRAWALS</span>
-                    <p className="text-2xl font-black text-amber-400 font-mono mt-1">
-                      ₹{withdrawals.reduce((acc, w) => acc + (w.status === 'approved' ? w.amount : 0), 65000).toLocaleString('en-IN')}
-                    </p>
-                    <span className="text-[10px] text-amber-300">Disbursed Payouts</span>
-                  </div>
-
-                  <div className="p-4 rounded-2xl bg-[#0e102a] border border-yellow-500/30">
-                    <span className="text-[10px] text-slate-400 font-bold uppercase">🏆 PRIZES PAID</span>
-                    <p className="text-2xl font-black text-yellow-400 font-mono mt-1">
-                      ₹{prizeLedger.reduce((acc, p) => acc + p.amount, 48200).toLocaleString('en-IN')}
-                    </p>
-                    <span className="text-[10px] text-yellow-300">70% Cash Pool</span>
-                  </div>
-
-                  <div className="p-4 rounded-2xl bg-[#0e102a] border border-pink-500/30">
-                    <span className="text-[10px] text-slate-400 font-bold uppercase">💎 8-LVL COMMISSION</span>
-                    <p className="text-2xl font-black text-pink-400 font-mono mt-1">
-                      ₹{commissionLedger.reduce((acc, c) => acc + c.amount, 8420).toLocaleString('en-IN')}
-                    </p>
-                    <span className="text-[10px] text-pink-300">4.6% Network Reward</span>
-                  </div>
-
-                  <div className="p-4 rounded-2xl bg-[#0e102a] border border-cyan-500/30">
-                    <span className="text-[10px] text-slate-400 font-bold uppercase">🔄 TRANSFER FEES</span>
-                    <p className="text-2xl font-black text-cyan-400 font-mono mt-1">
-                      ₹{platformFeeLedger.reduce((acc, f) => acc + f.amount, 3450).toLocaleString('en-IN')}
-                    </p>
-                    <span className="text-[10px] text-cyan-300">5% Platform Revenue</span>
-                  </div>
-
-                  <div className="p-4 rounded-2xl bg-[#0e102a] border border-purple-500/30">
-                    <span className="text-[10px] text-slate-400 font-bold uppercase">🎁 FREE TICKETS</span>
-                    <p className="text-2xl font-black text-purple-400 font-mono mt-1">{freeTicketWinners.length || 60}</p>
-                    <span className="text-[10px] text-purple-300">5 / Game Lucky Passes</span>
-                  </div>
-                </div>
-
-                {/* Visual Performance Charts & Breakdown */}
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
-                  <div className="p-6 rounded-3xl bg-[#0e102a] border border-indigo-500/30 space-y-4">
-                    <h4 className="text-sm font-black text-white">📈 FINANCIAL LIQUIDITY &amp; INFLOW/OUTFLOW</h4>
-                    <div className="space-y-3 pt-2 text-xs">
-                      <div>
-                        <div className="flex justify-between text-slate-400 mb-1">
-                          <span>Deposit Inflow (Verified UPI)</span>
-                          <span className="font-mono text-emerald-400 font-bold">₹1,25,000</span>
-                        </div>
-                        <div className="h-2 rounded-full bg-black/60 overflow-hidden">
-                          <div className="h-full bg-emerald-500 rounded-full" style={{ width: '85%' }}></div>
-                        </div>
-                      </div>
-
-                      <div>
-                        <div className="flex justify-between text-slate-400 mb-1">
-                          <span>Withdrawal Payouts (Bank/UPI)</span>
-                          <span className="font-mono text-amber-400 font-bold">₹65,000</span>
-                        </div>
-                        <div className="h-2 rounded-full bg-black/60 overflow-hidden">
-                          <div className="h-full bg-amber-500 rounded-full" style={{ width: '52%' }}></div>
-                        </div>
-                      </div>
-
-                      <div>
-                        <div className="flex justify-between text-slate-400 mb-1">
-                          <span>Net Platform Reserves &amp; Fee Vault</span>
-                          <span className="font-mono text-pink-400 font-bold">₹60,000</span>
-                        </div>
-                        <div className="h-2 rounded-full bg-black/60 overflow-hidden">
-                          <div className="h-full bg-pink-500 rounded-full" style={{ width: '48%' }}></div>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="p-6 rounded-3xl bg-[#0e102a] border border-amber-500/30 space-y-4">
-                    <h4 className="text-sm font-black text-white">⚖️ 70% PRIZE POOL ENFORCEMENT ENGINE</h4>
-                    <p className="text-xs text-slate-400">
-                      The automated engine ensures that for every game, prize distribution is calculated strictly from real ticket sales.
-                    </p>
-                    <div className="p-4 rounded-2xl bg-black/50 border border-white/5 space-y-2 text-xs">
-                      <div className="flex justify-between">
-                        <span className="text-slate-400">Eligible Ticket Sales:</span>
-                        <span className="font-mono text-white font-bold">₹{validationResult.totalSales}</span>
-                      </div>
-                      <div className="flex justify-between text-emerald-400">
-                        <span>Max 70% Cash Prize Pool:</span>
-                        <span className="font-mono font-bold">₹{validationResult.maxPrizePool70}</span>
-                      </div>
-                      <div className="flex justify-between text-pink-400">
-                        <span>Total Configured Prizes:</span>
-                        <span className="font-mono font-bold">₹{validationResult.totalConfiguredPrizes}</span>
-                      </div>
-                      <div className="flex justify-between text-amber-400 pt-2 border-t border-white/10 font-bold">
-                        <span>Compliance Status:</span>
-                        <span>{validationResult.isValid ? '✓ 100% VALIDATED' : '⚠️ PRIZE POOL EXCEEDED'}</span>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            )}
+          {/* ================================================================= */}
+          {/* TAB 1: 🏠 DASHBOARD OVERVIEW (PIXEL PERFECT SCREENSHOT MATCH) */}
+          {/* ================================================================= */}
+          {activeTab === 'overview' && (
+            <AdminOverviewDashboard onNavigateTab={setActiveTab} />
+          )}
 
             {/* ================================================================= */}
             {/* TAB 2: 👥 USER MANAGEMENT */}
