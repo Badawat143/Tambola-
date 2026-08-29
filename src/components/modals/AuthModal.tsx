@@ -376,7 +376,7 @@ export const AuthModal: React.FC = () => {
               <input
                 type="text"
                 required
-                placeholder="e.g. 9876543210 or APNA100"
+                placeholder="e.g. 9876543210 or APNA100 or USR-101"
                 value={loginInput}
                 onChange={(e) => setLoginInput(e.target.value)}
                 className="w-full bg-[#080918] border border-white/15 rounded-xl px-3.5 py-2.5 text-sm text-white placeholder:text-slate-500 focus:border-pink-500"
@@ -385,10 +385,41 @@ export const AuthModal: React.FC = () => {
 
             <button
               type="submit"
-              className="w-full py-3 rounded-xl bg-gradient-to-r from-pink-500 to-purple-600 hover:from-pink-600 hover:to-purple-700 text-white font-black text-xs shadow-lg shadow-pink-500/25 cursor-pointer"
+              className="w-full py-3 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-black text-xs shadow-lg shadow-blue-500/25 cursor-pointer uppercase tracking-wider"
             >
               LOGIN TO ACCOUNT
             </button>
+
+            {/* Quick Demo Accounts */}
+            <div className="pt-2 border-t border-white/10">
+              <span className="text-[10px] font-bold uppercase text-slate-400 block mb-1.5">
+                Quick Demo Player Login:
+              </span>
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    loginUser('9876543210');
+                    setSuccessMsg('Logged in as Rajesh Sharma!');
+                    setTimeout(() => setActiveModal(null), 800);
+                  }}
+                  className="py-1.5 px-2 rounded-lg bg-blue-500/10 hover:bg-blue-500/20 border border-blue-500/30 text-blue-300 text-[10px] font-bold text-left truncate cursor-pointer"
+                >
+                  👤 Rajesh (₹1,250)
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    loginUser('9876543211');
+                    setSuccessMsg('Logged in as Pooja Verma!');
+                    setTimeout(() => setActiveModal(null), 800);
+                  }}
+                  className="py-1.5 px-2 rounded-lg bg-pink-500/10 hover:bg-pink-500/20 border border-pink-500/30 text-pink-300 text-[10px] font-bold text-left truncate cursor-pointer"
+                >
+                  👤 Pooja (₹800)
+                </button>
+              </div>
+            </div>
           </form>
         )}
 

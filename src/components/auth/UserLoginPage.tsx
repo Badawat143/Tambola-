@@ -51,16 +51,32 @@ export const UserLoginPage: React.FC<UserLoginPageProps> = ({ onNavigate }) => {
     try {
       const res = loginUser(loginId.trim(), password);
       if (res.success) {
-        setSuccessMessage('Login successful! Redirecting to your Dashboard...');
+        setSuccessMessage(`Login successful! Welcome ${res.user?.name || 'Player'}. Redirecting...`);
         setTimeout(() => {
           onNavigate('/dashboard');
-        }, 800);
+        }, 600);
       } else {
         setErrorMessage(res.message || 'Invalid credentials. Please check your details.');
       }
     } catch (err: any) {
       setErrorMessage(err.message || 'Network error during login.');
     } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Instant One-Click Login for Demo Accounts
+  const handleInstantUserLogin = (identifier: string) => {
+    setIsLoading(true);
+    setErrorMessage('');
+    const res = loginUser(identifier);
+    if (res.success) {
+      setSuccessMessage(`Welcome ${res.user?.name || 'Player'}! Redirecting to Dashboard...`);
+      setTimeout(() => {
+        onNavigate('/dashboard');
+      }, 500);
+    } else {
+      setErrorMessage(res.message || 'Unable to log in.');
       setIsLoading(false);
     }
   };
@@ -199,23 +215,34 @@ export const UserLoginPage: React.FC<UserLoginPageProps> = ({ onNavigate }) => {
 
           {/* Quick Demo Test Buttons */}
           <div className="mt-5 p-3 rounded-xl bg-white/5 border border-white/10">
-            <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block mb-1.5">
-              Quick Demo Accounts (One-Click Auto Fill):
-            </span>
-            <div className="grid grid-cols-2 gap-2">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-[10px] font-black uppercase tracking-wider text-amber-300">
+                ⚡ Instant 1-Click Player Login:
+              </span>
+              <span className="text-[10px] text-slate-400">Click to enter</span>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
               <button
                 type="button"
-                onClick={() => setDemoUser('9876543210', 'Password@123')}
-                className="py-1.5 px-2 rounded-lg bg-blue-500/10 hover:bg-blue-500/20 border border-blue-500/30 text-blue-300 text-[11px] font-semibold text-left truncate"
+                onClick={() => handleInstantUserLogin('9876543210')}
+                className="py-2 px-3 rounded-xl bg-gradient-to-r from-blue-600/30 to-indigo-600/30 hover:from-blue-600/50 hover:to-indigo-600/50 border border-blue-500/40 text-blue-200 text-xs font-bold text-left flex items-center justify-between transition-all cursor-pointer"
               >
-                👤 Ramesh (AT10245)
+                <div>
+                  <div className="font-bold text-white">👤 Rajesh Sharma</div>
+                  <div className="text-[10px] text-blue-300">Balance: ₹1,250 • ID: USR-101</div>
+                </div>
+                <ArrowRight className="w-3.5 h-3.5 text-blue-300" />
               </button>
               <button
                 type="button"
-                onClick={() => setDemoUser('rajesh.sharma@example.com', 'Password@123')}
-                className="py-1.5 px-2 rounded-lg bg-purple-500/10 hover:bg-purple-500/20 border border-purple-500/30 text-purple-300 text-[11px] font-semibold text-left truncate"
+                onClick={() => handleInstantUserLogin('9876543211')}
+                className="py-2 px-3 rounded-xl bg-gradient-to-r from-pink-600/30 to-purple-600/30 hover:from-pink-600/50 hover:to-purple-600/50 border border-pink-500/40 text-pink-200 text-xs font-bold text-left flex items-center justify-between transition-all cursor-pointer"
               >
-                👤 Rajesh (USR-101)
+                <div>
+                  <div className="font-bold text-white">👤 Pooja Verma</div>
+                  <div className="text-[10px] text-pink-300">Balance: ₹800 • ID: USR-102</div>
+                </div>
+                <ArrowRight className="w-3.5 h-3.5 text-pink-300" />
               </button>
             </div>
           </div>

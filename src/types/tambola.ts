@@ -28,7 +28,7 @@ export interface TicketStyleConfig {
   accentColor: string;
   cellBg: string;
   cellBorder: string;
-  cellText: string;
+  cellText?: string;
   cellActiveGradient: string;
   badgeBg: string;
   isEnabled: boolean;
