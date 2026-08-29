@@ -220,7 +220,11 @@ interface TambolaContextType {
   updatePrizes: (newPrizes: PrizeCategory[]) => void;
   toggleTicketPrice: (price: number, enabled: boolean) => void;
   addTicketPriceOption: (option: TicketPriceOption) => void;
+  toggleTicketSale: (gameId: string, isOpen: boolean) => void;
+  updateTicketConfig: (gameId: string, updates: Partial<GameItem>) => void;
   toggleBlockUser: (userId: string) => void;
+  softDeleteUser: (userId: string, isDeleted?: boolean) => void;
+  resetUserPassword: (userId: string, newPassword: string) => { success: boolean; message: string };
   verifyUserKyc: (userId: string) => void;
   addNotification: (title: string, message: string, type: NotificationItem['type'], userId?: string) => void;
   markNotificationAsRead: (id: string) => void;
@@ -1390,10 +1394,24 @@ export const TambolaProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
     // Verify selected game is open for ticket sales
     const targetGame = upcomingGames.find((g) => g.id === gameId) || activeLiveGame;
-    if (targetGame.status === 'completed' || targetGame.status === 'cancelled') {
+    if (targetGame.isTicketSaleOpen === false || targetGame.status === 'completed' || targetGame.status === 'cancelled') {
       return {
         success: false,
-        message: 'This match is closed for ticket sales.',
+        message: `🔴 Ticket sales are currently CLOSED (OFF) for ${targetGame.title || gameId} by Administration.`,
+      };
+    }
+
+    if (currentUser.isBlocked) {
+      return {
+        success: false,
+        message: 'Your account is suspended by Administration. Ticket purchase is not permitted.',
+      };
+    }
+
+    if (currentUser.isDeleted) {
+      return {
+        success: false,
+        message: 'This user account has been deactivated. Ticket purchase is not permitted.',
       };
     }
 
@@ -2106,10 +2124,154 @@ export const TambolaProvider: React.FC<{ children: React.ReactNode }> = ({ child
     setSettings((prev) => ({ ...prev, availableTicketPrices: updated }));
   };
 
-  const toggleBlockUser = (userId: string) => {
-    setAllUsers((prev) =>
-      prev.map((u) => (u.id === userId ? { ...u, isBlocked: !u.isBlocked } : u))
+  const toggleTicketSale = (gameId: string, isOpen: boolean) => {
+    setUpcomingGames((prev) =>
+      prev.map((g) => (g.id === gameId ? { ...g, isTicketSaleOpen: isOpen } : g))
     );
+    if (activeLiveGame.id === gameId) {
+      setActiveLiveGame((prev) => ({ ...prev, isTicketSaleOpen: isOpen }));
+    }
+
+    // Call server API
+    fetch('/api/admin/tickets/toggle-sale', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ gameId, isOpen }),
+    }).catch((err) => console.warn('Server ticket toggle notice:', err));
+
+    setAuditLogs((prev) => [
+      {
+        id: `LOG-${Date.now()}`,
+        adminId: 'ADM-MASTER',
+        adminName: 'Super Admin',
+        action: 'TICKET_SALE_TOGGLE',
+        details: `Set ticket sales status to ${isOpen ? 'OPEN (🟢 ON)' : 'CLOSED (🔴 OFF)'} for Game ${gameId}`,
+        category: 'TICKET',
+        createdAt: new Date().toISOString(),
+      },
+      ...prev,
+    ]);
+  };
+
+  const updateTicketConfig = (gameId: string, updates: Partial<GameItem>) => {
+    setUpcomingGames((prev) =>
+      prev.map((g) => (g.id === gameId ? { ...g, ...updates } : g))
+    );
+    if (activeLiveGame.id === gameId) {
+      setActiveLiveGame((prev) => ({ ...prev, ...updates }));
+    }
+
+    // Call server API
+    fetch('/api/admin/tickets/update-config', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ gameId, ...updates }),
+    }).catch((err) => console.warn('Server ticket config notice:', err));
+
+    setAuditLogs((prev) => [
+      {
+        id: `LOG-${Date.now()}`,
+        adminId: 'ADM-MASTER',
+        adminName: 'Super Admin',
+        action: 'TICKET_CONFIG_UPDATE',
+        details: `Updated ticket config for Game ${gameId}: ${JSON.stringify(updates)}`,
+        category: 'TICKET',
+        createdAt: new Date().toISOString(),
+      },
+      ...prev,
+    ]);
+  };
+
+  const toggleBlockUser = (userId: string) => {
+    let newBlockedStatus = false;
+    setAllUsers((prev) =>
+      prev.map((u) => {
+        if (u.id === userId) {
+          newBlockedStatus = !u.isBlocked;
+          return { ...u, isBlocked: newBlockedStatus };
+        }
+        return u;
+      })
+    );
+
+    fetch('/api/admin/users/block', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ userId, isBlocked: newBlockedStatus }),
+    }).catch((err) => console.warn('Server user block notice:', err));
+
+    setAuditLogs((prev) => [
+      {
+        id: `LOG-${Date.now()}`,
+        adminId: 'ADM-MASTER',
+        adminName: 'Super Admin',
+        action: newBlockedStatus ? 'USER_BLOCKED' : 'USER_UNBLOCKED',
+        details: `${newBlockedStatus ? 'BLOCKED 🔴' : 'UNBLOCKED 🟢'} user ${userId}`,
+        category: 'USER_MGMT',
+        createdAt: new Date().toISOString(),
+      },
+      ...prev,
+    ]);
+  };
+
+  const softDeleteUser = (userId: string, isDeleted: boolean = true) => {
+    setAllUsers((prev) =>
+      prev.map((u) =>
+        u.id === userId
+          ? { ...u, isDeleted, deletedAt: isDeleted ? new Date().toISOString() : undefined }
+          : u
+      )
+    );
+
+    fetch('/api/admin/users/delete', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ userId, isDeleted }),
+    }).catch((err) => console.warn('Server user delete notice:', err));
+
+    setAuditLogs((prev) => [
+      {
+        id: `LOG-${Date.now()}`,
+        adminId: 'ADM-MASTER',
+        adminName: 'Super Admin',
+        action: isDeleted ? 'USER_SOFT_DELETED' : 'USER_RESTORED',
+        details: `${isDeleted ? 'DEACTIVATED / SOFT DELETED 🗑️' : 'RESTORED 🟢'} user ${userId}. Financial audit records retained.`,
+        category: 'USER_MGMT',
+        createdAt: new Date().toISOString(),
+      },
+      ...prev,
+    ]);
+  };
+
+  const resetUserPassword = (userId: string, newPassword: string) => {
+    if (!newPassword || newPassword.length < 6) {
+      return { success: false, message: 'Password must be at least 6 characters.' };
+    }
+
+    setAllUsers((prev) =>
+      prev.map((u) => (u.id === userId ? { ...u, password: newPassword } : u))
+    );
+
+    fetch('/api/admin/users/reset-password', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ userId, newPassword }),
+    }).catch((err) => console.warn('Server reset password notice:', err));
+
+    setAuditLogs((prev) => [
+      {
+        id: `LOG-${Date.now()}`,
+        adminId: 'ADM-MASTER',
+        adminName: 'Super Admin',
+        action: 'ADMIN_PASSWORD_RESET',
+        details: `Reset password for user ${userId}`,
+        category: 'SECURITY',
+        createdAt: new Date().toISOString(),
+      },
+      ...prev,
+    ]);
+
+    return { success: true, message: 'Password successfully reset for user.' };
   };
 
   const verifyUserKyc = (userId: string) => {
@@ -2260,7 +2422,11 @@ export const TambolaProvider: React.FC<{ children: React.ReactNode }> = ({ child
         updatePrizes,
         toggleTicketPrice,
         addTicketPriceOption,
+        toggleTicketSale,
+        updateTicketConfig,
         toggleBlockUser,
+        softDeleteUser,
+        resetUserPassword,
         verifyUserKyc,
         addNotification,
         markNotificationAsRead,

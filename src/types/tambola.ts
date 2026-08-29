@@ -87,6 +87,8 @@ export interface User {
     upiId: string;
   };
   isBlocked?: boolean;
+  isDeleted?: boolean;
+  deletedAt?: string;
   isKycVerified?: boolean;
 }
 
@@ -286,10 +288,12 @@ export interface GameItem {
   title: string;
   gameType: 'Classic' | 'Speed 90' | 'Mega Jackpot' | 'Bumper Night';
   startTime: string; // ISO string
+  startDate?: string;
   endTime?: string;
   saleStartTime?: string;
   saleEndTime?: string;
   ticketPrice: number;
+  customTicketPrice?: number;
   prizePool: number; // Max 70% of ticket sales
   totalTicketSales: number;
   maxPlayers: number;
@@ -297,6 +301,8 @@ export interface GameItem {
   playersCount: number;
   ticketsSoldCount: number;
   ticketColorMode?: 'random' | TicketColorId;
+  ticketColorTheme?: TicketColorId | 'random';
+  isTicketSaleOpen?: boolean; // Admin ON/OFF sale toggle
   status: 'live' | 'upcoming' | 'scheduled' | 'ticket_sale_open' | 'starting_soon' | 'completed' | 'paused' | 'cancelled';
   calledNumbers: number[];
   currentNumber: number | null;
@@ -347,7 +353,7 @@ export interface AuditLog {
   adminName: string;
   action: string;
   details: string;
-  category: 'GAME' | 'WITHDRAWAL' | 'PRIZE' | 'USER' | 'SYSTEM' | 'FINANCE' | 'DEPOSIT' | 'TRANSFER';
+  category: 'GAME' | 'WITHDRAWAL' | 'PRIZE' | 'USER' | 'SYSTEM' | 'FINANCE' | 'DEPOSIT' | 'TRANSFER' | 'USER_MGMT' | 'SECURITY' | 'ADMIN_AUTH' | 'TICKET';
   createdAt: string;
 }
 

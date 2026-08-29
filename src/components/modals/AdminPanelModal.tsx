@@ -33,6 +33,17 @@ import {
   Palette,
   ShieldCheck,
   Printer,
+  Lock,
+  Unlock,
+  Trash2,
+  Key,
+  Power,
+  Check,
+  AlertTriangle,
+  UserX,
+  UserCheck,
+  Tag,
+  Coins,
 } from 'lucide-react';
 import {
   SiteSettings,
@@ -139,6 +150,8 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({ isPageMode = f
     approveWithdrawal,
     rejectWithdrawal,
     toggleBlockUser,
+    softDeleteUser,
+    resetUserPassword,
     verifyUserKyc,
     liveCalledNumbers,
     currentCalledNumber,
@@ -151,6 +164,8 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({ isPageMode = f
     resetLiveGame,
     createGame,
     updateGameStatus,
+    toggleTicketSale,
+    updateTicketConfig,
     approveDeposit,
     rejectDeposit,
     addNotification,
@@ -167,10 +182,21 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({ isPageMode = f
 
   // User Management Search & Inspector
   const [userSearchQuery, setUserSearchQuery] = useState<string>('');
+  const [userStatusFilter, setUserStatusFilter] = useState<'all' | 'active' | 'blocked' | 'deleted'>('all');
   const [selectedUserForDetail, setSelectedUserForDetail] = useState<User | null>(null);
   const [walletAdjAmount, setWalletAdjAmount] = useState<number>(0);
   const [walletAdjType, setWalletAdjType] = useState<'depositWallet' | 'ticketWallet' | 'winningWallet'>('depositWallet');
   const [walletAdjReason, setWalletAdjReason] = useState<string>('');
+  const [userNewPassword, setUserNewPassword] = useState<string>('');
+  const [pwdResetMsg, setPwdResetMsg] = useState<{ success: boolean; message: string } | null>(null);
+
+  // Ticket Management Customizer State
+  const [editingGameId, setEditingGameId] = useState<string | null>(null);
+  const [editTicketPrice, setEditTicketPrice] = useState<number>(20);
+  const [editTicketTheme, setEditTicketTheme] = useState<string>('emerald');
+  const [editTicketTitle, setEditTicketTitle] = useState<string>('');
+  const [editStartDate, setEditStartDate] = useState<string>('2026-08-29');
+  const [editStartTime, setEditStartTime] = useState<string>('21:00');
 
   // Number Control State
   const [customCallNum, setCustomCallNum] = useState<number>(1);
@@ -240,14 +266,62 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({ isPageMode = f
   // Save Feedback
   const [saveSuccessMsg, setSaveSuccessMsg] = useState<string | null>(null);
 
-  // Filtered Users
-  const filteredUsers = allUsers.filter(
-    (u) =>
+  // Filtered Users by Search Query & Account Status
+  const filteredUsers = allUsers.filter((u) => {
+    const matchesSearch =
       u.name.toLowerCase().includes(userSearchQuery.toLowerCase()) ||
       u.phone.includes(userSearchQuery) ||
       u.id.toLowerCase().includes(userSearchQuery.toLowerCase()) ||
-      (u.referralCode && u.referralCode.toLowerCase().includes(userSearchQuery.toLowerCase()))
-  );
+      (u.referralCode && u.referralCode.toLowerCase().includes(userSearchQuery.toLowerCase()));
+
+    if (!matchesSearch) return false;
+
+    if (userStatusFilter === 'active') return !u.isBlocked && !u.isDeleted;
+    if (userStatusFilter === 'blocked') return !!u.isBlocked;
+    if (userStatusFilter === 'deleted') return !!u.isDeleted;
+    return true;
+  });
+
+  const handleAdminResetPassword = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedUserForDetail) return;
+    if (!userNewPassword || userNewPassword.length < 6) {
+      setPwdResetMsg({ success: false, message: 'Password must be at least 6 characters.' });
+      return;
+    }
+
+    const res = resetUserPassword(selectedUserForDetail.id, userNewPassword);
+    setPwdResetMsg(res);
+    setUserNewPassword('');
+    setTimeout(() => setPwdResetMsg(null), 4000);
+  };
+
+  const handleStartEditTicket = (game: GameItem) => {
+    setEditingGameId(game.id);
+    setEditTicketPrice(game.ticketPrice);
+    setEditTicketTheme(game.ticketColorTheme || 'emerald');
+    setEditTicketTitle(game.title);
+    if (game.startTime) {
+      const parts = game.startTime.split('T');
+      if (parts.length === 2) {
+        setEditStartDate(parts[0]);
+        setEditStartTime(parts[1].slice(0, 5));
+      }
+    }
+  };
+
+  const handleSaveTicketEdit = (gameId: string) => {
+    updateTicketConfig(gameId, {
+      title: editTicketTitle,
+      ticketPrice: editTicketPrice,
+      ticketColorTheme: editTicketTheme as any,
+      startDate: editStartDate,
+      startTime: `${editStartDate}T${editStartTime}`,
+    });
+    setEditingGameId(null);
+    setSaveSuccessMsg(`Ticket & Tournament config updated for #${gameId}!`);
+    setTimeout(() => setSaveSuccessMsg(null), 3000);
+  };
 
   // Prize Pool Validation for Active Live Game
   const validationResult = validatePrizePool(
@@ -785,77 +859,155 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({ isPageMode = f
                 <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pb-2">
                   <div>
                     <h3 className="text-xl font-black text-white">👥 USER MANAGEMENT</h3>
-                    <p className="text-xs text-slate-400">Search, inspect 3 wallets, adjust funds, block/unblock and verify KYC</p>
+                    <p className="text-xs text-slate-400">Search, inspect 3 wallets, block/unblock, soft delete, reset passwords, and verify KYC</p>
                   </div>
 
-                  <div className="relative w-full sm:w-72">
-                    <Search className="w-4 h-4 absolute left-3 top-3 text-slate-400" />
-                    <input
-                      type="text"
-                      placeholder="Search by Name, Phone, or ID..."
-                      value={userSearchQuery}
-                      onChange={(e) => setUserSearchQuery(e.target.value)}
-                      className="w-full pl-9 pr-4 py-2 rounded-xl bg-black/50 border border-white/10 text-xs text-white focus:outline-none focus:border-amber-400"
-                    />
+                  <div className="flex items-center gap-2 w-full sm:w-auto">
+                    <div className="relative flex-1 sm:w-72">
+                      <Search className="w-4 h-4 absolute left-3 top-3 text-slate-400" />
+                      <input
+                        type="text"
+                        placeholder="Search by Name, Phone, ID, or Code..."
+                        value={userSearchQuery}
+                        onChange={(e) => setUserSearchQuery(e.target.value)}
+                        className="w-full pl-9 pr-4 py-2 rounded-xl bg-black/50 border border-white/10 text-xs text-white focus:outline-none focus:border-amber-400"
+                      />
+                    </div>
                   </div>
+                </div>
+
+                {/* Status Filter Chips */}
+                <div className="flex flex-wrap items-center gap-2">
+                  <button
+                    onClick={() => setUserStatusFilter('all')}
+                    className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                      userStatusFilter === 'all'
+                        ? 'bg-amber-400 text-slate-950 font-black'
+                        : 'bg-white/5 text-slate-400 hover:text-white'
+                    }`}
+                  >
+                    All Users ({allUsers.length})
+                  </button>
+                  <button
+                    onClick={() => setUserStatusFilter('active')}
+                    className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                      userStatusFilter === 'active'
+                        ? 'bg-emerald-500 text-slate-950 font-black'
+                        : 'bg-white/5 text-slate-400 hover:text-white'
+                    }`}
+                  >
+                    🟢 Active ({allUsers.filter((u) => !u.isBlocked && !u.isDeleted).length})
+                  </button>
+                  <button
+                    onClick={() => setUserStatusFilter('blocked')}
+                    className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                      userStatusFilter === 'blocked'
+                        ? 'bg-red-500 text-white font-black'
+                        : 'bg-white/5 text-slate-400 hover:text-white'
+                    }`}
+                  >
+                    🔴 Blocked ({allUsers.filter((u) => u.isBlocked).length})
+                  </button>
+                  <button
+                    onClick={() => setUserStatusFilter('deleted')}
+                    className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                      userStatusFilter === 'deleted'
+                        ? 'bg-slate-600 text-white font-black'
+                        : 'bg-white/5 text-slate-400 hover:text-white'
+                    }`}
+                  >
+                    🗑️ Deleted ({allUsers.filter((u) => u.isDeleted).length})
+                  </button>
                 </div>
 
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                   {/* Users Table */}
                   <div className="lg:col-span-2 space-y-2">
-                    {filteredUsers.map((user) => (
-                      <div
-                        key={user.id}
-                        onClick={() => setSelectedUserForDetail(user)}
-                        className={`p-4 rounded-2xl border transition-all cursor-pointer flex items-center justify-between ${
-                          selectedUserForDetail?.id === user.id
-                            ? 'bg-[#15193d] border-amber-400 shadow-lg'
-                            : 'bg-[#0e102a] border-white/5 hover:border-white/20'
-                        }`}
-                      >
-                        <div className="flex items-center gap-3">
-                          <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-amber-400 to-pink-500 text-slate-950 font-black flex items-center justify-center text-sm">
-                            {user.name.charAt(0)}
-                          </div>
-                          <div>
-                            <div className="flex items-center gap-2">
-                              <p className="font-bold text-white text-sm">{user.name}</p>
-                              {user.isBlocked && (
-                                <span className="px-1.5 py-0.2 bg-red-500 text-white text-[9px] font-bold rounded">
-                                  BLOCKED
-                                </span>
-                              )}
-                              {user.isKycVerified && (
-                                <span className="px-1.5 py-0.2 bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 text-[9px] font-bold rounded">
-                                  KYC ✓
-                                </span>
-                              )}
-                            </div>
-                            <p className="text-xs text-slate-400 font-mono">{user.phone} • ID: {user.id}</p>
-                          </div>
-                        </div>
-
-                        <div className="text-right">
-                          <p className="text-sm font-black text-emerald-400 font-mono">₹{user.walletBalance}</p>
-                          <span className="text-[10px] text-slate-400">Total Balance</span>
-                        </div>
+                    {filteredUsers.length === 0 ? (
+                      <div className="p-8 rounded-2xl bg-[#0e102a] border border-white/5 text-center text-xs text-slate-400">
+                        No users found matching query and filter.
                       </div>
-                    ))}
+                    ) : (
+                      filteredUsers.map((user) => (
+                        <div
+                          key={user.id}
+                          onClick={() => setSelectedUserForDetail(user)}
+                          className={`p-4 rounded-2xl border transition-all cursor-pointer flex items-center justify-between ${
+                            selectedUserForDetail?.id === user.id
+                              ? 'bg-[#15193d] border-amber-400 shadow-lg'
+                              : 'bg-[#0e102a] border-white/5 hover:border-white/20'
+                          }`}
+                        >
+                          <div className="flex items-center gap-3">
+                            <div className={`w-10 h-10 rounded-xl font-black flex items-center justify-center text-sm ${
+                              user.isDeleted
+                                ? 'bg-slate-700 text-slate-400'
+                                : user.isBlocked
+                                ? 'bg-red-500/20 text-red-400 border border-red-500/40'
+                                : 'bg-gradient-to-tr from-amber-400 to-pink-500 text-slate-950'
+                            }`}>
+                              {user.name.charAt(0)}
+                            </div>
+                            <div>
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <p className="font-bold text-white text-sm">{user.name}</p>
+                                {user.isBlocked && (
+                                  <span className="px-1.5 py-0.5 bg-red-500 text-white text-[9px] font-black rounded">
+                                    🔴 BLOCKED
+                                  </span>
+                                )}
+                                {user.isDeleted && (
+                                  <span className="px-1.5 py-0.5 bg-slate-700 text-slate-300 text-[9px] font-black rounded">
+                                    🗑️ SOFT DELETED
+                                  </span>
+                                )}
+                                {user.isKycVerified && (
+                                  <span className="px-1.5 py-0.5 bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 text-[9px] font-bold rounded">
+                                    KYC ✓
+                                  </span>
+                                )}
+                              </div>
+                              <p className="text-xs text-slate-400 font-mono">{user.phone} • ID: {user.id}</p>
+                            </div>
+                          </div>
+
+                          <div className="text-right">
+                            <p className="text-sm font-black text-emerald-400 font-mono">
+                              ₹{(user.depositWallet || user.walletBalance || 0) + (user.ticketWallet || 0) + (user.winningWallet || 0)}
+                            </p>
+                            <span className="text-[10px] text-slate-400">Total Funds</span>
+                          </div>
+                        </div>
+                      ))
+                    )}
                   </div>
 
-                  {/* User Detail & Administrative Wallet Adjuster */}
+                  {/* User Detail & Inspector */}
                   <div className="p-6 rounded-3xl bg-[#0e102a] border border-indigo-500/30 space-y-4">
-                    <h4 className="text-sm font-black text-white uppercase tracking-wider">
-                      User Inspector &amp; Wallet Adjuster
+                    <h4 className="text-sm font-black text-white uppercase tracking-wider flex items-center justify-between">
+                      <span>User Inspector</span>
+                      {selectedUserForDetail && (
+                        <span className={`text-[10px] font-mono font-bold px-2 py-0.5 rounded-full ${
+                          selectedUserForDetail.isDeleted
+                            ? 'bg-slate-700 text-slate-300'
+                            : selectedUserForDetail.isBlocked
+                            ? 'bg-red-500/20 text-red-400'
+                            : 'bg-emerald-500/20 text-emerald-300'
+                        }`}>
+                          {selectedUserForDetail.isDeleted ? 'DELETED' : selectedUserForDetail.isBlocked ? 'BLOCKED' : 'ACTIVE'}
+                        </span>
+                      )}
                     </h4>
 
                     {selectedUserForDetail ? (
                       <div className="space-y-4 text-xs">
                         <div className="p-3 rounded-xl bg-black/40 border border-white/5 space-y-1">
                           <p className="text-white font-bold text-sm">{selectedUserForDetail.name}</p>
+                          <p className="text-slate-400">Phone / Login: <strong className="text-white font-mono">{selectedUserForDetail.phone}</strong></p>
+                          <p className="text-slate-400">User ID: <strong className="text-amber-300 font-mono">{selectedUserForDetail.id}</strong></p>
                           <p className="text-slate-400">Referral ID: <strong className="text-amber-300 font-mono">{selectedUserForDetail.referralCode}</strong></p>
-                          <p className="text-slate-400">Referred By: <strong className="text-purple-300 font-mono">{selectedUserForDetail.referredBy || 'Direct'}</strong></p>
-                          <p className="text-slate-400">Referral Income: <strong className="text-pink-300">₹{selectedUserForDetail.referralEarnings}</strong></p>
+                          <p className="text-slate-400">Referred By: <strong className="text-purple-300 font-mono">{selectedUserForDetail.referredBy || 'Direct (None)'}</strong></p>
+                          <p className="text-slate-400">Referral Earnings: <strong className="text-pink-300">₹{selectedUserForDetail.referralEarnings || 0}</strong></p>
                         </div>
 
                         {/* 3 Wallets Display */}
@@ -880,9 +1032,91 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({ isPageMode = f
                           </div>
                         </div>
 
+                        {/* Account Actions: Block / Unblock, Soft Delete, Verify KYC */}
+                        <div className="p-3 rounded-2xl bg-black/40 border border-white/10 space-y-2">
+                          <p className="font-bold text-slate-200">Account Access &amp; Compliance</p>
+                          <div className="grid grid-cols-2 gap-2">
+                            <button
+                              type="button"
+                              onClick={() => toggleBlockUser(selectedUserForDetail.id)}
+                              className={`py-2 px-3 rounded-xl font-black text-xs flex items-center justify-center gap-1.5 cursor-pointer transition-colors ${
+                                selectedUserForDetail.isBlocked
+                                  ? 'bg-emerald-500 text-slate-950 hover:bg-emerald-400'
+                                  : 'bg-red-500/20 text-red-300 border border-red-500/40 hover:bg-red-500/30'
+                              }`}
+                            >
+                              {selectedUserForDetail.isBlocked ? (
+                                <>
+                                  <Unlock className="w-3.5 h-3.5" />
+                                  <span>UNBLOCK USER</span>
+                                </>
+                              ) : (
+                                <>
+                                  <Lock className="w-3.5 h-3.5" />
+                                  <span>BLOCK USER</span>
+                                </>
+                              )}
+                            </button>
+
+                            <button
+                              type="button"
+                              onClick={() => softDeleteUser(selectedUserForDetail.id, !selectedUserForDetail.isDeleted)}
+                              className={`py-2 px-3 rounded-xl font-black text-xs flex items-center justify-center gap-1.5 cursor-pointer transition-colors ${
+                                selectedUserForDetail.isDeleted
+                                  ? 'bg-amber-400 text-slate-950 hover:bg-amber-300'
+                                  : 'bg-slate-800 text-slate-300 border border-slate-700 hover:bg-slate-700'
+                              }`}
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                              <span>{selectedUserForDetail.isDeleted ? 'RESTORE' : 'SOFT DELETE'}</span>
+                            </button>
+                          </div>
+
+                          {!selectedUserForDetail.isKycVerified && (
+                            <button
+                              type="button"
+                              onClick={() => verifyUserKyc(selectedUserForDetail.id)}
+                              className="w-full py-2 rounded-xl bg-emerald-500/20 text-emerald-300 hover:bg-emerald-500/30 border border-emerald-500/30 font-bold flex items-center justify-center gap-1.5 cursor-pointer"
+                            >
+                              <Check className="w-3.5 h-3.5" />
+                              <span>APPROVE KYC VERIFICATION</span>
+                            </button>
+                          )}
+                        </div>
+
+                        {/* Reset Password Form */}
+                        <form onSubmit={handleAdminResetPassword} className="p-3 rounded-2xl bg-black/40 border border-white/10 space-y-2">
+                          <p className="font-bold text-amber-300 flex items-center gap-1.5">
+                            <Key className="w-3.5 h-3.5" />
+                            <span>Administrative Password Reset</span>
+                          </p>
+                          {pwdResetMsg && (
+                            <div className={`p-2 rounded-lg text-[11px] font-bold ${
+                              pwdResetMsg.success ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30' : 'bg-red-500/20 text-red-300 border border-red-500/30'
+                            }`}>
+                              {pwdResetMsg.message}
+                            </div>
+                          )}
+                          <div className="flex gap-2">
+                            <input
+                              type="password"
+                              placeholder="New password (min 6 chars)"
+                              value={userNewPassword}
+                              onChange={(e) => setUserNewPassword(e.target.value)}
+                              className="flex-1 px-3 py-1.5 rounded-xl bg-black/60 border border-white/10 text-white font-mono text-xs"
+                            />
+                            <button
+                              type="submit"
+                              className="px-3 py-1.5 rounded-xl bg-amber-400 text-slate-950 font-black text-xs hover:bg-amber-300 cursor-pointer"
+                            >
+                              RESET
+                            </button>
+                          </div>
+                        </form>
+
                         {/* Administrative Wallet Adjust Form */}
                         <form onSubmit={handleWalletAdjustSubmit} className="space-y-3 pt-2 border-t border-white/10">
-                          <p className="font-bold text-amber-300">Administrative Wallet Adjustment</p>
+                          <p className="font-bold text-amber-300">Administrative Wallet Adjustment (Audited)</p>
                           <div>
                             <label className="text-slate-400">Target Wallet</label>
                             <select
@@ -924,24 +1158,6 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({ isPageMode = f
                             RECORD ADJUSTMENT (AUDITED)
                           </button>
                         </form>
-
-                        {/* Action Buttons */}
-                        <div className="flex gap-2 pt-2">
-                          <button
-                            type="button"
-                            onClick={() => toggleBlockUser(selectedUserForDetail.id)}
-                            className="flex-1 py-2 rounded-xl bg-red-500/20 text-red-300 hover:bg-red-500/30 border border-red-500/30 font-bold cursor-pointer"
-                          >
-                            {selectedUserForDetail.isBlocked ? 'UNBLOCK USER' : 'BLOCK USER'}
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => verifyUserKyc(selectedUserForDetail.id)}
-                            className="flex-1 py-2 rounded-xl bg-emerald-500/20 text-emerald-300 hover:bg-emerald-500/30 border border-emerald-500/30 font-bold cursor-pointer"
-                          >
-                            VERIFY KYC
-                          </button>
-                        </div>
                       </div>
                     ) : (
                       <p className="text-xs text-slate-500 text-center py-8">Select any user from the left to view details</p>
@@ -1152,62 +1368,311 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({ isPageMode = f
             )}
 
             {/* ================================================================= */}
-            {/* TAB 4: 🎟️ TICKET MANAGEMENT & VISUALIZER */}
+            {/* TAB 4: 🎟️ TICKET MANAGEMENT & CONFIGURATION */}
             {/* ================================================================= */}
             {activeTab === 'tickets' && (
               <div className="max-w-6xl mx-auto space-y-6 animate-fade-in">
-                <div className="flex items-center justify-between pb-2">
+                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 pb-2">
                   <div>
-                    <h3 className="text-xl font-black text-white">🎟️ TICKET INVENTORY &amp; VERIFICATION</h3>
-                    <p className="text-xs text-slate-400">Inspect purchased player tickets, 3x9 tambola matrices and security codes</p>
+                    <h3 className="text-xl font-black text-white flex items-center gap-2">
+                      <Tag className="w-5 h-5 text-amber-400" />
+                      🎟️ TICKET MANAGEMENT &amp; SALES CONTROL
+                    </h3>
+                    <p className="text-xs text-slate-400">
+                      Master ON/OFF sales switch, ticket price points (5, 10, 20, 40, 100 VP), colour themes, and schedules.
+                    </p>
                   </div>
-                  <span className="px-3 py-1 bg-pink-500/20 text-pink-300 border border-pink-500/40 rounded-full text-xs font-mono font-bold">
-                    Total In circulation: {myTickets.length + 145}
-                  </span>
+                  <div className="flex items-center gap-2">
+                    <span className="px-3 py-1 bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 rounded-full text-xs font-mono font-bold">
+                      Open Games: {upcomingGames.filter((g) => g.isTicketSaleOpen !== false).length}
+                    </span>
+                    <span className="px-3 py-1 bg-pink-500/20 text-pink-300 border border-pink-500/40 rounded-full text-xs font-mono font-bold">
+                      Issued Tickets: {myTickets.length + 145}
+                    </span>
+                  </div>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {myTickets.map((t) => (
-                    <div
-                      key={t.id}
-                      className="p-5 rounded-3xl bg-[#0e102a] border border-purple-500/30 space-y-3 shadow-xl"
-                    >
-                      <div className="flex items-center justify-between border-b border-white/10 pb-2">
-                        <div>
-                          <span className="text-xs font-mono font-bold text-amber-300">Ticket #{t.ticketNumber}</span>
-                          <p className="text-[10px] text-slate-400">Owner: {t.userName} ({t.userId})</p>
+                {/* Edit Ticket Configuration Inline Modal / Panel */}
+                {editingGameId && (
+                  <div className="p-6 rounded-3xl bg-[#0e102a] border-2 border-amber-400/60 shadow-2xl space-y-4 animate-fade-in">
+                    <div className="flex items-center justify-between border-b border-white/10 pb-3">
+                      <div>
+                        <h4 className="text-base font-black text-white flex items-center gap-2">
+                          <Palette className="w-4 h-4 text-amber-400" />
+                          EDIT TICKET &amp; TOURNAMENT CONFIGURATION (#{editingGameId})
+                        </h4>
+                        <p className="text-xs text-slate-400">Customize ticket pricing, color scheme, and start schedule</p>
+                      </div>
+                      <button
+                        onClick={() => setEditingGameId(null)}
+                        className="p-1.5 rounded-lg text-slate-400 hover:text-white bg-white/5 cursor-pointer"
+                      >
+                        <X className="w-4 h-4" />
+                      </button>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
+                      <div>
+                        <label className="text-slate-300 font-bold">Ticket / Tournament Name</label>
+                        <input
+                          type="text"
+                          value={editTicketTitle}
+                          onChange={(e) => setEditTicketTitle(e.target.value)}
+                          className="w-full mt-1 px-3 py-2 rounded-xl bg-black/60 border border-white/10 text-white font-bold"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="text-slate-300 font-bold">Ticket Price (Virtual Points)</label>
+                        <div className="flex items-center gap-2 mt-1">
+                          <input
+                            type="number"
+                            min="1"
+                            max="1000"
+                            value={editTicketPrice}
+                            onChange={(e) => setEditTicketPrice(Number(e.target.value))}
+                            className="w-28 px-3 py-2 rounded-xl bg-black/60 border border-white/10 text-emerald-400 font-mono font-black"
+                          />
+                          <div className="flex flex-wrap gap-1">
+                            {[5, 10, 20, 40, 100].map((preset) => (
+                              <button
+                                key={preset}
+                                type="button"
+                                onClick={() => setEditTicketPrice(preset)}
+                                className={`px-2.5 py-1.5 rounded-lg font-mono font-bold text-xs cursor-pointer transition-colors ${
+                                  editTicketPrice === preset
+                                    ? 'bg-emerald-500 text-slate-950 font-black'
+                                    : 'bg-white/10 text-slate-300 hover:bg-white/20'
+                                }`}
+                              >
+                                {preset} VP
+                              </button>
+                            ))}
+                          </div>
                         </div>
-                        <span className="px-2.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 text-[10px] font-mono font-bold">
-                          Game #{t.gameId}
-                        </span>
                       </div>
 
-                      {/* 3x9 Matrix Visualizer */}
-                      <div className="grid grid-cols-9 gap-1 bg-black/60 p-2 rounded-2xl border border-white/10">
-                        {t.grid.map((row, rIdx) =>
-                          row.map((val, cIdx) => (
-                            <div
-                              key={`${rIdx}-${cIdx}`}
-                              className={`h-7 rounded flex items-center justify-center font-mono font-bold text-xs ${
-                                val === null
-                                  ? 'bg-transparent text-transparent'
-                                  : t.markedNumbers.includes(val)
-                                  ? 'bg-pink-500 text-white font-black'
-                                  : 'bg-white/10 text-white'
-                              }`}
-                            >
-                              {val || ''}
-                            </div>
-                          ))
-                        )}
+                      <div>
+                        <label className="text-slate-300 font-bold">Ticket Colour Theme</label>
+                        <select
+                          value={editTicketTheme}
+                          onChange={(e) => setEditTicketTheme(e.target.value)}
+                          className="w-full mt-1 px-3 py-2 rounded-xl bg-black/60 border border-white/10 text-white font-bold"
+                        >
+                          <option value="emerald">Emerald Classic (Forest / Mint)</option>
+                          <option value="sapphire">Sapphire Ocean (Cobalt / Cyan)</option>
+                          <option value="amber">Amber Sunset (Gold / Bronze)</option>
+                          <option value="crimson">Crimson Ruby (Ruby Red)</option>
+                          <option value="royal_purple">Royal Purple (VIP Amethyst)</option>
+                          <option value="rainbow">Neon Rainbow (Multicolor Spectrum)</option>
+                        </select>
                       </div>
 
-                      <div className="flex items-center justify-between text-[11px] text-slate-400 pt-1">
-                        <span>Code: <strong className="text-pink-400 font-mono">{t.verificationCode || 'VER-74892'}</strong></span>
-                        <span>Marked: <strong className="text-emerald-400">{t.markedNumbers.length}/15</strong></span>
+                      <div className="grid grid-cols-2 gap-2">
+                        <div>
+                          <label className="text-slate-300 font-bold">Start Date</label>
+                          <input
+                            type="date"
+                            value={editStartDate}
+                            onChange={(e) => setEditStartDate(e.target.value)}
+                            className="w-full mt-1 px-3 py-2 rounded-xl bg-black/60 border border-white/10 text-white"
+                          />
+                        </div>
+                        <div>
+                          <label className="text-slate-300 font-bold">Start Time</label>
+                          <input
+                            type="time"
+                            value={editStartTime}
+                            onChange={(e) => setEditStartTime(e.target.value)}
+                            className="w-full mt-1 px-3 py-2 rounded-xl bg-black/60 border border-white/10 text-white"
+                          />
+                        </div>
                       </div>
                     </div>
-                  ))}
+
+                    <div className="flex justify-end gap-2 pt-2 border-t border-white/10">
+                      <button
+                        type="button"
+                        onClick={() => setEditingGameId(null)}
+                        className="px-4 py-2 rounded-xl bg-white/10 text-slate-300 hover:bg-white/20 text-xs font-bold cursor-pointer"
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleSaveTicketEdit(editingGameId)}
+                        className="px-5 py-2 rounded-xl bg-amber-400 text-slate-950 hover:bg-amber-300 text-xs font-black cursor-pointer shadow-lg"
+                      >
+                        SAVE CONFIGURATION
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {/* All Tickets / Games Master Control List */}
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between">
+                    <h4 className="text-sm font-black text-white uppercase tracking-wider flex items-center gap-2">
+                      <Sliders className="w-4 h-4 text-amber-400" />
+                      AVAILABLE TICKETS &amp; GAME MASTER CONTROLS
+                    </h4>
+                    <span className="text-xs text-slate-400">Total Games Configured: {upcomingGames.length}</span>
+                  </div>
+
+                  <div className="space-y-3">
+                    {upcomingGames.map((game) => {
+                      const isSaleOpen = game.isTicketSaleOpen !== false;
+                      const themeKey = game.ticketColorTheme || 'emerald';
+                      const theme = ADMIN_TICKET_THEMES[themeKey] || ADMIN_TICKET_THEMES.emerald;
+                      const startDateStr = game.startDate || (game.startTime ? game.startTime.split('T')[0] : '2026-08-29');
+                      const startTimeStr = game.startTime ? game.startTime.split('T')[1]?.slice(0, 5) : '21:00';
+
+                      return (
+                        <div
+                          key={game.id}
+                          className={`p-5 rounded-3xl border transition-all shadow-xl space-y-4 ${
+                            isSaleOpen
+                              ? 'bg-[#0e102a] border-white/10 hover:border-amber-400/40'
+                              : 'bg-black/60 border-red-500/20 opacity-80'
+                          }`}
+                        >
+                          <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+                            {/* Left: Identification & Basic Info */}
+                            <div className="space-y-1.5 flex-1">
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <span className="font-mono text-xs font-black text-amber-400 bg-amber-400/10 px-2.5 py-0.5 rounded-lg border border-amber-400/30">
+                                  TKT-{game.id}
+                                </span>
+                                <span className="font-mono text-xs text-slate-400">
+                                  Game ID: #{game.id}
+                                </span>
+                                <span className={`text-[10px] font-bold px-2 py-0.5 rounded-md ${theme.badge}`}>
+                                  🎨 {theme.name}
+                                </span>
+                                <span className="text-[10px] px-2 py-0.5 rounded-md bg-purple-500/20 text-purple-300 font-bold">
+                                  {game.gameType || 'Classic'}
+                                </span>
+                              </div>
+                              <h4 className="text-base font-black text-white">{game.title}</h4>
+                              <div className="flex items-center gap-3 text-xs text-slate-400 font-mono">
+                                <span>📅 {startDateStr}</span>
+                                <span>⏰ {startTimeStr}</span>
+                                <span>🎟️ Sold: <strong className="text-white">{game.ticketsSoldCount || 0}</strong> / {game.maxPlayers}</span>
+                              </div>
+                            </div>
+
+                            {/* Center: Price Config & 1-Click Quick Selector */}
+                            <div className="bg-black/50 p-3 rounded-2xl border border-white/5 space-y-1.5 min-w-[220px]">
+                              <div className="flex items-center justify-between">
+                                <span className="text-[11px] text-slate-400">Ticket Value:</span>
+                                <span className="font-mono font-black text-emerald-400 text-sm">
+                                  ₹{game.ticketPrice} / {game.ticketPrice} VP
+                                </span>
+                              </div>
+                              <div className="flex items-center gap-1">
+                                {[5, 10, 20, 40, 100].map((preset) => (
+                                  <button
+                                    key={preset}
+                                    onClick={() => updateTicketConfig(game.id, { ticketPrice: preset })}
+                                    className={`flex-1 py-1 rounded text-[10px] font-mono font-bold transition-all cursor-pointer ${
+                                      game.ticketPrice === preset
+                                        ? 'bg-emerald-500 text-slate-950 font-black'
+                                        : 'bg-white/5 text-slate-400 hover:bg-white/15 hover:text-white'
+                                    }`}
+                                    title={`Set ticket price to ${preset} Virtual Points`}
+                                  >
+                                    {preset}P
+                                  </button>
+                                ))}
+                              </div>
+                            </div>
+
+                            {/* Right: Master ON / OFF Toggle & Edit Action */}
+                            <div className="flex items-center gap-2">
+                              {/* Master Toggle */}
+                              <button
+                                onClick={() => toggleTicketSale(game.id, !isSaleOpen)}
+                                className={`px-4 py-2.5 rounded-2xl font-black text-xs flex items-center gap-2 shadow-lg cursor-pointer transition-all ${
+                                  isSaleOpen
+                                    ? 'bg-emerald-500 text-slate-950 hover:bg-emerald-400 shadow-emerald-500/20'
+                                    : 'bg-red-600 text-white hover:bg-red-500 shadow-red-600/20'
+                                }`}
+                              >
+                                <Power className="w-4 h-4" />
+                                <span>{isSaleOpen ? '🟢 SALES ON' : '🔴 SALES OFF'}</span>
+                              </button>
+
+                              {/* Edit Button */}
+                              <button
+                                onClick={() => handleStartEditTicket(game)}
+                                className="px-3.5 py-2.5 rounded-2xl bg-white/10 hover:bg-white/20 text-slate-200 text-xs font-bold flex items-center gap-1.5 cursor-pointer"
+                              >
+                                <Settings className="w-3.5 h-3.5" />
+                                <span>Edit</span>
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* Purchased Player Tickets & 3x9 Matrix Inspector */}
+                <div className="pt-6 border-t border-white/10 space-y-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h4 className="text-sm font-black text-white uppercase tracking-wider flex items-center gap-2">
+                        <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+                        🗂️ PURCHASED TICKETS &amp; 3x9 MATRIX INSPECTOR
+                      </h4>
+                      <p className="text-xs text-slate-400">Examine live participant ticket grids and security verification hashes</p>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {myTickets.map((t) => (
+                      <div
+                        key={t.id}
+                        className="p-5 rounded-3xl bg-[#0e102a] border border-purple-500/30 space-y-3 shadow-xl"
+                      >
+                        <div className="flex items-center justify-between border-b border-white/10 pb-2">
+                          <div>
+                            <span className="text-xs font-mono font-bold text-amber-300">Ticket #{t.ticketNumber}</span>
+                            <p className="text-[10px] text-slate-400">Owner: {t.userName} ({t.userId})</p>
+                          </div>
+                          <span className="px-2.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 text-[10px] font-mono font-bold">
+                            Game #{t.gameId}
+                          </span>
+                        </div>
+
+                        {/* 3x9 Matrix Visualizer */}
+                        <div className="grid grid-cols-9 gap-1 bg-black/60 p-2 rounded-2xl border border-white/10">
+                          {t.grid.map((row, rIdx) =>
+                            row.map((val, cIdx) => (
+                              <div
+                                key={`${rIdx}-${cIdx}`}
+                                className={`h-7 rounded flex items-center justify-center font-mono font-bold text-xs ${
+                                  val === null
+                                    ? 'bg-transparent text-transparent'
+                                    : t.markedNumbers.includes(val)
+                                    ? 'bg-pink-500 text-white font-black'
+                                    : 'bg-white/10 text-white'
+                                }`}
+                              >
+                                {val || ''}
+                              </div>
+                            ))
+                          )}
+                        </div>
+
+                        <div className="flex items-center justify-between text-[11px] text-slate-400 pt-1">
+                          <span>Code: <strong className="text-pink-400 font-mono">{t.verificationCode || 'VER-74892'}</strong></span>
+                          <span>Marked: <strong className="text-emerald-400">{t.markedNumbers.length}/15</strong></span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
                 </div>
               </div>
             )}

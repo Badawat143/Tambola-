@@ -28,6 +28,9 @@ interface ServerState {
     title: string;
     gameType: string;
     ticketPrice: number;
+    isTicketSaleOpen?: boolean;
+    ticketColorTheme?: string;
+    startDate?: string;
     prizePool: number;
     status: 'upcoming' | 'live' | 'completed' | 'paused';
     calledNumbers: number[];
@@ -93,7 +96,71 @@ const state: ServerState = {
       isKycVerified: true,
     },
   ],
-  games: [],
+  games: [
+    {
+      id: 'AT-1025',
+      title: 'Grand Evening Bumper Room #1',
+      gameType: 'Mega Jackpot',
+      startDate: new Date().toISOString().split('T')[0],
+      startTime: new Date(Date.now() + 1000 * 60 * 12).toISOString(),
+      ticketPrice: 20,
+      isTicketSaleOpen: true,
+      ticketColorTheme: 'emerald',
+      prizePool: 700,
+      totalTicketSales: 1000,
+      maxPlayers: 200,
+      playersCount: 48,
+      ticketsSoldCount: 50,
+      status: 'live',
+      calledNumbers: [7, 14, 22, 38, 49, 53, 67, 81, 90, 11, 28, 45, 62, 79, 3],
+      currentNumber: 3,
+      prizeCategories: [],
+      freeTicketWinners: [],
+      canStart: true,
+    },
+    {
+      id: 'AT-1026',
+      title: 'Night Owl Speed 90 Express',
+      gameType: 'Speed 90',
+      startDate: new Date().toISOString().split('T')[0],
+      startTime: new Date(Date.now() + 1000 * 60 * 45).toISOString(),
+      ticketPrice: 10,
+      isTicketSaleOpen: true,
+      ticketColorTheme: 'sapphire',
+      prizePool: 700,
+      totalTicketSales: 1000,
+      maxPlayers: 150,
+      playersCount: 65,
+      ticketsSoldCount: 100,
+      status: 'upcoming',
+      calledNumbers: [],
+      currentNumber: null,
+      prizeCategories: [],
+      freeTicketWinners: [],
+      canStart: true,
+    },
+    {
+      id: 'AT-1027',
+      title: 'Midnight Champion Super League',
+      gameType: 'Classic',
+      startDate: new Date().toISOString().split('T')[0],
+      startTime: new Date(Date.now() + 1000 * 60 * 110).toISOString(),
+      ticketPrice: 40,
+      isTicketSaleOpen: true,
+      ticketColorTheme: 'gold',
+      prizePool: 1400,
+      totalTicketSales: 2000,
+      maxPlayers: 100,
+      playersCount: 22,
+      ticketsSoldCount: 40,
+      status: 'upcoming',
+      calledNumbers: [],
+      currentNumber: null,
+      prizeCategories: [],
+      freeTicketWinners: [],
+      canStart: true,
+    },
+  ],
   tickets: [],
   deposits: [],
   withdrawals: [],
@@ -111,6 +178,9 @@ const state: ServerState = {
     title: 'Apna Super Bumper Dhamaka',
     gameType: 'Classic',
     ticketPrice: 20,
+    isTicketSaleOpen: true,
+    ticketColorTheme: 'emerald',
+    startDate: new Date().toISOString().split('T')[0],
     prizePool: 14000,
     status: 'live',
     calledNumbers: [],
@@ -1046,6 +1116,15 @@ app.post('/api/tickets/buy', (req: Request, res: Response) => {
     const activeGame = state.liveGame;
     const targetGameId = gameId || activeGame.id;
 
+    // Check target game ticket sale status
+    const targetGame = targetGameId === activeGame.id ? activeGame : state.games.find((g) => g.id === targetGameId);
+    if (targetGame && (targetGame as any).isTicketSaleOpen === false) {
+      return res.status(403).json({
+        error: `🔴 Ticket sales are currently CLOSED (OFF) for ${targetGame.title || targetGameId} by Administration.`,
+        isTicketSaleOpen: false,
+      });
+    }
+
     let user = state.users.find((u) => u.id === userId);
     if (!user) {
       user = {
@@ -1058,6 +1137,14 @@ app.post('/api/tickets/buy', (req: Request, res: Response) => {
         referredBy: 'AT10001',
       };
       state.users.push(user);
+    }
+
+    if (user.isBlocked) {
+      return res.status(403).json({ error: 'Your account is suspended by Administration. Ticket purchase blocked.' });
+    }
+
+    if (user.isDeleted) {
+      return res.status(403).json({ error: 'This user account has been deactivated. Ticket purchase not permitted.' });
     }
 
     // STRICT TICKET WALLET CHECK (Never allow negative balance)
@@ -1616,6 +1703,316 @@ app.post('/api/games/draw-free-tickets', (req: Request, res: Response) => {
   } catch (err: any) {
     res.status(500).json({ error: err.message });
   }
+});
+
+// ==========================================
+// ADMIN TICKET & USER MANAGEMENT ENDPOINTS
+// ==========================================
+
+// 12. Admin Toggle Ticket Sale (ON/OFF)
+app.post('/api/admin/tickets/toggle-sale', (req: Request, res: Response) => {
+  try {
+    const { gameId, isOpen, adminId, adminName } = req.body;
+    const targetGameId = gameId || state.liveGame.id;
+
+    let targetGame = state.games.find((g) => g.id === targetGameId);
+    if (state.liveGame.id === targetGameId) {
+      (state.liveGame as any).isTicketSaleOpen = Boolean(isOpen);
+      if (targetGame) {
+        targetGame.isTicketSaleOpen = Boolean(isOpen);
+      }
+    } else if (targetGame) {
+      targetGame.isTicketSaleOpen = Boolean(isOpen);
+    } else {
+      return res.status(404).json({ error: 'Game / Ticket configuration not found.' });
+    }
+
+    const statusText = isOpen ? 'OPEN (🟢 ON)' : 'CLOSED (🔴 OFF)';
+
+    state.auditLogs.unshift({
+      id: `LOG-${Date.now()}`,
+      adminId: adminId || 'ADM-MASTER',
+      adminName: adminName || 'Super Admin',
+      action: 'TICKET_SALE_TOGGLE',
+      details: `Set ticket sales status to ${statusText} for Game ${targetGame ? targetGame.title : targetGameId}`,
+      category: 'TICKET',
+      createdAt: new Date().toISOString(),
+    });
+
+    res.json({
+      success: true,
+      gameId: targetGameId,
+      isTicketSaleOpen: Boolean(isOpen),
+      message: `Ticket sales for ${targetGame?.title || targetGameId} are now ${statusText}.`,
+    });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// 13. Admin Update Ticket Configuration
+app.post('/api/admin/tickets/update-config', (req: Request, res: Response) => {
+  try {
+    const { gameId, ticketPrice, ticketColorTheme, startDate, startTime, adminId, adminName } = req.body;
+    const targetGameId = gameId || state.liveGame.id;
+
+    let targetGame = state.games.find((g) => g.id === targetGameId);
+    if (state.liveGame.id === targetGameId) {
+      if (ticketPrice !== undefined) state.liveGame.ticketPrice = Number(ticketPrice);
+      if (ticketColorTheme) (state.liveGame as any).ticketColorTheme = ticketColorTheme;
+      if (startDate) (state.liveGame as any).startDate = startDate;
+      if (startTime) state.liveGame.startTime = startTime;
+    }
+
+    if (targetGame) {
+      if (ticketPrice !== undefined) targetGame.ticketPrice = Number(ticketPrice);
+      if (ticketColorTheme) targetGame.ticketColorTheme = ticketColorTheme;
+      if (startDate) targetGame.startDate = startDate;
+      if (startTime) targetGame.startTime = startTime;
+    }
+
+    state.auditLogs.unshift({
+      id: `LOG-${Date.now()}`,
+      adminId: adminId || 'ADM-MASTER',
+      adminName: adminName || 'Super Admin',
+      action: 'TICKET_CONFIG_UPDATE',
+      details: `Updated ticket configuration for Game ${targetGame?.title || targetGameId}: Price: ${ticketPrice} VP, Theme: ${ticketColorTheme || 'default'}`,
+      category: 'TICKET',
+      createdAt: new Date().toISOString(),
+    });
+
+    res.json({
+      success: true,
+      message: 'Ticket configuration updated successfully.',
+      game: targetGame || state.liveGame,
+    });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// 14. Admin User Management: Block / Unblock User
+app.post('/api/admin/users/block', (req: Request, res: Response) => {
+  try {
+    const { userId, isBlocked, adminId, adminName } = req.body;
+    const user = state.users.find((u) => u.id === userId);
+
+    if (!user) {
+      return res.status(404).json({ error: 'User account not found.' });
+    }
+
+    if (user.role === 'superadmin') {
+      return res.status(403).json({ error: 'Super Admin accounts cannot be blocked.' });
+    }
+
+    user.isBlocked = Boolean(isBlocked);
+
+    // If blocking, terminate any active sessions
+    if (isBlocked) {
+      for (const token of Object.keys(state.userSessions)) {
+        if (state.userSessions[token].userId === userId) {
+          delete state.userSessions[token];
+        }
+      }
+    }
+
+    const actionText = isBlocked ? 'BLOCKED 🔴' : 'UNBLOCKED 🟢';
+
+    state.auditLogs.unshift({
+      id: `LOG-${Date.now()}`,
+      adminId: adminId || 'ADM-MASTER',
+      adminName: adminName || 'Super Admin',
+      action: isBlocked ? 'USER_BLOCKED' : 'USER_UNBLOCKED',
+      details: `${actionText} user account ${user.name} (${user.id}).`,
+      category: 'USER_MGMT',
+      createdAt: new Date().toISOString(),
+    });
+
+    res.json({
+      success: true,
+      userId: user.id,
+      isBlocked: user.isBlocked,
+      message: `User ${user.name} (${user.id}) has been ${actionText} successfully.`,
+    });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// 15. Admin User Management: Soft Delete / Deactivate User
+app.post('/api/admin/users/delete', (req: Request, res: Response) => {
+  try {
+    const { userId, isDeleted, adminId, adminName } = req.body;
+    const user = state.users.find((u) => u.id === userId);
+
+    if (!user) {
+      return res.status(404).json({ error: 'User account not found.' });
+    }
+
+    if (user.role === 'superadmin') {
+      return res.status(403).json({ error: 'Super Admin accounts cannot be deleted.' });
+    }
+
+    user.isDeleted = isDeleted !== undefined ? Boolean(isDeleted) : true;
+    user.deletedAt = user.isDeleted ? new Date().toISOString() : undefined;
+
+    // Terminate sessions
+    if (user.isDeleted) {
+      for (const token of Object.keys(state.userSessions)) {
+        if (state.userSessions[token].userId === userId) {
+          delete state.userSessions[token];
+        }
+      }
+    }
+
+    const actionText = user.isDeleted ? 'DEACTIVATED / SOFT DELETED 🗑️' : 'RESTORED 🟢';
+
+    state.auditLogs.unshift({
+      id: `LOG-${Date.now()}`,
+      adminId: adminId || 'ADM-MASTER',
+      adminName: adminName || 'Super Admin',
+      action: user.isDeleted ? 'USER_SOFT_DELETED' : 'USER_RESTORED',
+      details: `${actionText} user ${user.name} (${user.id}). Data retained for financial audit.`,
+      category: 'USER_MGMT',
+      createdAt: new Date().toISOString(),
+    });
+
+    res.json({
+      success: true,
+      userId: user.id,
+      isDeleted: user.isDeleted,
+      message: `User ${user.name} (${user.id}) has been ${actionText}.`,
+    });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// 16. Admin User Management: Reset User Password
+app.post('/api/admin/users/reset-password', (req: Request, res: Response) => {
+  try {
+    const { userId, newPassword, adminId, adminName } = req.body;
+
+    if (!userId || !newPassword) {
+      return res.status(400).json({ error: 'User ID and new password are required.' });
+    }
+
+    if (newPassword.length < 6) {
+      return res.status(400).json({ error: 'New password must be at least 6 characters.' });
+    }
+
+    const user = state.users.find((u) => u.id === userId);
+    if (!user) {
+      return res.status(404).json({ error: 'User account not found.' });
+    }
+
+    user.password = newPassword;
+
+    state.auditLogs.unshift({
+      id: `LOG-${Date.now()}`,
+      adminId: adminId || 'ADM-MASTER',
+      adminName: adminName || 'Super Admin',
+      action: 'ADMIN_PASSWORD_RESET',
+      details: `Administrator reset password for user ${user.name} (${user.id}).`,
+      category: 'SECURITY',
+      createdAt: new Date().toISOString(),
+    });
+
+    res.json({
+      success: true,
+      userId: user.id,
+      message: `Password reset successfully for ${user.name} (${user.id}).`,
+    });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// 17. Admin User Management: Adjust User Wallet
+app.post('/api/admin/users/adjust-wallet', (req: Request, res: Response) => {
+  try {
+    const { userId, walletType, amount, reason, adminId, adminName } = req.body;
+    const numAmount = Number(amount);
+
+    if (!userId || isNaN(numAmount) || !walletType) {
+      return res.status(400).json({ error: 'User ID, wallet type, and valid amount are required.' });
+    }
+
+    const validWallets = ['depositWallet', 'ticketWallet', 'winningWallet'];
+    if (!validWallets.includes(walletType)) {
+      return res.status(400).json({ error: 'Invalid wallet type. Choose depositWallet, ticketWallet, or winningWallet.' });
+    }
+
+    const user = state.users.find((u) => u.id === userId);
+    if (!user) {
+      return res.status(404).json({ error: 'User account not found.' });
+    }
+
+    const prevBal = user[walletType] || 0;
+    const newBal = Math.max(0, Math.round((prevBal + numAmount) * 100) / 100);
+    user[walletType] = newBal;
+    user.walletBalance = Math.round(((user.depositWallet || 0) + (user.ticketWallet || 0) + (user.winningWallet || 0)) * 100) / 100;
+
+    state.auditLogs.unshift({
+      id: `LOG-${Date.now()}`,
+      adminId: adminId || 'ADM-MASTER',
+      adminName: adminName || 'Super Admin',
+      action: 'ADMIN_WALLET_ADJUST',
+      details: `Adjusted ${walletType} for ${user.name} (${user.id}) by ${numAmount >= 0 ? '+' : ''}${numAmount} VP. Reason: ${reason || 'Admin Adjustment'}. New balance: ${newBal} VP.`,
+      category: 'FINANCE',
+      createdAt: new Date().toISOString(),
+    });
+
+    res.json({
+      success: true,
+      userId: user.id,
+      walletType,
+      adjustedAmount: numAmount,
+      newBalance: newBal,
+      totalWalletBalance: user.walletBalance,
+      message: `Wallet updated: ${walletType} is now ${newBal} VP for ${user.name}.`,
+    });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// 18. Admin User Management: Verify KYC
+app.post('/api/admin/users/verify-kyc', (req: Request, res: Response) => {
+  try {
+    const { userId, isVerified, adminId, adminName } = req.body;
+    const user = state.users.find((u) => u.id === userId);
+
+    if (!user) {
+      return res.status(404).json({ error: 'User not found.' });
+    }
+
+    user.isKycVerified = Boolean(isVerified);
+
+    state.auditLogs.unshift({
+      id: `LOG-${Date.now()}`,
+      adminId: adminId || 'ADM-MASTER',
+      adminName: adminName || 'Super Admin',
+      action: 'KYC_STATUS_UPDATE',
+      details: `Updated KYC status to ${isVerified ? 'VERIFIED 🟢' : 'UNVERIFIED ⚠️'} for ${user.name} (${user.id}).`,
+      category: 'USER_MGMT',
+      createdAt: new Date().toISOString(),
+    });
+
+    res.json({
+      success: true,
+      userId: user.id,
+      isKycVerified: user.isKycVerified,
+      message: `KYC status updated to ${isVerified ? 'Verified' : 'Unverified'} for ${user.name}.`,
+    });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// 19. Get Admin Audit Logs
+app.get('/api/admin/audit-logs', (req: Request, res: Response) => {
+  res.json({ success: true, auditLogs: state.auditLogs, count: state.auditLogs.length });
 });
 
 // Vite & Static Asset Handling
