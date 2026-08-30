@@ -385,37 +385,6 @@ export const AuthModal: React.FC = () => {
             >
               LOGIN TO ACCOUNT
             </button>
-
-            {/* Quick Demo Accounts */}
-            <div className="pt-2 border-t border-white/10">
-              <span className="text-[10px] font-bold uppercase text-slate-400 block mb-1.5">
-                Quick Demo Player Login:
-              </span>
-              <div className="grid grid-cols-2 gap-2">
-                <button
-                  type="button"
-                  onClick={() => {
-                    loginUser('9876543210');
-                    setSuccessMsg('Logged in as Rajesh Sharma!');
-                    setTimeout(() => setActiveModal(null), 800);
-                  }}
-                  className="py-1.5 px-2 rounded-lg bg-blue-500/10 hover:bg-blue-500/20 border border-blue-500/30 text-blue-300 text-[10px] font-bold text-left truncate cursor-pointer"
-                >
-                  👤 Rajesh (₹1,250)
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    loginUser('9876543211');
-                    setSuccessMsg('Logged in as Pooja Verma!');
-                    setTimeout(() => setActiveModal(null), 800);
-                  }}
-                  className="py-1.5 px-2 rounded-lg bg-pink-500/10 hover:bg-pink-500/20 border border-pink-500/30 text-pink-300 text-[10px] font-bold text-left truncate cursor-pointer"
-                >
-                  👤 Pooja (₹800)
-                </button>
-              </div>
-            </div>
           </form>
         )}
 

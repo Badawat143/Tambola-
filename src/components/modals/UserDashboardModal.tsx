@@ -2546,7 +2546,7 @@ export const UserDashboardModal: React.FC<UserDashboardModalProps> = ({ isPageMo
                 const refAlpha = ref.replace(/[^A-Z0-9]/g, '');
                 const sponsorIdAlpha = sponsorId.replace(/[^A-Z0-9]/g, '');
                 const sponsorCodeAlpha = sponsorCode.replace(/[^A-Z0-9]/g, '');
-                const refDigits = targetUser.referredBy.replace(/[^0-9]/g, '');
+                const refDigits = (targetUser.referredBy || '').replace(/[^0-9]/g, '');
                 const sponsorDigits = (sponsor.id || '').replace(/[^0-9]/g, '');
                 const sponsorCodeDigits = (sponsor.referralCode || '').replace(/[^0-9]/g, '');
                 const sponsorPhone = (sponsor.phone || '').replace(/[^0-9]/g, '');
@@ -2559,7 +2559,7 @@ export const UserDashboardModal: React.FC<UserDashboardModalProps> = ({ isPageMo
                   (sponsorCodeAlpha && refAlpha === sponsorCodeAlpha) ||
                   (sponsorDigits.length >= 4 && refDigits === sponsorDigits) ||
                   (sponsorCodeDigits.length >= 4 && refDigits === sponsorCodeDigits) ||
-                  (sponsorPhone && refPhone.length >= 10 && refPhone === sponsorPhone) ||
+                  (sponsorPhone && refDigits.length >= 10 && refDigits === sponsorPhone) ||
                   (sponsorEmail && targetUser.referredBy.trim().toLowerCase() === sponsorEmail)
                 );
               };

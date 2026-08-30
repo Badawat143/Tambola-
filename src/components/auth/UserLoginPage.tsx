@@ -65,28 +65,6 @@ export const UserLoginPage: React.FC<UserLoginPageProps> = ({ onNavigate }) => {
     }
   };
 
-  // Instant One-Click Login for Demo Accounts
-  const handleInstantUserLogin = (identifier: string) => {
-    setIsLoading(true);
-    setErrorMessage('');
-    const res = loginUser(identifier);
-    if (res.success) {
-      setSuccessMessage(`Welcome ${res.user?.name || 'Player'}! Redirecting to Dashboard...`);
-      setTimeout(() => {
-        onNavigate('/dashboard');
-      }, 500);
-    } else {
-      setErrorMessage(res.message || 'Unable to log in.');
-      setIsLoading(false);
-    }
-  };
-
-  // Demo helper for testing
-  const setDemoUser = (phone: string, pass: string) => {
-    setLoginId(phone);
-    setPassword(pass);
-  };
-
   return (
     <div className="min-h-[calc(100vh-80px)] py-12 px-4 sm:px-6 lg:px-8 flex items-center justify-center bg-gradient-to-b from-[#070817] via-[#0d0f2b] to-[#070817]">
       <div className="w-full max-w-md">
@@ -212,40 +190,6 @@ export const UserLoginPage: React.FC<UserLoginPageProps> = ({ onNavigate }) => {
               )}
             </button>
           </form>
-
-          {/* Quick Demo Test Buttons */}
-          <div className="mt-5 p-3 rounded-xl bg-white/5 border border-white/10">
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-[10px] font-black uppercase tracking-wider text-amber-300">
-                ⚡ Instant 1-Click Player Login:
-              </span>
-              <span className="text-[10px] text-slate-400">Click to enter</span>
-            </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-              <button
-                type="button"
-                onClick={() => handleInstantUserLogin('9876543210')}
-                className="py-2 px-3 rounded-xl bg-gradient-to-r from-blue-600/30 to-indigo-600/30 hover:from-blue-600/50 hover:to-indigo-600/50 border border-blue-500/40 text-blue-200 text-xs font-bold text-left flex items-center justify-between transition-all cursor-pointer"
-              >
-                <div>
-                  <div className="font-bold text-white">👤 Rajesh Sharma</div>
-                  <div className="text-[10px] text-blue-300">Balance: ₹1,250 • ID: USR-101</div>
-                </div>
-                <ArrowRight className="w-3.5 h-3.5 text-blue-300" />
-              </button>
-              <button
-                type="button"
-                onClick={() => handleInstantUserLogin('9876543211')}
-                className="py-2 px-3 rounded-xl bg-gradient-to-r from-pink-600/30 to-purple-600/30 hover:from-pink-600/50 hover:to-purple-600/50 border border-pink-500/40 text-pink-200 text-xs font-bold text-left flex items-center justify-between transition-all cursor-pointer"
-              >
-                <div>
-                  <div className="font-bold text-white">👤 Pooja Verma</div>
-                  <div className="text-[10px] text-pink-300">Balance: ₹800 • ID: USR-102</div>
-                </div>
-                <ArrowRight className="w-3.5 h-3.5 text-pink-300" />
-              </button>
-            </div>
-          </div>
 
           {/* Secondary Action: CREATE NEW ACCOUNT */}
           <div className="mt-6 pt-5 border-t border-white/10 text-center">
