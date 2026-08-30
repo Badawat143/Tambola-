@@ -7,6 +7,14 @@ import {
   recordWinnerToFirestore,
 } from '../services/firebase';
 import {
+  getSupabase,
+  lookupReferrerByCode,
+  registerUserWithReferral,
+  getDirectReferralsFromSupabase,
+  getDirectReferralCountFromSupabase,
+  DirectReferralRecord,
+} from '../services/supabase';
+import {
   GameItem,
   PrizeCategory,
   ReferralDownlineStats,
@@ -850,18 +858,35 @@ export const TambolaProvider: React.FC<{ children: React.ReactNode }> = ({ child
     const cleanPhone = phone.trim().replace(/[^0-9]/g, '');
     const cleanRefInput = referralCodeInput ? referralCodeInput.trim().toUpperCase() : '';
 
+    console.log(`[REFERRAL] URL referral code: ${cleanRefInput || 'NONE'}`);
+
     let verifiedReferredBy: string | null = cleanRefInput || null;
     let sponsorName: string = 'APNA TAMBOLA Official';
 
     if (cleanRefInput) {
-      const parentUser = allUsers.find(
-        (u) =>
-          (u.referralCode && u.referralCode.trim().toUpperCase() === cleanRefInput) ||
-          (u.id && u.id.trim().toUpperCase() === cleanRefInput)
-      );
-      if (parentUser) {
-        verifiedReferredBy = parentUser.id;
-        sponsorName = parentUser.name;
+      // 1. Resolve sponsor code
+      try {
+        const sponsorInfo = await lookupReferrerByCode(cleanRefInput);
+        if (sponsorInfo) {
+          verifiedReferredBy = sponsorInfo.id;
+          sponsorName = sponsorInfo.name;
+          console.log(`[REFERRAL] Resolved referrer ID: ${sponsorInfo.id}`);
+        }
+      } catch (err) {
+        console.warn('[REFERRAL] Error resolving sponsor:', err);
+      }
+
+      if (!verifiedReferredBy) {
+        const parentUser = allUsers.find(
+          (u) =>
+            (u.referralCode && u.referralCode.trim().toUpperCase() === cleanRefInput) ||
+            (u.id && u.id.trim().toUpperCase() === cleanRefInput)
+        );
+        if (parentUser) {
+          verifiedReferredBy = parentUser.id;
+          sponsorName = parentUser.name;
+          console.log(`[REFERRAL] Resolved referrer ID: ${parentUser.id}`);
+        }
       }
     }
 
@@ -872,6 +897,21 @@ export const TambolaProvider: React.FC<{ children: React.ReactNode }> = ({ child
       const num = Math.floor(100000 + Math.random() * 900000);
       uniqueId = `AT${num}`;
       exists = allUsers.some((u) => u.id === uniqueId);
+    }
+
+    console.log(`[REGISTRATION] New user ID: ${uniqueId}`);
+
+    // Try calling Supabase RPC if configured
+    try {
+      await registerUserWithReferral({
+        userId: uniqueId,
+        fullName: name.trim(),
+        email: cleanEmail,
+        phone: cleanPhone,
+        referralCode: cleanRefInput || undefined,
+      });
+    } catch (err) {
+      console.warn('[SUPABASE] RPC registration note:', err);
     }
 
     // Try calling Backend Registration first for authoritative multi-device consistency
@@ -912,8 +952,11 @@ export const TambolaProvider: React.FC<{ children: React.ReactNode }> = ({ child
         totalWithdrawn: data.user.totalWithdrawn ?? 0,
         freeTicketsAvailable: 0,
         role: data.user.role ?? 'user',
+        referralCode: data.user.referralCode || uniqueId,
         referredBy: data.user.referredBy || verifiedReferredBy || null,
       };
+
+      console.log(`[REGISTRATION] Saved referrer ID: ${serverUser.referredBy || 'NULL'}`);
 
       setAllUsers((prev) => {
         const map = new Map<string, User>();
@@ -969,6 +1012,8 @@ export const TambolaProvider: React.FC<{ children: React.ReactNode }> = ({ child
         stateOfResidence,
         isKycVerified: false,
       };
+
+      console.log(`[REGISTRATION] Saved referrer ID: ${newUser.referredBy || 'NULL'}`);
 
       setAllUsers((prev) => [newUser, ...prev]);
       setCurrentUser(newUser);

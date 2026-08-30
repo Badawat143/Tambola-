@@ -59,6 +59,8 @@ import {
   List,
   RefreshCw,
   Trash2,
+  MessageCircle,
+  Mail,
 } from 'lucide-react';
 import { TAMBOLA_CALLS } from '../../utils/soundEffects';
 import { WinningPatternCode, User as UserType } from '../../types/tambola';
@@ -2609,7 +2611,8 @@ export const UserDashboardModal: React.FC<UserDashboardModalProps> = ({ isPageMo
               });
 
               const origin = typeof window !== 'undefined' ? window.location.origin : '';
-              const myRefLink = `${origin}/register?ref=${currentUser.id}`;
+              const myRefCode = currentUser.referralCode || currentUser.id;
+              const myRefLink = `${origin}/?ref=${myRefCode}`;
 
               return (
                 <div className="max-w-4xl mx-auto space-y-6 animate-fade-in">
@@ -2790,7 +2793,8 @@ export const UserDashboardModal: React.FC<UserDashboardModalProps> = ({ isPageMo
                                 <th className="pb-3 px-2">#</th>
                                 <th className="pb-3 px-2">User ID</th>
                                 <th className="pb-3 px-2">Member Name</th>
-                                <th className="pb-3 px-2">Mobile</th>
+                                <th className="pb-3 px-2">Referral Code</th>
+                                <th className="pb-3 px-2">Mobile / Email</th>
                                 <th className="pb-3 px-2">Joined Date</th>
                                 <th className="pb-3 px-2">Commission</th>
                                 <th className="pb-3 px-2 text-right">Status</th>
@@ -2825,7 +2829,17 @@ export const UserDashboardModal: React.FC<UserDashboardModalProps> = ({ isPageMo
                                         <span>{refUser.name}</span>
                                       </div>
                                     </td>
-                                    <td className="py-3 px-2 text-slate-300 font-mono">{maskedPhone}</td>
+                                    <td className="py-3 px-2">
+                                      <span className="px-2 py-0.5 rounded-md bg-purple-500/20 text-purple-300 font-bold border border-purple-500/30 text-[11px]">
+                                        {refUser.referralCode || refUser.id}
+                                      </span>
+                                    </td>
+                                    <td className="py-3 px-2 text-slate-300 font-mono">
+                                      <div>{maskedPhone}</div>
+                                      {refUser.email && (
+                                        <div className="text-[10px] text-slate-500 font-sans">{refUser.email}</div>
+                                      )}
+                                    </td>
                                     <td className="py-3 px-2 text-slate-400 text-[11px] font-sans">{joinedDate}</td>
                                     <td className="py-3 px-2">
                                       <span className="text-emerald-400 font-bold font-mono">2.0%</span>
@@ -3320,26 +3334,83 @@ export const UserDashboardModal: React.FC<UserDashboardModalProps> = ({ isPageMo
             {/* ================================================================= */}
             {/* TAB 20: 🎧 SUPPORT */}
             {/* ================================================================= */}
+            {/* ================================================================= */}
+            {/* TAB 20: 🎧 SUPPORT & CONTACT */}
+            {/* ================================================================= */}
             {activeTab === 'support' && (
               <div className="max-w-3xl mx-auto space-y-6 animate-fade-in">
-                <div className="p-6 rounded-3xl bg-[#0e112d] border border-indigo-500/30 space-y-4">
+                <div className="p-6 rounded-3xl bg-[#0e112d] border border-indigo-500/30 space-y-6">
                   <div className="flex items-center justify-between">
                     <div>
-                      <h3 className="text-xl font-black text-white">🎧 24/7 HELP & SUPPORT</h3>
-                      <p className="text-xs text-slate-400">Our customer team is always ready to assist you</p>
+                      <h3 className="text-xl font-black text-white flex items-center gap-2">
+                        <span>🎧 24/7 HELP & CONTACT SUPPORT</span>
+                        <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                          Active 24x7
+                        </span>
+                      </h3>
+                      <p className="text-xs text-slate-400 mt-1">Our dedicated support desk is available round-the-clock</p>
                     </div>
-                    <Headphones className="w-8 h-8 text-pink-400" />
+                    <div className="w-12 h-12 rounded-2xl bg-indigo-500/20 flex items-center justify-center text-pink-400">
+                      <Headphones className="w-6 h-6" />
+                    </div>
                   </div>
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
-                    <div className="p-4 rounded-2xl bg-black/40 border border-white/5 space-y-1">
-                      <p className="text-slate-400">WhatsApp Support:</p>
-                      <p className="font-mono font-bold text-emerald-400 text-sm">{settings.supportContact?.phone || '+91 98765 43210'}</p>
+                    {/* WhatsApp Desk */}
+                    <a
+                      href={`https://wa.me/${(settings.supportContact?.whatsapp || settings.supportContact?.phone || '919876543210').replace(/[^0-9]/g, '')}?text=Hello%20APNA%20TAMBOLA%20Support,%20I%20need%20help%20with%20my%20account%20(ID:%20${currentUser.id})`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="p-4 rounded-2xl bg-emerald-950/30 border border-emerald-500/30 hover:border-emerald-400 hover:bg-emerald-950/50 transition-all flex items-center justify-between group cursor-pointer"
+                    >
+                      <div className="space-y-1">
+                        <p className="text-emerald-400 font-bold flex items-center gap-1.5">
+                          <MessageCircle className="w-4 h-4" />
+                          <span>WhatsApp Support (Direct)</span>
+                        </p>
+                        <p className="font-mono font-bold text-white text-sm">
+                          {settings.supportContact?.whatsapp || settings.supportContact?.phone || '+91 98765 43210'}
+                        </p>
+                        <p className="text-[10px] text-slate-400">Tap to open WhatsApp chat</p>
+                      </div>
+                      <span className="px-3 py-1.5 rounded-xl bg-emerald-500 text-slate-950 font-black text-xs group-hover:scale-105 transition-transform">
+                        Chat Now
+                      </span>
+                    </a>
+
+                    {/* Official Email */}
+                    <a
+                      href={`mailto:${settings.supportContact?.email || 'support@apnatambola.com'}?subject=APNA%20TAMBOLA%20Support%20Request%20-%20User%20${currentUser.id}`}
+                      className="p-4 rounded-2xl bg-sky-950/30 border border-sky-500/30 hover:border-sky-400 hover:bg-sky-950/50 transition-all flex items-center justify-between group cursor-pointer"
+                    >
+                      <div className="space-y-1">
+                        <p className="text-sky-400 font-bold flex items-center gap-1.5">
+                          <Mail className="w-4 h-4" />
+                          <span>Official Email Desk</span>
+                        </p>
+                        <p className="font-mono font-bold text-amber-300 text-sm truncate max-w-[160px]">
+                          {settings.supportContact?.email || 'support@apnatambola.com'}
+                        </p>
+                        <p className="text-[10px] text-slate-400">Tap to send official email</p>
+                      </div>
+                      <span className="px-3 py-1.5 rounded-xl bg-sky-500 text-slate-950 font-black text-xs group-hover:scale-105 transition-transform">
+                        Send Mail
+                      </span>
+                    </a>
+                  </div>
+
+                  {/* Raise Ticket Button */}
+                  <div className="p-4 rounded-2xl bg-gradient-to-r from-purple-950/40 via-indigo-950/30 to-pink-950/40 border border-purple-500/30 flex flex-col sm:flex-row items-center justify-between gap-3">
+                    <div>
+                      <p className="font-bold text-white text-sm">Need In-App Ticket Assistance?</p>
+                      <p className="text-xs text-slate-300">Open an instant support ticket for game disputes or wallet issues.</p>
                     </div>
-                    <div className="p-4 rounded-2xl bg-black/40 border border-white/5 space-y-1">
-                      <p className="text-slate-400">Official Email:</p>
-                      <p className="font-mono font-bold text-amber-300 text-sm">{settings.supportContact?.email || 'support@apnatambola.com'}</p>
-                    </div>
+                    <button
+                      onClick={() => setActiveModal('support')}
+                      className="w-full sm:w-auto px-5 py-2.5 rounded-xl bg-gradient-to-r from-purple-500 to-pink-500 text-white font-black text-xs hover:brightness-110 shadow-lg cursor-pointer whitespace-nowrap"
+                    >
+                      Open Support Ticket
+                    </button>
                   </div>
                 </div>
               </div>

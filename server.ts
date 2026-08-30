@@ -883,53 +883,70 @@ app.post('/api/auth/register', (req: Request, res: Response) => {
     }
 
     // Capture Referrer (prevent self-referral and validate flexibly across all attributes)
-    let verifiedReferrer: string | null = null;
+    let verifiedReferrerId: string | null = null;
+    let verifiedReferredByCode: string | null = null;
     let sponsorName: string | null = null;
 
     if (referralCode && referralCode.toString().trim()) {
       const rawRef = referralCode.toString().trim();
       const cleanRef = rawRef.toUpperCase();
-      const alphaRef = cleanRef.replace(/[^A-Z0-9]/g, '');
-      const digitsRef = rawRef.replace(/[^0-9]/g, '');
+      console.log(`[REFERRAL] URL referral code: ${cleanRef}`);
 
       const refUser = state.users.find((u) => {
         if (!u) return false;
         const uId = (u.id || '').toUpperCase();
         const uCode = (u.referralCode || u.id || '').toUpperCase();
-        const uIdAlpha = uId.replace(/[^A-Z0-9]/g, '');
-        const uCodeAlpha = uCode.replace(/[^A-Z0-9]/g, '');
-        const uIdDigits = u.id.replace(/[^0-9]/g, '');
-        const uCodeDigits = (u.referralCode || '').replace(/[^0-9]/g, '');
         const uPhoneDigits = (u.phone || '').replace(/[^0-9]/g, '');
         const uEmail = (u.email || '').trim().toLowerCase();
 
         return (
           uId === cleanRef ||
           uCode === cleanRef ||
-          (uIdAlpha && uIdAlpha === alphaRef) ||
-          (uCodeAlpha && uCodeAlpha === alphaRef) ||
-          (digitsRef.length >= 4 && uIdDigits.length >= 4 && (uIdDigits.endsWith(digitsRef) || digitsRef.endsWith(uIdDigits))) ||
-          (digitsRef.length >= 4 && uCodeDigits.length >= 4 && (uCodeDigits.endsWith(digitsRef) || digitsRef.endsWith(uCodeDigits))) ||
-          (digitsRef.length >= 10 && uPhoneDigits.length >= 10 && digitsRef.slice(-10) === uPhoneDigits.slice(-10)) ||
+          (cleanRef.length >= 10 && uPhoneDigits.length >= 10 && cleanRef.endsWith(uPhoneDigits)) ||
           uEmail === rawRef.toLowerCase()
         );
       });
 
       if (refUser) {
-        verifiedReferrer = refUser.id;
+        verifiedReferrerId = refUser.id;
+        verifiedReferredByCode = refUser.referralCode || refUser.id;
         sponsorName = refUser.name;
+        console.log(`[REFERRAL] Resolved referrer ID: ${verifiedReferrerId}`);
       } else {
-        // Retain sponsor ID even if not yet loaded in server memory so the referral chain is never broken
-        verifiedReferrer = cleanRef;
-        sponsorName = 'Referral Sponsor';
+        console.log(`[REFERRAL] Referral code ${cleanRef} not matched in existing users, recording as code.`);
+        verifiedReferrerId = cleanRef;
+        verifiedReferredByCode = cleanRef;
       }
     }
 
-    // Use client-generated ID if provided and unique, else generate server ID
+    // Generate Unique User ID and unique referral code
     let newUserId = requestedUserId ? requestedUserId.toString().trim().toUpperCase() : '';
     if (!newUserId || state.users.some((u) => u.id === newUserId)) {
       newUserId = generateUniqueUserId();
     }
+
+    // Generate unique referral code format APNA + random alphanumeric
+    let newReferralCode = '';
+    let codeExists = true;
+    while (codeExists) {
+      const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+      let rand = '';
+      for (let i = 0; i < 4; i++) {
+        rand += chars.charAt(Math.floor(Math.random() * chars.length));
+      }
+      const num = Math.floor(100 + Math.random() * 900);
+      newReferralCode = `APNA${rand}${num}`.slice(0, 7);
+      codeExists = state.users.some((u) => (u.referralCode || '').toUpperCase() === newReferralCode || u.id.toUpperCase() === newReferralCode);
+    }
+
+    // Prevent self-referral
+    if (verifiedReferrerId === newUserId) {
+      verifiedReferrerId = null;
+      verifiedReferredByCode = null;
+    }
+
+    console.log(`[REGISTRATION] New user ID: ${newUserId}`);
+    console.log(`[REGISTRATION] Saved referrer ID: ${verifiedReferrerId || 'NULL'}`);
 
     const newUser = {
       id: newUserId,
@@ -937,8 +954,8 @@ app.post('/api/auth/register', (req: Request, res: Response) => {
       phone: cleanPhone,
       email: email.trim().toLowerCase(),
       password,
-      referralCode: newUserId,
-      referredBy: verifiedReferrer,
+      referralCode: newReferralCode,
+      referredBy: verifiedReferrerId,
       depositWallet: 0,
       ticketWallet: 0,
       winningWallet: 10, // ₹10 Registration Bonus directly into Withdrawal / Winning Wallet
@@ -948,7 +965,7 @@ app.post('/api/auth/register', (req: Request, res: Response) => {
       gameWinnings: 0,
       totalDeposited: 0,
       totalWithdrawn: 0,
-      freeTicketsAvailable: 2,
+      freeTicketsAvailable: 0,
       role: 'user' as const,
       createdAt: new Date().toISOString(),
       ageVerified: true,
@@ -959,7 +976,7 @@ app.post('/api/auth/register', (req: Request, res: Response) => {
     state.users.push(newUser);
     saveStateToDisk();
 
-    console.log(`[Server 👥 Referral Linked] New user registered: ${newUser.name} (${newUser.id}) -> Sponsor: ${verifiedReferrer || 'Direct'} (${sponsorName || 'None'}). Total users: ${state.users.length}`);
+    console.log(`[Server 👥 Referral Linked] New user registered: ${newUser.name} (${newUser.id}) -> Sponsor: ${verifiedReferrerId || 'Direct'} (${sponsorName || 'None'}). Total users: ${state.users.length}`);
 
     // Create session token
     const token = `USR_SESSION_${Date.now()}_${Math.floor(100000 + Math.random() * 900000)}`;
@@ -972,11 +989,11 @@ app.post('/api/auth/register', (req: Request, res: Response) => {
     };
 
     // Push notification to sponsor if sponsor is found
-    if (verifiedReferrer) {
+    if (verifiedReferrerId) {
       const sponsorUser = state.users.find(
         (u) =>
-          u.id.toUpperCase() === verifiedReferrer!.toUpperCase() ||
-          (u.referralCode && u.referralCode.toUpperCase() === verifiedReferrer!.toUpperCase())
+          u.id.toUpperCase() === verifiedReferrerId!.toUpperCase() ||
+          (u.referralCode && u.referralCode.toUpperCase() === verifiedReferrerId!.toUpperCase())
       );
       if (sponsorUser) {
         state.notifications.unshift({
@@ -997,7 +1014,7 @@ app.post('/api/auth/register', (req: Request, res: Response) => {
       adminId: 'SYSTEM_AUTH',
       adminName: 'Registration Gateway',
       action: 'USER_REGISTERED',
-      details: `New User registered: ${newUser.name} (ID: ${newUser.id}) referred by ${verifiedReferrer || 'Direct Registration'} (${sponsorName || 'None'}). ₹10 Registration Bonus added to Withdrawal Wallet.`,
+      details: `New User registered: ${newUser.name} (ID: ${newUser.id}) referred by ${verifiedReferrerId || 'Direct Registration'} (${sponsorName || 'None'}). ₹10 Registration Bonus added to Withdrawal Wallet.`,
       category: 'USER_MGMT',
       createdAt: new Date().toISOString(),
     });
@@ -1009,11 +1026,11 @@ app.post('/api/auth/register', (req: Request, res: Response) => {
       message: `Account created successfully! Welcome to APNA TAMBOLA, ${newUser.name}. ₹10 Registration Bonus has been credited directly to your Withdrawal Wallet! Your User ID is ${newUser.id}.`,
       user: safeNewUser,
       token,
-      sponsor: verifiedReferrer ? {
-        id: verifiedReferrer,
+      sponsor: verifiedReferrerId ? {
+        id: verifiedReferrerId,
         name: sponsorName,
       } : null,
-      referralLink: `/register?ref=${newUser.id}`,
+      referralLink: `/?ref=${newUser.referralCode || newUser.id}`,
       redirect: '/dashboard',
     });
   } catch (err: any) {
@@ -2217,6 +2234,92 @@ app.get('/api/users/downline/:userId', (req: Request, res: Response) => {
       level1Referrals: directReferrals,
       level2Referrals,
       levelStats,
+    });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// 8b2. Direct Referrals Query: /api/referrals/direct/:userId
+app.get('/api/referrals/direct/:userId', (req: Request, res: Response) => {
+  try {
+    const { userId } = req.params;
+    const cleanUserId = (userId || '').trim().toUpperCase();
+    console.log(`[DIRECT REFERRAL] Current user: ${cleanUserId}`);
+
+    const user = state.users.find(
+      (u) =>
+        u.id.toUpperCase() === cleanUserId ||
+        (u.referralCode && u.referralCode.toUpperCase() === cleanUserId)
+    );
+
+    if (!user) {
+      return res.json({ success: true, count: 0, referrals: [] });
+    }
+
+    const userRefCode = (user.referralCode || user.id).trim().toUpperCase();
+    const userIdClean = user.id.trim().toUpperCase();
+
+    const directUsers = state.users.filter((u) => {
+      if (!u || u.id === user.id) return false;
+      const ref = (u.referredBy || '').trim().toUpperCase();
+      if (!ref) return false;
+      return ref === userIdClean || ref === userRefCode;
+    });
+
+    const referrals = directUsers.map((u) => ({
+      id: u.id,
+      user_id: u.id,
+      full_name: u.name,
+      email: u.email,
+      phone: u.phone,
+      referral_code: u.referralCode || u.id,
+      referrer_id: user.id,
+      referred_by_code: user.referralCode || user.id,
+      status: u.isBlocked ? 'blocked' : 'active',
+      created_at: u.createdAt,
+    }));
+
+    console.log(`[DIRECT REFERRAL] Found referrals:`, referrals);
+
+    res.json({
+      success: true,
+      count: referrals.length,
+      referrals,
+    });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// 8b3. Direct Referrals Count: /api/referrals/count/:userId
+app.get('/api/referrals/count/:userId', (req: Request, res: Response) => {
+  try {
+    const { userId } = req.params;
+    const cleanUserId = (userId || '').trim().toUpperCase();
+    const user = state.users.find(
+      (u) =>
+        u.id.toUpperCase() === cleanUserId ||
+        (u.referralCode && u.referralCode.toUpperCase() === cleanUserId)
+    );
+
+    if (!user) {
+      return res.json({ success: true, count: 0 });
+    }
+
+    const userRefCode = (user.referralCode || user.id).trim().toUpperCase();
+    const userIdClean = user.id.trim().toUpperCase();
+
+    const directCount = state.users.filter((u) => {
+      if (!u || u.id === user.id) return false;
+      const ref = (u.referredBy || '').trim().toUpperCase();
+      if (!ref) return false;
+      return ref === userIdClean || ref === userRefCode;
+    }).length;
+
+    res.json({
+      success: true,
+      count: directCount,
     });
   } catch (err: any) {
     res.status(500).json({ error: err.message });

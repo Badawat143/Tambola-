@@ -30,7 +30,7 @@ import { AdminRegisterBlocker } from './components/auth/AdminRegisterBlocker';
 import { AccessDeniedPage } from './components/auth/AccessDeniedPage';
 import { UserDashboardPage } from './components/dashboard/UserDashboardPage';
 import { AdminDashboardPage } from './components/admin/AdminDashboardPage';
-import { getAdminSession, getUserSession, clearUserSession, clearAdminSession } from './services/authService';
+import { getAdminSession, getUserSession, clearUserSession, clearAdminSession, captureReferralCodeFromUrl } from './services/authService';
 
 import { LoadingScreen } from './components/LoadingScreen';
 
@@ -55,6 +55,11 @@ const MainAppContent: React.FC = () => {
     }
     return '/';
   });
+
+  // Capture referral code on initial load
+  useEffect(() => {
+    captureReferralCodeFromUrl();
+  }, []);
 
   // Sync with browser history & URL changes
   useEffect(() => {

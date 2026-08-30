@@ -447,6 +447,7 @@ export interface SiteSettings {
     phone: string;
     email: string;
     timing: string;
+    whatsapp?: string;
   };
   termsAndConditions: string;
   privacyPolicy: string;
