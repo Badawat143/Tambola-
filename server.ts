@@ -601,10 +601,10 @@ app.post('/api/auth/register', (req: Request, res: Response) => {
       password,
       referralCode: newUserId,
       referredBy: verifiedReferrer,
-      depositWallet: 100, // ₹100 Welcome Bonus Deposit
-      ticketWallet: 100, // ₹100 Free Ticket Wallet Credit
-      winningWallet: 0,
-      walletBalance: 200,
+      depositWallet: 0,
+      ticketWallet: 0,
+      winningWallet: 10, // ₹10 Registration Bonus directly into Withdrawal / Winning Wallet
+      walletBalance: 10,
       referralEarnings: 0,
       directIncomeEarnings: 0,
       gameWinnings: 0,
@@ -652,7 +652,7 @@ app.post('/api/auth/register', (req: Request, res: Response) => {
       adminId: 'SYSTEM_AUTH',
       adminName: 'Registration Gateway',
       action: 'USER_REGISTERED',
-      details: `New User registered: ${newUser.name} (ID: ${newUser.id}) referred by ${verifiedReferrer || 'Direct Registration'} (${sponsorName || 'None'})`,
+      details: `New User registered: ${newUser.name} (ID: ${newUser.id}) referred by ${verifiedReferrer || 'Direct Registration'} (${sponsorName || 'None'}). ₹10 Registration Bonus added to Withdrawal Wallet.`,
       category: 'USER_MGMT',
       createdAt: new Date().toISOString(),
     });
@@ -661,7 +661,7 @@ app.post('/api/auth/register', (req: Request, res: Response) => {
 
     res.status(201).json({
       success: true,
-      message: `Account created successfully! Welcome to APNA TAMBOLA, ${newUser.name}. Your User ID is ${newUser.id}.`,
+      message: `Account created successfully! Welcome to APNA TAMBOLA, ${newUser.name}. ₹10 Registration Bonus has been credited directly to your Withdrawal Wallet! Your User ID is ${newUser.id}.`,
       user: safeNewUser,
       token,
       sponsor: verifiedReferrer ? {
@@ -1766,6 +1766,39 @@ app.get('/api/users/downline/:userId', (req: Request, res: Response) => {
       };
     });
 
+    // Level 2 Members (Registered under Level 1 users)
+    const level1Ids = directUsers.map((u) => u.id);
+    const level2Users = state.users.filter(
+      (u) =>
+        u.id !== user.id &&
+        !level1Ids.includes(u.id) &&
+        level1Ids.includes(u.referredBy || '')
+    );
+
+    const level2Referrals = level2Users.map((u) => {
+      const userTickets = state.tickets.filter((t) => t.userId === u.id);
+      const ticketsCount = userTickets.length;
+      const amountPlayed = userTickets.reduce((sum, t) => sum + (Number(t.ticketPrice) || 0), 0);
+      const maskedPhone = u.phone && u.phone.length >= 10
+        ? `${u.phone.slice(0, 3)}****${u.phone.slice(-3)}`
+        : u.phone || 'N/A';
+      const directSponsor = directUsers.find((d) => d.id === u.referredBy);
+
+      return {
+        id: u.id,
+        name: u.name,
+        phone: maskedPhone,
+        email: u.email,
+        sponsorId: u.referredBy || '',
+        sponsorName: directSponsor?.name || 'Direct Level 1 Member',
+        createdAt: u.createdAt,
+        status: u.isBlocked ? 'Blocked' : 'Active',
+        totalTicketsPurchased: ticketsCount,
+        totalAmountPlayed: amountPlayed,
+        referralEarnings: Math.round(amountPlayed * 0.01 * 100) / 100, // Level 2 (1%)
+      };
+    });
+
     // Compute Level 1-8 Tree
     const levelPercentages = [2.0, 1.0, 0.5, 0.4, 0.3, 0.2, 0.1, 0.1];
     let currentLevelUserIds = directUsers.map((u) => u.id);
@@ -1815,9 +1848,12 @@ app.get('/api/users/downline/:userId', (req: Request, res: Response) => {
       userId: user.id,
       sponsorId: user.referredBy || 'AT10001',
       directCount: directReferrals.length,
+      level2Count: level2Referrals.length,
       totalTeamMembers,
       totalTeamEarnings: Math.round((user.referralEarnings || totalTeamEarnings) * 100) / 100,
       directReferrals,
+      level1Referrals: directReferrals,
+      level2Referrals,
       levelStats,
     });
   } catch (err: any) {

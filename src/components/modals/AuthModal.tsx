@@ -212,7 +212,7 @@ export const AuthModal: React.FC = () => {
                 : 'text-slate-400 hover:text-white'
             }`}
           >
-            Register (+₹200)
+            Register (+₹10 Bonus)
           </button>
           <button
             onClick={() => {
@@ -361,7 +361,7 @@ export const AuthModal: React.FC = () => {
               disabled={loading}
               className="w-full py-3 rounded-xl bg-gradient-to-r from-pink-500 via-purple-600 to-indigo-600 hover:from-pink-600 hover:to-indigo-700 text-white font-black text-xs shadow-lg shadow-pink-500/25 mt-3 cursor-pointer disabled:opacity-50"
             >
-              {loading ? 'CREATING ACCOUNT...' : 'CREATE ACCOUNT & GET ₹200 BONUS'}
+              {loading ? 'CREATING ACCOUNT...' : 'CREATE ACCOUNT & GET ₹10 WITHDRAWAL BONUS'}
             </button>
           </form>
         )}

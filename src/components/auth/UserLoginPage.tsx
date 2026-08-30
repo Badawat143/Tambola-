@@ -261,17 +261,11 @@ export const UserLoginPage: React.FC<UserLoginPageProps> = ({ onNavigate }) => {
           </div>
         </div>
 
-        {/* Security / Admin Separation Notice */}
+        {/* Security & Fair Play Guarantee */}
         <div className="mt-6 text-center">
-          <p className="text-xs text-slate-500 flex items-center justify-center gap-1">
-            <Shield className="w-3.5 h-3.5 text-slate-500" />
-            Are you a system administrator?{' '}
-            <button
-              onClick={() => onNavigate('/admin/login')}
-              className="text-amber-400 hover:text-amber-300 font-bold hover:underline cursor-pointer"
-            >
-              Admin Login Portal
-            </button>
+          <p className="text-xs text-slate-500 flex items-center justify-center gap-1.5 font-medium">
+            <Shield className="w-3.5 h-3.5 text-emerald-500" />
+            <span>256-Bit SSL Encrypted • Certified RNG Fair Play</span>
           </p>
         </div>
       </div>

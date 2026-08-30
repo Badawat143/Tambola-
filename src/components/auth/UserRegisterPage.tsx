@@ -179,7 +179,7 @@ export const UserRegisterPage: React.FC<UserRegisterPageProps> = ({ onNavigate }
 
   const handleShareWhatsApp = () => {
     if (!registeredUserData) return;
-    const msg = `🎉 Play Apna Tambola with me and get ₹200 Welcome Bonus + 2 Free Tickets! Register here: ${registeredUserData.referralLink}`;
+    const msg = `🎉 Play Apna Tambola with me and get ₹10 Free Withdrawal Bonus + 2 Free Tickets! Register here: ${registeredUserData.referralLink}`;
     window.open(`https://wa.me/?text=${encodeURIComponent(msg)}`, '_blank');
   };
 
@@ -190,7 +190,7 @@ export const UserRegisterPage: React.FC<UserRegisterPageProps> = ({ onNavigate }
         <div className="text-center mb-8">
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-xs font-bold mb-3 shadow-sm">
             <Sparkles className="w-3.5 h-3.5" />
-            <span>INSTANT ₹200 WELCOME BONUS + 2 FREE TICKETS</span>
+            <span>INSTANT ₹10 WITHDRAWAL BONUS + 2 FREE TICKETS</span>
           </div>
 
           <h1 className="text-2xl sm:text-3xl font-black tracking-tight text-white font-['Outfit']">
@@ -209,7 +209,7 @@ export const UserRegisterPage: React.FC<UserRegisterPageProps> = ({ onNavigate }
                 ✓
               </div>
               <h2 className="text-2xl font-black text-white">WELCOME TO APNA TAMBOLA!</h2>
-              <p className="text-xs text-emerald-400 font-bold">Your Account is Active & Bonuses Are Credited</p>
+              <p className="text-xs text-emerald-400 font-bold">Your Account is Active & ₹10 Withdrawal Bonus Credited</p>
             </div>
 
             {/* Account Details Box */}
@@ -233,8 +233,8 @@ export const UserRegisterPage: React.FC<UserRegisterPageProps> = ({ onNavigate }
                 </span>
               </div>
               <div className="flex justify-between items-center pt-1 text-emerald-400 font-bold">
-                <span>Welcome Bonus Credited:</span>
-                <span>₹100 Deposit + ₹100 Ticket + 2 Passes</span>
+                <span>Registration Bonus Credited:</span>
+                <span>₹10 (Withdrawal Wallet) + 2 Free Passes</span>
               </div>
             </div>
 
@@ -498,7 +498,7 @@ export const UserRegisterPage: React.FC<UserRegisterPageProps> = ({ onNavigate }
                 ) : (
                   <>
                     <Zap className="w-4 h-4 fill-current" />
-                    <span>CREATE ACCOUNT & CLAIM ₹200 BONUS</span>
+                    <span>CREATE ACCOUNT & CLAIM ₹10 WITHDRAWAL BONUS</span>
                     <ArrowRight className="w-4 h-4" />
                   </>
                 )}

@@ -727,10 +727,10 @@ export const TambolaProvider: React.FC<{ children: React.ReactNode }> = ({ child
       email: cleanEmail,
       referralCode: uniqueId,
       referredBy: verifiedReferredBy,
-      depositWallet: 100, // ₹100 welcome deposit bonus
-      ticketWallet: 100, // ₹100 welcome signup bonus strictly for tickets
-      winningWallet: 0,
-      walletBalance: 200, // Total = 100 + 100 + 0
+      depositWallet: 0,
+      ticketWallet: 0,
+      winningWallet: 10, // ₹10 Registration Bonus directly into Withdrawal / Winning Wallet
+      walletBalance: 10, // Total = 10
       referralEarnings: 0,
       directIncomeEarnings: 0,
       gameWinnings: 0,
@@ -790,7 +790,7 @@ export const TambolaProvider: React.FC<{ children: React.ReactNode }> = ({ child
     // Welcome Notification
     addNotification(
       '🎉 Welcome to APNA TAMBOLA!',
-      `₹100 Deposit Bonus, ₹100 Ticket Wallet bonus and 2 Free Tickets added to your account. Your User ID is ${newUser.id}.`,
+      `₹10 Registration Bonus has been credited to your Withdrawal Wallet and 2 Free Tickets added to your account. Your User ID is ${newUser.id}.`,
       'system',
       newUser.id
     );

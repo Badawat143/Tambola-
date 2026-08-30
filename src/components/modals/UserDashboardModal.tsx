@@ -2506,40 +2506,102 @@ export const UserDashboardModal: React.FC<UserDashboardModalProps> = ({ isPageMo
             )}
 
             {/* ================================================================= */}
-            {/* TAB 14: 👥 MY REFERRALS */}
+            {/* TAB 14: 👥 MY REFERRALS (LEVEL 1 & LEVEL 2 DOWNLINE NETWORK) */}
             {/* ================================================================= */}
             {activeTab === 'referral' && (() => {
-              const directReferralsList = allUsers.filter(
+              const [referralSubView, setReferralSubView] = React.useState<'level1' | 'level2' | 'matrix'>('level1');
+              const [searchQuery, setSearchQuery] = React.useState('');
+
+              // Level 1: Direct Referrals (Sponsor = currentUser)
+              const level1Users = allUsers.filter(
                 (u) =>
                   u.id !== currentUser.id &&
                   ((u.referredBy && u.referredBy.trim().toUpperCase() === currentUser.id.toUpperCase()) ||
                     (u.referredBy && currentUser.referralCode && u.referredBy.trim().toUpperCase() === currentUser.referralCode.toUpperCase()))
               );
+              const level1Ids = level1Users.map((u) => u.id.toUpperCase());
+
+              // Level 2: Indirect Referrals (Referred by Level 1 users)
+              const level2Users = allUsers.filter(
+                (u) =>
+                  u.id !== currentUser.id &&
+                  !level1Ids.includes(u.id.toUpperCase()) &&
+                  u.referredBy &&
+                  level1Ids.includes(u.referredBy.trim().toUpperCase())
+              );
+
+              // Filtered Lists
+              const filteredL1 = level1Users.filter((u) => {
+                const q = searchQuery.toLowerCase();
+                return (
+                  !q ||
+                  u.name.toLowerCase().includes(q) ||
+                  u.id.toLowerCase().includes(q) ||
+                  (u.phone && u.phone.includes(q))
+                );
+              });
+
+              const filteredL2 = level2Users.filter((u) => {
+                const q = searchQuery.toLowerCase();
+                return (
+                  !q ||
+                  u.name.toLowerCase().includes(q) ||
+                  u.id.toLowerCase().includes(q) ||
+                  (u.referredBy && u.referredBy.toLowerCase().includes(q)) ||
+                  (u.phone && u.phone.includes(q))
+                );
+              });
+
+              const origin = typeof window !== 'undefined' ? window.location.origin : '';
+              const myRefLink = `${origin}/register?ref=${currentUser.id}`;
 
               return (
                 <div className="max-w-4xl mx-auto space-y-6 animate-fade-in">
-                  <div className="p-6 rounded-3xl bg-gradient-to-r from-purple-950/60 to-pink-950/60 border border-purple-500/40 space-y-4">
+                  {/* Live Downline Flash Banner */}
+                  <div className="p-3 rounded-2xl bg-gradient-to-r from-amber-500/20 via-purple-500/20 to-pink-500/20 border border-amber-500/40 flex items-center justify-between gap-3 shadow-lg">
+                    <div className="flex items-center gap-2.5">
+                      <span className="relative flex h-3 w-3">
+                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                        <span className="relative inline-flex rounded-full h-3 w-3 bg-emerald-500"></span>
+                      </span>
+                      <div className="text-xs">
+                        <span className="font-black text-amber-300">🔥 REAL-TIME DOWNLINE NETWORK FLASH:</span>{' '}
+                        <span className="text-white font-bold">
+                          Level 1 ({level1Users.length} Directs) • Level 2 ({level2Users.length} Sub-Members)
+                        </span>
+                      </div>
+                    </div>
+                    <span className="hidden sm:inline-block text-[10px] font-mono font-bold px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                      LIVE SYNCED ✓
+                    </span>
+                  </div>
+
+                  {/* Header Referral Box */}
+                  <div className="p-6 rounded-3xl bg-gradient-to-r from-purple-950/70 to-pink-950/70 border border-purple-500/40 space-y-4 shadow-xl">
                     <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
                       <div>
-                        <h3 className="text-xl font-black text-white">👥 8-LEVEL TEAM REFERRAL</h3>
-                        <p className="text-xs text-slate-300">Earn passive income on every ticket bought by your downline team!</p>
+                        <h3 className="text-xl font-black text-white flex items-center gap-2">
+                          <Users className="w-5 h-5 text-pink-400" />
+                          <span>8-LEVEL TEAM REFERRAL SYSTEM</span>
+                        </h3>
+                        <p className="text-xs text-slate-300 mt-0.5">
+                          Share your permanent link &amp; get instant commissions on downline ticket gameplay!
+                        </p>
                       </div>
                       <div className="flex items-center gap-2">
                         <button
                           onClick={handleCopyRef}
-                          className="px-4 py-2 rounded-xl bg-purple-600 hover:bg-purple-500 text-white font-bold text-xs flex items-center gap-1.5 cursor-pointer"
+                          className="px-4 py-2 rounded-xl bg-purple-600 hover:bg-purple-500 text-white font-bold text-xs flex items-center gap-1.5 cursor-pointer shadow-md transition-all active:scale-95"
                         >
                           <Copy className="w-3.5 h-3.5" />
                           <span>{copiedLink ? 'Copied Link!' : 'Copy Link'}</span>
                         </button>
                         <button
                           onClick={() => {
-                            const origin = typeof window !== 'undefined' ? window.location.origin : '';
-                            const link = `${origin}/register?ref=${currentUser.id}`;
-                            const msg = `🎉 Join Apna Tambola with my Referral Link & get ₹200 Free Welcome Bonus + 2 Free Tickets! Register here: ${link}`;
+                            const msg = `🎉 Join Apna Tambola with my Referral Link & get ₹10 Free Withdrawal Bonus + 2 Free Tickets! Register here: ${myRefLink}`;
                             window.open(`https://wa.me/?text=${encodeURIComponent(msg)}`, '_blank');
                           }}
-                          className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs flex items-center gap-1.5 cursor-pointer"
+                          className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs flex items-center gap-1.5 cursor-pointer shadow-md transition-all active:scale-95"
                         >
                           <Share2 className="w-3.5 h-3.5" />
                           <span>WhatsApp Share</span>
@@ -2547,130 +2609,317 @@ export const UserDashboardModal: React.FC<UserDashboardModalProps> = ({ isPageMo
                       </div>
                     </div>
 
+                    {/* Stats Grid */}
                     <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-2">
-                      <div className="p-3 rounded-2xl bg-black/50 border border-white/5 text-center">
-                        <span className="text-[10px] text-slate-400">Direct Members</span>
-                        <p className="text-lg font-black text-white font-mono">{directReferralsList.length || downlineStats.directMembersCount}</p>
+                      <div className="p-3.5 rounded-2xl bg-black/50 border border-white/5 text-center">
+                        <span className="text-[11px] text-slate-400 font-bold">Level 1 (Directs)</span>
+                        <p className="text-xl font-black text-amber-300 font-mono mt-0.5">{level1Users.length}</p>
+                        <span className="text-[10px] text-emerald-400 font-semibold">2% Lifetime Income</span>
                       </div>
-                      <div className="p-3 rounded-2xl bg-black/50 border border-white/5 text-center">
-                        <span className="text-[10px] text-slate-400">Total Team Size</span>
-                        <p className="text-lg font-black text-pink-400 font-mono">{downlineStats.totalTeamCount}</p>
+                      <div className="p-3.5 rounded-2xl bg-black/50 border border-white/5 text-center">
+                        <span className="text-[11px] text-slate-400 font-bold">Level 2 (Indirects)</span>
+                        <p className="text-xl font-black text-purple-300 font-mono mt-0.5">{level2Users.length}</p>
+                        <span className="text-[10px] text-purple-400 font-semibold">1% Lifetime Income</span>
                       </div>
-                      <div className="p-3 rounded-2xl bg-black/50 border border-white/5 text-center">
-                        <span className="text-[10px] text-slate-400">Referral Income</span>
-                        <p className="text-lg font-black text-emerald-400 font-mono">₹{currentUser.referralEarnings}</p>
+                      <div className="p-3.5 rounded-2xl bg-black/50 border border-white/5 text-center">
+                        <span className="text-[11px] text-slate-400 font-bold">Total Team Size</span>
+                        <p className="text-xl font-black text-pink-400 font-mono mt-0.5">{downlineStats.totalTeamCount || (level1Users.length + level2Users.length)}</p>
+                        <span className="text-[10px] text-slate-400">8 Levels Total</span>
                       </div>
-                      <div className="p-3 rounded-2xl bg-black/50 border border-white/5 text-center">
-                        <span className="text-[10px] text-slate-400">Direct Income</span>
-                        <p className="text-lg font-black text-amber-400 font-mono">₹{currentUser.directIncomeEarnings}</p>
+                      <div className="p-3.5 rounded-2xl bg-black/50 border border-white/5 text-center">
+                        <span className="text-[11px] text-slate-400 font-bold">Referral Earnings</span>
+                        <p className="text-xl font-black text-emerald-400 font-mono mt-0.5">₹{currentUser.referralEarnings}</p>
+                        <span className="text-[10px] text-emerald-400">Auto-Credited</span>
                       </div>
                     </div>
                   </div>
 
-                  {/* Direct Referrals List Section */}
-                  <div className="p-6 rounded-3xl bg-[#0e112d] border border-white/10 space-y-4">
-                    <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 border-b border-white/10 pb-3">
-                      <div>
-                        <h4 className="text-sm font-black text-white flex items-center gap-2">
-                          <Users className="w-4 h-4 text-purple-400" />
-                          MY DIRECT REFERRALS (LEVEL 1)
-                        </h4>
-                        <p className="text-[11px] text-slate-400">Users who joined directly using your referral link ({currentUser.id})</p>
-                      </div>
-                      <span className="text-xs font-bold font-mono px-2.5 py-1 rounded-full bg-purple-500/20 text-purple-300 border border-purple-500/30">
-                        {directReferralsList.length} Active Directs
-                      </span>
+                  {/* Level 1 / Level 2 Sub-Nav Switcher */}
+                  <div className="flex flex-col sm:flex-row items-center justify-between gap-3 bg-[#0a0c24] p-2 rounded-2xl border border-white/10">
+                    <div className="grid grid-cols-3 gap-1.5 w-full sm:w-auto">
+                      <button
+                        onClick={() => setReferralSubView('level1')}
+                        className={`px-4 py-2 rounded-xl text-xs font-black transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
+                          referralSubView === 'level1'
+                            ? 'bg-gradient-to-r from-amber-500 to-yellow-600 text-black shadow-lg shadow-amber-500/20'
+                            : 'text-slate-400 hover:text-white hover:bg-white/5'
+                        }`}
+                      >
+                        <Users className="w-3.5 h-3.5" />
+                        <span>LEVEL 1 DIRECTS ({level1Users.length})</span>
+                      </button>
+
+                      <button
+                        onClick={() => setReferralSubView('level2')}
+                        className={`px-4 py-2 rounded-xl text-xs font-black transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
+                          referralSubView === 'level2'
+                            ? 'bg-gradient-to-r from-purple-600 to-pink-600 text-white shadow-lg shadow-purple-600/20'
+                            : 'text-slate-400 hover:text-white hover:bg-white/5'
+                        }`}
+                      >
+                        <Users className="w-3.5 h-3.5" />
+                        <span>LEVEL 2 MEMBERS ({level2Users.length})</span>
+                      </button>
+
+                      <button
+                        onClick={() => setReferralSubView('matrix')}
+                        className={`px-4 py-2 rounded-xl text-xs font-black transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
+                          referralSubView === 'matrix'
+                            ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-lg shadow-blue-600/20'
+                            : 'text-slate-400 hover:text-white hover:bg-white/5'
+                        }`}
+                      >
+                        <BarChart3 className="w-3.5 h-3.5" />
+                        <span>8-LEVEL MATRIX</span>
+                      </button>
                     </div>
 
-                    {directReferralsList.length === 0 ? (
-                      <div className="py-8 text-center space-y-2 bg-black/30 rounded-2xl border border-white/5 p-4">
-                        <p className="text-sm font-bold text-slate-300">No direct referrals yet</p>
-                        <p className="text-xs text-slate-500 max-w-sm mx-auto">
-                          Share your referral link on WhatsApp, Telegram, or social media to start earning 2% commission on all games!
-                        </p>
-                        <button
-                          onClick={handleCopyRef}
-                          className="mt-2 inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-purple-600 text-white text-xs font-bold hover:bg-purple-500 cursor-pointer"
-                        >
-                          <Copy className="w-3.5 h-3.5" />
-                          <span>Copy My Referral Link</span>
-                        </button>
-                      </div>
-                    ) : (
-                      <div className="overflow-x-auto">
-                        <table className="w-full text-left text-xs">
-                          <thead>
-                            <tr className="border-b border-white/10 text-slate-400 uppercase text-[10px] tracking-wider">
-                              <th className="pb-3 px-2">#</th>
-                              <th className="pb-3 px-2">User ID</th>
-                              <th className="pb-3 px-2">Name</th>
-                              <th className="pb-3 px-2">Mobile</th>
-                              <th className="pb-3 px-2">Joined Date</th>
-                              <th className="pb-3 px-2">Status</th>
-                            </tr>
-                          </thead>
-                          <tbody className="divide-y divide-white/5 font-mono">
-                            {directReferralsList.map((refUser, idx) => {
-                              const maskedPhone = refUser.phone && refUser.phone.length >= 10
-                                ? `${refUser.phone.slice(0, 2)}****${refUser.phone.slice(-4)}`
-                                : refUser.phone || '--';
-                              const joinedDate = refUser.createdAt
-                                ? new Date(refUser.createdAt).toLocaleDateString('en-IN', {
-                                    day: '2-digit',
-                                    month: 'short',
-                                    year: 'numeric',
-                                  })
-                                : 'Recent';
-
-                              return (
-                                <tr key={refUser.id} className="hover:bg-white/5 transition-colors">
-                                  <td className="py-3 px-2 text-slate-500">{idx + 1}</td>
-                                  <td className="py-3 px-2">
-                                    <span className="px-2 py-0.5 rounded-md bg-amber-400/20 text-amber-300 font-black border border-amber-400/30 text-[11px]">
-                                      {refUser.id}
-                                    </span>
-                                  </td>
-                                  <td className="py-3 px-2 font-sans font-bold text-white">{refUser.name}</td>
-                                  <td className="py-3 px-2 text-slate-400">{maskedPhone}</td>
-                                  <td className="py-3 px-2 text-slate-400 text-[11px] font-sans">{joinedDate}</td>
-                                  <td className="py-3 px-2">
-                                    <span className="px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 font-bold text-[10px] border border-emerald-500/30 font-sans">
-                                      Active ✓
-                                    </span>
-                                  </td>
-                                </tr>
-                              );
-                            })}
-                          </tbody>
-                        </table>
+                    {referralSubView !== 'matrix' && (
+                      <div className="w-full sm:w-64">
+                        <input
+                          type="text"
+                          placeholder="Search member by Name or ID..."
+                          value={searchQuery}
+                          onChange={(e) => setSearchQuery(e.target.value)}
+                          className="w-full px-3 py-1.5 rounded-xl bg-black/40 border border-white/10 text-xs text-white placeholder:text-slate-500 focus:outline-none focus:border-amber-400 transition-all"
+                        />
                       </div>
                     )}
                   </div>
 
-                  {/* 8 Levels Matrix */}
-                  <div className="p-6 rounded-3xl bg-[#0e112d] border border-white/10 space-y-4">
-                    <h4 className="text-sm font-black text-white">8-LEVEL COMMISSION MATRIX</h4>
-                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
-                      {[
-                        { lvl: 1, pct: '2.0%' },
-                        { lvl: 2, pct: '1.0%' },
-                        { lvl: 3, pct: '0.5%' },
-                        { lvl: 4, pct: '0.4%' },
-                        { lvl: 5, pct: '0.3%' },
-                        { lvl: 6, pct: '0.2%' },
-                        { lvl: 7, pct: '0.1%' },
-                        { lvl: 8, pct: '0.1%' },
-                      ].map((l) => (
-                        <div key={l.lvl} className="p-3 rounded-2xl bg-black/40 border border-white/5 flex justify-between items-center text-xs">
-                          <span className="text-slate-400">Level {l.lvl}</span>
-                          <span className="font-bold text-pink-400">{l.pct}</span>
+                  {/* LEVEL 1: DIRECT REFERRALS TABLE */}
+                  {referralSubView === 'level1' && (
+                    <div className="p-6 rounded-3xl bg-[#0e112d] border border-amber-500/30 space-y-4 shadow-xl">
+                      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 border-b border-white/10 pb-3">
+                        <div>
+                          <h4 className="text-sm font-black text-amber-300 flex items-center gap-2">
+                            <span className="w-2.5 h-2.5 rounded-full bg-amber-400 animate-ping"></span>
+                            🟢 DIRECT REFERRAL USER LIST (LEVEL 1)
+                          </h4>
+                          <p className="text-[11px] text-slate-400">
+                            Users registered directly using your Referral ID ({currentUser.id}). You earn 2% commission on all their ticket games!
+                          </p>
                         </div>
-                      ))}
+                        <span className="text-xs font-bold font-mono px-3 py-1 rounded-full bg-amber-400/20 text-amber-300 border border-amber-400/40">
+                          {level1Users.length} Direct Members
+                        </span>
+                      </div>
+
+                      {filteredL1.length === 0 ? (
+                        <div className="py-10 text-center space-y-3 bg-black/30 rounded-2xl border border-white/5 p-6">
+                          <p className="text-base font-bold text-slate-200">
+                            {searchQuery ? 'No matching Level 1 referrals found' : 'No Direct Referrals Yet'}
+                          </p>
+                          <p className="text-xs text-slate-400 max-w-md mx-auto">
+                            Share your referral link with friends, WhatsApp groups, or social media. When they register, they appear here in real time!
+                          </p>
+                          <div className="pt-2 flex justify-center gap-2">
+                            <button
+                              onClick={handleCopyRef}
+                              className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-black font-black text-xs cursor-pointer shadow-lg shadow-amber-500/20"
+                            >
+                              <Copy className="w-3.5 h-3.5" />
+                              <span>Copy My Referral Link ({currentUser.id})</span>
+                            </button>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="overflow-x-auto">
+                          <table className="w-full text-left text-xs">
+                            <thead>
+                              <tr className="border-b border-white/10 text-slate-400 uppercase text-[10px] tracking-wider">
+                                <th className="pb-3 px-2">#</th>
+                                <th className="pb-3 px-2">User ID</th>
+                                <th className="pb-3 px-2">Member Name</th>
+                                <th className="pb-3 px-2">Mobile</th>
+                                <th className="pb-3 px-2">Joined Date</th>
+                                <th className="pb-3 px-2">Commission</th>
+                                <th className="pb-3 px-2 text-right">Status</th>
+                              </tr>
+                            </thead>
+                            <tbody className="divide-y divide-white/5 font-mono">
+                              {filteredL1.map((refUser, idx) => {
+                                const maskedPhone = refUser.phone && refUser.phone.length >= 10
+                                  ? `${refUser.phone.slice(0, 3)}****${refUser.phone.slice(-3)}`
+                                  : refUser.phone || '--';
+                                const joinedDate = refUser.createdAt
+                                  ? new Date(refUser.createdAt).toLocaleDateString('en-IN', {
+                                      day: '2-digit',
+                                      month: 'short',
+                                      year: 'numeric',
+                                    })
+                                  : 'Active';
+
+                                return (
+                                  <tr key={refUser.id} className="hover:bg-amber-400/5 transition-colors">
+                                    <td className="py-3 px-2 text-slate-500 font-sans">{idx + 1}</td>
+                                    <td className="py-3 px-2">
+                                      <span className="px-2 py-0.5 rounded-md bg-amber-400/20 text-amber-300 font-black border border-amber-400/40 text-[11px]">
+                                        {refUser.id}
+                                      </span>
+                                    </td>
+                                    <td className="py-3 px-2 font-sans font-bold text-white">
+                                      <div className="flex items-center gap-1.5">
+                                        <div className="w-6 h-6 rounded-full bg-gradient-to-tr from-amber-500 to-yellow-300 text-black font-black text-[10px] flex items-center justify-center">
+                                          {refUser.name.charAt(0).toUpperCase()}
+                                        </div>
+                                        <span>{refUser.name}</span>
+                                      </div>
+                                    </td>
+                                    <td className="py-3 px-2 text-slate-300 font-mono">{maskedPhone}</td>
+                                    <td className="py-3 px-2 text-slate-400 text-[11px] font-sans">{joinedDate}</td>
+                                    <td className="py-3 px-2">
+                                      <span className="text-emerald-400 font-bold font-mono">2.0%</span>
+                                    </td>
+                                    <td className="py-3 px-2 text-right">
+                                      <span className="px-2.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 font-bold text-[10px] border border-emerald-500/30 font-sans inline-flex items-center gap-1">
+                                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
+                                        Active Direct ✓
+                                      </span>
+                                    </td>
+                                  </tr>
+                                );
+                              })}
+                            </tbody>
+                          </table>
+                        </div>
+                      )}
                     </div>
-                    <p className="text-[11px] text-amber-300/80 bg-amber-400/10 p-3 rounded-xl border border-amber-400/20">
-                      Important: Commission is strictly credited on eligible ticket gameplay, not merely upon deposit.
-                    </p>
-                  </div>
+                  )}
+
+                  {/* LEVEL 2: INDIRECT TEAM MEMBERS TABLE */}
+                  {referralSubView === 'level2' && (
+                    <div className="p-6 rounded-3xl bg-[#0e112d] border border-purple-500/30 space-y-4 shadow-xl">
+                      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 border-b border-white/10 pb-3">
+                        <div>
+                          <h4 className="text-sm font-black text-purple-300 flex items-center gap-2">
+                            <span className="w-2.5 h-2.5 rounded-full bg-purple-400 animate-ping"></span>
+                            🟣 MEMBER LEVEL 2 (INDIRECT TEAM USER LIST)
+                          </h4>
+                          <p className="text-[11px] text-slate-400">
+                            Users introduced by your Level 1 direct team members. You earn 1% commission on all their ticket games!
+                          </p>
+                        </div>
+                        <span className="text-xs font-bold font-mono px-3 py-1 rounded-full bg-purple-500/20 text-purple-300 border border-purple-500/40">
+                          {level2Users.length} Level 2 Members
+                        </span>
+                      </div>
+
+                      {filteredL2.length === 0 ? (
+                        <div className="py-10 text-center space-y-3 bg-black/30 rounded-2xl border border-white/5 p-6">
+                          <p className="text-base font-bold text-slate-200">
+                            {searchQuery ? 'No matching Level 2 members found' : 'No Level 2 Team Members Yet'}
+                          </p>
+                          <p className="text-xs text-slate-400 max-w-md mx-auto">
+                            When your direct referrals (Level 1) invite their friends using their own referral links, those members will automatically appear here under Level 2!
+                          </p>
+                        </div>
+                      ) : (
+                        <div className="overflow-x-auto">
+                          <table className="w-full text-left text-xs">
+                            <thead>
+                              <tr className="border-b border-white/10 text-slate-400 uppercase text-[10px] tracking-wider">
+                                <th className="pb-3 px-2">#</th>
+                                <th className="pb-3 px-2">User ID</th>
+                                <th className="pb-3 px-2">Member Name</th>
+                                <th className="pb-3 px-2">Mobile</th>
+                                <th className="pb-3 px-2">Introduced By (L1 Sponsor)</th>
+                                <th className="pb-3 px-2">Commission</th>
+                                <th className="pb-3 px-2 text-right">Status</th>
+                              </tr>
+                            </thead>
+                            <tbody className="divide-y divide-white/5 font-mono">
+                              {filteredL2.map((refUser, idx) => {
+                                const maskedPhone = refUser.phone && refUser.phone.length >= 10
+                                  ? `${refUser.phone.slice(0, 3)}****${refUser.phone.slice(-3)}`
+                                  : refUser.phone || '--';
+                                const l1Sponsor = level1Users.find(
+                                  (l1) => l1.id.toUpperCase() === (refUser.referredBy || '').toUpperCase() ||
+                                          (l1.referralCode && l1.referralCode.toUpperCase() === (refUser.referredBy || '').toUpperCase())
+                                );
+                                const sponsorLabel = l1Sponsor ? `${l1Sponsor.name} (${l1Sponsor.id})` : refUser.referredBy || 'Direct L1';
+
+                                return (
+                                  <tr key={refUser.id} className="hover:bg-purple-400/5 transition-colors">
+                                    <td className="py-3 px-2 text-slate-500 font-sans">{idx + 1}</td>
+                                    <td className="py-3 px-2">
+                                      <span className="px-2 py-0.5 rounded-md bg-purple-500/20 text-purple-300 font-black border border-purple-500/40 text-[11px]">
+                                        {refUser.id}
+                                      </span>
+                                    </td>
+                                    <td className="py-3 px-2 font-sans font-bold text-white">
+                                      <div className="flex items-center gap-1.5">
+                                        <div className="w-6 h-6 rounded-full bg-gradient-to-tr from-purple-500 to-pink-400 text-white font-black text-[10px] flex items-center justify-center">
+                                          {refUser.name.charAt(0).toUpperCase()}
+                                        </div>
+                                        <span>{refUser.name}</span>
+                                      </div>
+                                    </td>
+                                    <td className="py-3 px-2 text-slate-300 font-mono">{maskedPhone}</td>
+                                    <td className="py-3 px-2">
+                                      <span className="px-2 py-0.5 rounded-md bg-white/5 text-amber-300 font-mono text-[10px] border border-white/10 font-bold">
+                                        {sponsorLabel}
+                                      </span>
+                                    </td>
+                                    <td className="py-3 px-2">
+                                      <span className="text-purple-400 font-bold font-mono">1.0%</span>
+                                    </td>
+                                    <td className="py-3 px-2 text-right">
+                                      <span className="px-2.5 py-0.5 rounded-full bg-purple-500/20 text-purple-300 font-bold text-[10px] border border-purple-500/30 font-sans inline-flex items-center gap-1">
+                                        <span className="w-1.5 h-1.5 rounded-full bg-purple-400"></span>
+                                        Active L2 ✓
+                                      </span>
+                                    </td>
+                                  </tr>
+                                );
+                              })}
+                            </tbody>
+                          </table>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* 8 Levels Matrix */}
+                  {referralSubView === 'matrix' && (
+                    <div className="p-6 rounded-3xl bg-[#0e112d] border border-white/10 space-y-4 shadow-xl">
+                      <div className="flex items-center justify-between border-b border-white/10 pb-3">
+                        <h4 className="text-sm font-black text-white flex items-center gap-2">
+                          <BarChart3 className="w-4 h-4 text-pink-400" />
+                          <span>8-LEVEL COMMISSION MATRIX BREAKDOWN</span>
+                        </h4>
+                        <span className="text-xs text-pink-400 font-bold">Total Payout: 4.6%</span>
+                      </div>
+
+                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                        {[
+                          { lvl: 1, name: 'Level 1 (Direct)', pct: '2.0%', count: level1Users.length, color: 'text-amber-400 border-amber-500/30 bg-amber-500/5' },
+                          { lvl: 2, name: 'Level 2 (Sub-Team)', pct: '1.0%', count: level2Users.length, color: 'text-purple-400 border-purple-500/30 bg-purple-500/5' },
+                          { lvl: 3, name: 'Level 3', pct: '0.5%', count: 0, color: 'text-pink-400 border-white/5 bg-black/40' },
+                          { lvl: 4, name: 'Level 4', pct: '0.4%', count: 0, color: 'text-pink-400 border-white/5 bg-black/40' },
+                          { lvl: 5, name: 'Level 5', pct: '0.3%', count: 0, color: 'text-pink-400 border-white/5 bg-black/40' },
+                          { lvl: 6, name: 'Level 6', pct: '0.2%', count: 0, color: 'text-pink-400 border-white/5 bg-black/40' },
+                          { lvl: 7, name: 'Level 7', pct: '0.1%', count: 0, color: 'text-pink-400 border-white/5 bg-black/40' },
+                          { lvl: 8, name: 'Level 8', pct: '0.1%', count: 0, color: 'text-pink-400 border-white/5 bg-black/40' },
+                        ].map((l) => (
+                          <div key={l.lvl} className={`p-3.5 rounded-2xl border ${l.color} space-y-1`}>
+                            <div className="flex justify-between items-center text-xs font-bold">
+                              <span className="text-slate-300">{l.name}</span>
+                              <span className="font-mono font-black">{l.pct}</span>
+                            </div>
+                            <div className="flex justify-between items-center text-[11px] text-slate-400 pt-1">
+                              <span>Members:</span>
+                              <span className="font-mono font-bold text-white">{l.count}</span>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+
+                      <div className="p-3.5 rounded-2xl bg-amber-400/10 border border-amber-400/20 text-xs text-amber-300/90 leading-relaxed">
+                        💡 <strong>Commission Rule:</strong> Referral income is credited automatically upon game execution when any downline member purchases and plays a contest ticket.
+                      </div>
+                    </div>
+                  )}
                 </div>
               );
             })()}
