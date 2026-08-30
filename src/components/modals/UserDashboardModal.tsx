@@ -2603,32 +2603,24 @@ export const UserDashboardModal: React.FC<UserDashboardModalProps> = ({ isPageMo
               return (
                 <div className="max-w-4xl mx-auto space-y-6 animate-fade-in">
                   {/* Live Downline Flash Banner */}
-                  <div className="p-3 rounded-2xl bg-gradient-to-r from-amber-500/20 via-purple-500/20 to-pink-500/20 border border-amber-500/40 flex flex-wrap items-center justify-between gap-3 shadow-lg">
+                  <div className="p-3 rounded-2xl bg-gradient-to-r from-emerald-950/40 via-amber-500/10 to-purple-950/40 border border-emerald-500/40 flex flex-wrap items-center justify-between gap-3 shadow-lg">
                     <div className="flex items-center gap-2.5">
-                      <span className="relative flex h-3 w-3">
-                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                        <span className="relative inline-flex rounded-full h-3 w-3 bg-emerald-500"></span>
+                      <span className="relative flex h-3.5 w-3.5">
+                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-80"></span>
+                        <span className="relative inline-flex rounded-full h-3.5 w-3.5 bg-emerald-500 shadow-sm shadow-emerald-400"></span>
                       </span>
                       <div className="text-xs">
-                        <span className="font-black text-amber-300">🔥 REAL-TIME DOWNLINE NETWORK:</span>{' '}
+                        <span className="font-black text-emerald-400 tracking-wide">⚡ REAL-TIME AUTO-SYNC ACTIVE:</span>{' '}
                         <span className="text-white font-bold">
                           Level 1 ({level1Users.length} Directs) • Level 2 ({level2Users.length} Sub-Members)
                         </span>
                       </div>
                     </div>
                     <div className="flex items-center gap-2">
-                      <button
-                        onClick={handleRefreshDownline}
-                        disabled={isRefreshingDownline}
-                        className="flex items-center gap-1.5 px-3 py-1 rounded-xl bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/40 text-xs font-bold transition-all active:scale-95 cursor-pointer disabled:opacity-50"
-                        title="Click to immediately sync new referrals from other devices"
-                      >
-                        <RefreshCw className={`w-3.5 h-3.5 ${isRefreshingDownline ? 'animate-spin' : ''}`} />
-                        <span>{isRefreshingDownline ? 'Syncing...' : 'Sync & Refresh'}</span>
-                      </button>
-                      <span className="hidden sm:inline-block text-[10px] font-mono font-bold px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
-                        LIVE SYNCED ✓
-                      </span>
+                      <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 text-[11px] font-bold">
+                        <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+                        <span>Auto-Refreshing Live (1s)</span>
+                      </div>
                     </div>
                   </div>
 

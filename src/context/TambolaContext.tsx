@@ -642,8 +642,30 @@ export const TambolaProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
   useEffect(() => {
     syncFromBackend();
-    const interval = setInterval(syncFromBackend, 1500);
-    return () => clearInterval(interval);
+    const interval = setInterval(syncFromBackend, 1000);
+
+    const handleFocus = () => {
+      syncFromBackend();
+    };
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        syncFromBackend();
+      }
+    };
+
+    if (typeof window !== 'undefined') {
+      window.addEventListener('focus', handleFocus);
+      document.addEventListener('visibilitychange', handleVisibilityChange);
+    }
+
+    return () => {
+      clearInterval(interval);
+      if (typeof window !== 'undefined') {
+        window.removeEventListener('focus', handleFocus);
+        document.removeEventListener('visibilitychange', handleVisibilityChange);
+      }
+    };
   }, []);
 
   // URL referral detection
