@@ -20,6 +20,7 @@ import { Footer } from './components/Footer';
 import { ModalManager } from './components/modals/ModalManager';
 
 import { ErrorBoundary } from './components/ErrorBoundary';
+import { Analytics } from '@vercel/analytics/react';
 
 // Dedicated Auth & Page Components
 import { UserRegisterPage } from './components/auth/UserRegisterPage';
@@ -274,6 +275,7 @@ export default function App() {
     <ErrorBoundary fallbackTitle="Application encountered an unexpected error">
       <TambolaProvider>
         <MainAppContent />
+        <Analytics />
       </TambolaProvider>
     </ErrorBoundary>
   );
