@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useTambola, DashboardTab } from '../../context/TambolaContext';
 import {
   Wallet,
@@ -57,6 +57,7 @@ import {
   MessageSquare,
   Settings,
   List,
+  RefreshCw,
 } from 'lucide-react';
 import { TAMBOLA_CALLS } from '../../utils/soundEffects';
 import { WinningPatternCode, User as UserType } from '../../types/tambola';
@@ -105,6 +106,7 @@ export const UserDashboardModal: React.FC<UserDashboardModalProps> = ({ isPageMo
     archiveHistoryRecord,
     unarchiveHistoryRecord,
     isHistoryRecordArchived,
+    syncFromBackend,
   } = useTambola();
 
   if (!isPageMode && activeModal !== 'userDashboard' && activeModal !== 'deposit' && activeModal !== 'withdraw') {
@@ -112,6 +114,28 @@ export const UserDashboardModal: React.FC<UserDashboardModalProps> = ({ isPageMo
   }
 
   const activeTab: DashboardTab = userDashboardTab || 'dashboard';
+
+  // State for manual / auto downline refresh
+  const [isRefreshingDownline, setIsRefreshingDownline] = useState<boolean>(false);
+
+  const handleRefreshDownline = async () => {
+    setIsRefreshingDownline(true);
+    try {
+      if (syncFromBackend) {
+        await syncFromBackend();
+      }
+    } catch {
+      // ignore
+    } finally {
+      setTimeout(() => setIsRefreshingDownline(false), 500);
+    }
+  };
+
+  useEffect(() => {
+    if (activeTab === 'referral' && syncFromBackend) {
+      syncFromBackend();
+    }
+  }, [activeTab]);
 
   // Mobile sidebar drawer open/close
   const [mobileDrawerOpen, setMobileDrawerOpen] = useState<boolean>(false);
@@ -2575,22 +2599,33 @@ export const UserDashboardModal: React.FC<UserDashboardModalProps> = ({ isPageMo
               return (
                 <div className="max-w-4xl mx-auto space-y-6 animate-fade-in">
                   {/* Live Downline Flash Banner */}
-                  <div className="p-3 rounded-2xl bg-gradient-to-r from-amber-500/20 via-purple-500/20 to-pink-500/20 border border-amber-500/40 flex items-center justify-between gap-3 shadow-lg">
+                  <div className="p-3 rounded-2xl bg-gradient-to-r from-amber-500/20 via-purple-500/20 to-pink-500/20 border border-amber-500/40 flex flex-wrap items-center justify-between gap-3 shadow-lg">
                     <div className="flex items-center gap-2.5">
                       <span className="relative flex h-3 w-3">
                         <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
                         <span className="relative inline-flex rounded-full h-3 w-3 bg-emerald-500"></span>
                       </span>
                       <div className="text-xs">
-                        <span className="font-black text-amber-300">🔥 REAL-TIME DOWNLINE NETWORK FLASH:</span>{' '}
+                        <span className="font-black text-amber-300">🔥 REAL-TIME DOWNLINE NETWORK:</span>{' '}
                         <span className="text-white font-bold">
                           Level 1 ({level1Users.length} Directs) • Level 2 ({level2Users.length} Sub-Members)
                         </span>
                       </div>
                     </div>
-                    <span className="hidden sm:inline-block text-[10px] font-mono font-bold px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
-                      LIVE SYNCED ✓
-                    </span>
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={handleRefreshDownline}
+                        disabled={isRefreshingDownline}
+                        className="flex items-center gap-1.5 px-3 py-1 rounded-xl bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/40 text-xs font-bold transition-all active:scale-95 cursor-pointer disabled:opacity-50"
+                        title="Click to immediately sync new referrals from other devices"
+                      >
+                        <RefreshCw className={`w-3.5 h-3.5 ${isRefreshingDownline ? 'animate-spin' : ''}`} />
+                        <span>{isRefreshingDownline ? 'Syncing...' : 'Sync & Refresh'}</span>
+                      </button>
+                      <span className="hidden sm:inline-block text-[10px] font-mono font-bold px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                        LIVE SYNCED ✓
+                      </span>
+                    </div>
                   </div>
 
                   {/* Header Referral Box */}

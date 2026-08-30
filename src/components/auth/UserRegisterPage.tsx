@@ -144,7 +144,8 @@ export const UserRegisterPage: React.FC<UserRegisterPageProps> = ({ onNavigate }
         cleanPhone,
         email.trim().toLowerCase(),
         sponsorCode || undefined,
-        stateOfResidence
+        stateOfResidence,
+        password
       );
 
       if (res.success && res.user) {

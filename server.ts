@@ -571,6 +571,8 @@ app.post('/api/users/sync', (req: Request, res: Response) => {
           if (!existing.referredBy && incoming.referredBy) {
             existing.referredBy = incoming.referredBy.trim().toUpperCase();
           }
+          if (!existing.phone && incoming.phone) existing.phone = incoming.phone;
+          if (!existing.name && incoming.name) existing.name = incoming.name;
         }
       });
 
@@ -583,6 +585,35 @@ app.post('/api/users/sync', (req: Request, res: Response) => {
     });
 
     res.json({ success: true, users: safeUsers, count: safeUsers.length });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// 0d. Global State & Multi-Device Real-Time Sync Endpoint: /api/state & /api/bootstrap
+app.get(['/api/state', '/api/bootstrap'], (req: Request, res: Response) => {
+  try {
+    const safeUsers = state.users.map((u) => {
+      const { password, adminPin, ...safe } = u;
+      return safe;
+    });
+
+    res.json({
+      success: true,
+      users: safeUsers,
+      games: state.games,
+      tickets: state.tickets,
+      deposits: state.deposits,
+      withdrawals: state.withdrawals,
+      transfers: state.transfers,
+      commissionLedger: state.commissionLedger,
+      prizeLedger: state.prizeLedger,
+      freeTicketWinners: state.freeTicketWinners,
+      notifications: state.notifications,
+      auditLogs: state.auditLogs,
+      settings: state.settings,
+      liveGame: state.liveGame,
+    });
   } catch (err: any) {
     res.status(500).json({ error: err.message });
   }

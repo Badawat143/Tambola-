@@ -127,12 +127,14 @@ interface TambolaContextType {
   setSelectedGameForPurchase: (game: GameItem | null) => void;
   setCurrentUser: (user: User) => void;
   switchUser: (userId: string) => void;
+  syncFromBackend: () => Promise<void>;
   registerUser: (
     name: string,
     phone: string,
     email: string,
     referralCode?: string,
-    state?: string
+    state?: string,
+    password?: string
   ) => { success: boolean; message: string; user?: User };
   loginUser: (
     phoneOrEmail: string,
@@ -551,14 +553,16 @@ export const TambolaProvider: React.FC<{ children: React.ReactNode }> = ({ child
         if (Array.isArray(data.users) && data.users.length > 0) {
           setAllUsers((prevUsers) => {
             const map = new Map<string, User>();
-            prevUsers.forEach((u) => map.set(u.id.toUpperCase(), u));
+            prevUsers.forEach((u) => {
+              if (u && u.id) map.set(u.id.toUpperCase(), u);
+            });
 
             data.users.forEach((su: any) => {
               if (!su || !su.id) return;
               const key = su.id.toUpperCase();
               const existing = map.get(key);
 
-              // Ensure referredBy is never lost or incorrectly wiped out
+              // Ensure referredBy is never lost or wiped out
               const finalReferredBy =
                 (su.referredBy && su.referredBy.trim()) ||
                 (existing?.referredBy && existing.referredBy.trim()) ||
@@ -574,9 +578,20 @@ export const TambolaProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
             return Array.from(map.values());
           });
+
+          // Also keep currentUser refreshed with latest balances/state from server
+          setCurrentUser((curr) => {
+            if (!curr || !curr.id) return curr;
+            const updated = data.users.find((u: any) => u.id && u.id.toUpperCase() === curr.id.toUpperCase());
+            if (updated) {
+              return { ...curr, ...updated };
+            }
+            return curr;
+          });
         }
         if (Array.isArray(data.deposits)) setDeposits(data.deposits);
         if (Array.isArray(data.withdrawals)) setWithdrawals(data.withdrawals);
+        if (Array.isArray(data.transfers)) setTransfers(data.transfers);
         if (Array.isArray(data.commissionLedger)) setCommissionLedger(data.commissionLedger);
         if (Array.isArray(data.prizeLedger)) setPrizeLedger(data.prizeLedger);
         if (Array.isArray(data.freeTicketWinners)) setFreeTicketWinners(data.freeTicketWinners);
@@ -588,6 +603,10 @@ export const TambolaProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
   // Push local users to server on startup to guarantee multi-device rehydration
   useEffect(() => {
+    // 1. Initial immediate pull from backend
+    syncFromBackend();
+
+    // 2. Sync local users to server
     if (allUsers.length > 0) {
       fetch('/api/users/sync', {
         method: 'POST',
@@ -599,7 +618,9 @@ export const TambolaProvider: React.FC<{ children: React.ReactNode }> = ({ child
           if (d && d.success && Array.isArray(d.users)) {
             setAllUsers((prev) => {
               const map = new Map<string, User>();
-              prev.forEach((u) => map.set(u.id.toUpperCase(), u));
+              prev.forEach((u) => {
+                if (u && u.id) map.set(u.id.toUpperCase(), u);
+              });
               d.users.forEach((su: any) => {
                 if (!su || !su.id) return;
                 const key = su.id.toUpperCase();
@@ -725,7 +746,8 @@ export const TambolaProvider: React.FC<{ children: React.ReactNode }> = ({ child
     phone: string,
     email: string,
     referralCodeInput?: string,
-    stateOfResidence: string = 'Maharashtra'
+    stateOfResidence: string = 'Maharashtra',
+    passwordInput?: string
   ) => {
     const cleanEmail = email.trim().toLowerCase();
     const cleanPhone = phone.trim().replace(/[^0-9]/g, '');
@@ -803,7 +825,7 @@ export const TambolaProvider: React.FC<{ children: React.ReactNode }> = ({ child
         name: newUser.name,
         phone: newUser.phone,
         email: newUser.email,
-        password: 'Password@123',
+        password: passwordInput || 'Password@123',
         referralCode: cleanRefInput || undefined,
         state: stateOfResidence,
       }),
@@ -2826,6 +2848,7 @@ export const TambolaProvider: React.FC<{ children: React.ReactNode }> = ({ child
         setSelectedGameForPurchase,
         setCurrentUser,
         switchUser,
+        syncFromBackend,
         registerUser,
         loginUser,
         logoutUser,

@@ -82,7 +82,7 @@ export const AuthModal: React.FC = () => {
       }
     }
 
-    const res = registerUser(name, phone, email, referralCode, stateOfResidence);
+    const res = registerUser(name, phone, email, referralCode, stateOfResidence, password);
     setLoading(false);
 
     if (res.success) {
