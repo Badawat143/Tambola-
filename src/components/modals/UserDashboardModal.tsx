@@ -152,6 +152,10 @@ export const UserDashboardModal: React.FC<UserDashboardModalProps> = ({ isPageMo
   // Transactions Filter
   const [txFilter, setTxFilter] = useState<'all' | 'deposit' | 'ticket' | 'prize' | 'withdrawal' | 'transfer' | 'commission' | 'direct' | 'freeticket'>('all');
 
+  // Referral Sub-View and Search
+  const [referralSubView, setReferralSubView] = useState<'level1' | 'level2' | 'matrix'>('level1');
+  const [referralSearchQuery, setReferralSearchQuery] = useState<string>('');
+
   // Ticket Theme Map
   const ticketThemeStyles: Record<string, { bg: string; border: string; badge: string; text: string }> = {
     green: { bg: 'from-emerald-900/60 to-emerald-950/80', border: 'border-emerald-500/50', badge: 'bg-emerald-500 text-emerald-950', text: 'text-emerald-300' },
@@ -2509,9 +2513,6 @@ export const UserDashboardModal: React.FC<UserDashboardModalProps> = ({ isPageMo
             {/* TAB 14: 👥 MY REFERRALS (LEVEL 1 & LEVEL 2 DOWNLINE NETWORK) */}
             {/* ================================================================= */}
             {activeTab === 'referral' && (() => {
-              const [referralSubView, setReferralSubView] = React.useState<'level1' | 'level2' | 'matrix'>('level1');
-              const [searchQuery, setSearchQuery] = React.useState('');
-
               // Helper for lenient, multi-attribute sponsor verification
               const isDirectlyReferredBy = (targetUser: UserType, sponsor: UserType) => {
                 if (!targetUser || !sponsor || !targetUser.referredBy || targetUser.id === sponsor.id) return false;
@@ -2548,7 +2549,7 @@ export const UserDashboardModal: React.FC<UserDashboardModalProps> = ({ isPageMo
 
               // Filtered Lists
               const filteredL1 = level1Users.filter((u) => {
-                const q = searchQuery.toLowerCase();
+                const q = referralSearchQuery.toLowerCase();
                 return (
                   !q ||
                   u.name.toLowerCase().includes(q) ||
@@ -2558,7 +2559,7 @@ export const UserDashboardModal: React.FC<UserDashboardModalProps> = ({ isPageMo
               });
 
               const filteredL2 = level2Users.filter((u) => {
-                const q = searchQuery.toLowerCase();
+                const q = referralSearchQuery.toLowerCase();
                 return (
                   !q ||
                   u.name.toLowerCase().includes(q) ||
@@ -2695,8 +2696,8 @@ export const UserDashboardModal: React.FC<UserDashboardModalProps> = ({ isPageMo
                         <input
                           type="text"
                           placeholder="Search member by Name or ID..."
-                          value={searchQuery}
-                          onChange={(e) => setSearchQuery(e.target.value)}
+                          value={referralSearchQuery}
+                          onChange={(e) => setReferralSearchQuery(e.target.value)}
                           className="w-full px-3 py-1.5 rounded-xl bg-black/40 border border-white/10 text-xs text-white placeholder:text-slate-500 focus:outline-none focus:border-amber-400 transition-all"
                         />
                       </div>
@@ -2724,7 +2725,7 @@ export const UserDashboardModal: React.FC<UserDashboardModalProps> = ({ isPageMo
                       {filteredL1.length === 0 ? (
                         <div className="py-10 text-center space-y-3 bg-black/30 rounded-2xl border border-white/5 p-6">
                           <p className="text-base font-bold text-slate-200">
-                            {searchQuery ? 'No matching Level 1 referrals found' : 'No Direct Referrals Yet'}
+                            {referralSearchQuery ? 'No matching Level 1 referrals found' : 'No Direct Referrals Yet'}
                           </p>
                           <p className="text-xs text-slate-400 max-w-md mx-auto">
                             Share your referral link with friends, WhatsApp groups, or social media. When they register, they appear here in real time!
@@ -2824,7 +2825,7 @@ export const UserDashboardModal: React.FC<UserDashboardModalProps> = ({ isPageMo
                       {filteredL2.length === 0 ? (
                         <div className="py-10 text-center space-y-3 bg-black/30 rounded-2xl border border-white/5 p-6">
                           <p className="text-base font-bold text-slate-200">
-                            {searchQuery ? 'No matching Level 2 members found' : 'No Level 2 Team Members Yet'}
+                            {referralSearchQuery ? 'No matching Level 2 members found' : 'No Level 2 Team Members Yet'}
                           </p>
                           <p className="text-xs text-slate-400 max-w-md mx-auto">
                             When your direct referrals (Level 1) invite their friends using their own referral links, those members will automatically appear here under Level 2!
