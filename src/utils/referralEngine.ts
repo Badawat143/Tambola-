@@ -226,11 +226,26 @@ export function calculateReferralDownline(
     if (!parents.length) return [];
     const parentCodes = new Set(parents.map((p) => (p.referralCode || '').trim().toUpperCase()));
     const parentIds = new Set(parents.map((p) => (p.id || '').trim().toUpperCase()));
+    const parentAlphas = new Set(
+      parents.map((p) => (p.referralCode || p.id || '').trim().toUpperCase().replace(/[^A-Z0-9]/g, ''))
+    );
+    const parentPhones = new Set(parents.map((p) => (p.phone || '').replace(/[^0-9]/g, '')).filter(Boolean));
+    const parentEmails = new Set(parents.map((p) => (p.email || '').trim().toLowerCase()).filter(Boolean));
 
     return allUsers.filter((u) => {
       if (!u.referredBy) return false;
       const ref = u.referredBy.trim().toUpperCase();
-      return parentCodes.has(ref) || parentIds.has(ref);
+      const refAlpha = ref.replace(/[^A-Z0-9]/g, '');
+      const refDigits = u.referredBy.replace(/[^0-9]/g, '');
+      const refEmail = u.referredBy.trim().toLowerCase();
+
+      return (
+        parentCodes.has(ref) ||
+        parentIds.has(ref) ||
+        parentAlphas.has(refAlpha) ||
+        (refDigits.length >= 10 && parentPhones.has(refDigits)) ||
+        parentEmails.has(refEmail)
+      );
     });
   };
 

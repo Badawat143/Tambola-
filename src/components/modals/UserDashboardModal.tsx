@@ -59,7 +59,7 @@ import {
   List,
 } from 'lucide-react';
 import { TAMBOLA_CALLS } from '../../utils/soundEffects';
-import { WinningPatternCode } from '../../types/tambola';
+import { WinningPatternCode, User as UserType } from '../../types/tambola';
 import { clearUserSession } from '../../services/authService';
 
 interface UserDashboardModalProps {
@@ -2512,23 +2512,39 @@ export const UserDashboardModal: React.FC<UserDashboardModalProps> = ({ isPageMo
               const [referralSubView, setReferralSubView] = React.useState<'level1' | 'level2' | 'matrix'>('level1');
               const [searchQuery, setSearchQuery] = React.useState('');
 
+              // Helper for lenient, multi-attribute sponsor verification
+              const isDirectlyReferredBy = (targetUser: UserType, sponsor: UserType) => {
+                if (!targetUser || !sponsor || !targetUser.referredBy || targetUser.id === sponsor.id) return false;
+                const ref = (targetUser.referredBy || '').trim().toUpperCase();
+                const sponsorId = (sponsor.id || '').trim().toUpperCase();
+                const sponsorCode = (sponsor.referralCode || sponsor.id || '').trim().toUpperCase();
+                const refAlpha = ref.replace(/[^A-Z0-9]/g, '');
+                const sponsorIdAlpha = sponsorId.replace(/[^A-Z0-9]/g, '');
+                const sponsorCodeAlpha = sponsorCode.replace(/[^A-Z0-9]/g, '');
+                const refPhone = targetUser.referredBy.replace(/[^0-9]/g, '');
+                const sponsorPhone = (sponsor.phone || '').replace(/[^0-9]/g, '');
+                const sponsorEmail = (sponsor.email || '').trim().toLowerCase();
+
+                return (
+                  ref === sponsorId ||
+                  ref === sponsorCode ||
+                  (sponsorIdAlpha && refAlpha === sponsorIdAlpha) ||
+                  (sponsorCodeAlpha && refAlpha === sponsorCodeAlpha) ||
+                  (sponsorPhone && refPhone.length >= 10 && refPhone === sponsorPhone) ||
+                  (sponsorEmail && targetUser.referredBy.trim().toLowerCase() === sponsorEmail)
+                );
+              };
+
               // Level 1: Direct Referrals (Sponsor = currentUser)
-              const level1Users = allUsers.filter(
-                (u) =>
-                  u.id !== currentUser.id &&
-                  ((u.referredBy && u.referredBy.trim().toUpperCase() === currentUser.id.toUpperCase()) ||
-                    (u.referredBy && currentUser.referralCode && u.referredBy.trim().toUpperCase() === currentUser.referralCode.toUpperCase()))
-              );
-              const level1Ids = level1Users.map((u) => u.id.toUpperCase());
+              const level1Users = allUsers.filter((u) => isDirectlyReferredBy(u, currentUser));
+              const level1Ids = new Set(level1Users.map((u) => u.id.toUpperCase()));
+              const level1Codes = new Set(level1Users.map((u) => (u.referralCode || u.id).toUpperCase()));
 
               // Level 2: Indirect Referrals (Referred by Level 1 users)
-              const level2Users = allUsers.filter(
-                (u) =>
-                  u.id !== currentUser.id &&
-                  !level1Ids.includes(u.id.toUpperCase()) &&
-                  u.referredBy &&
-                  level1Ids.includes(u.referredBy.trim().toUpperCase())
-              );
+              const level2Users = allUsers.filter((u) => {
+                if (!u || u.id === currentUser.id || level1Ids.has(u.id.toUpperCase()) || !u.referredBy) return false;
+                return level1Users.some((l1) => isDirectlyReferredBy(u, l1));
+              });
 
               // Filtered Lists
               const filteredL1 = level1Users.filter((u) => {

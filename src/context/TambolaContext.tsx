@@ -551,15 +551,27 @@ export const TambolaProvider: React.FC<{ children: React.ReactNode }> = ({ child
         if (Array.isArray(data.users) && data.users.length > 0) {
           setAllUsers((prevUsers) => {
             const map = new Map<string, User>();
-            prevUsers.forEach((u) => map.set(u.id, u));
+            prevUsers.forEach((u) => map.set(u.id.toUpperCase(), u));
+
             data.users.forEach((su: any) => {
-              const existing = map.get(su.id);
-              map.set(su.id, {
+              if (!su || !su.id) return;
+              const key = su.id.toUpperCase();
+              const existing = map.get(key);
+
+              // Ensure referredBy is never lost or incorrectly wiped out
+              const finalReferredBy =
+                (su.referredBy && su.referredBy.trim()) ||
+                (existing?.referredBy && existing.referredBy.trim()) ||
+                null;
+
+              map.set(key, {
                 ...existing,
                 ...su,
-                referredBy: su.referredBy !== undefined ? su.referredBy : existing?.referredBy,
+                id: su.id.toUpperCase(),
+                referredBy: finalReferredBy,
               });
             });
+
             return Array.from(map.values());
           });
         }
@@ -574,9 +586,42 @@ export const TambolaProvider: React.FC<{ children: React.ReactNode }> = ({ child
     }
   };
 
+  // Push local users to server on startup to guarantee multi-device rehydration
+  useEffect(() => {
+    if (allUsers.length > 0) {
+      fetch('/api/users/sync', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ users: allUsers }),
+      })
+        .then((r) => r.json())
+        .then((d) => {
+          if (d && d.success && Array.isArray(d.users)) {
+            setAllUsers((prev) => {
+              const map = new Map<string, User>();
+              prev.forEach((u) => map.set(u.id.toUpperCase(), u));
+              d.users.forEach((su: any) => {
+                if (!su || !su.id) return;
+                const key = su.id.toUpperCase();
+                const existing = map.get(key);
+                map.set(key, {
+                  ...existing,
+                  ...su,
+                  id: su.id.toUpperCase(),
+                  referredBy: (su.referredBy && su.referredBy.trim()) || existing?.referredBy || null,
+                });
+              });
+              return Array.from(map.values());
+            });
+          }
+        })
+        .catch(() => {});
+    }
+  }, []);
+
   useEffect(() => {
     syncFromBackend();
-    const interval = setInterval(syncFromBackend, 2500);
+    const interval = setInterval(syncFromBackend, 1500);
     return () => clearInterval(interval);
   }, []);
 
@@ -754,6 +799,7 @@ export const TambolaProvider: React.FC<{ children: React.ReactNode }> = ({ child
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
+        userId: newUser.id,
         name: newUser.name,
         phone: newUser.phone,
         email: newUser.email,
@@ -768,14 +814,15 @@ export const TambolaProvider: React.FC<{ children: React.ReactNode }> = ({ child
           // Update user with server-authoritative values (including verified referredBy)
           setAllUsers((prev) => {
             const map = new Map<string, User>();
-            prev.forEach((u) => map.set(u.id, u));
-            map.set(data.user.id, {
+            prev.forEach((u) => map.set(u.id.toUpperCase(), u));
+            map.set(data.user.id.toUpperCase(), {
               ...newUser,
               ...data.user,
+              referredBy: data.user.referredBy || verifiedReferredBy || null,
             });
             return Array.from(map.values());
           });
-          setCurrentUser((prev) => (prev.id === data.user.id ? { ...prev, ...data.user } : prev));
+          setCurrentUser((prev) => (prev.id.toUpperCase() === data.user.id.toUpperCase() ? { ...prev, ...data.user } : prev));
           setUserSession({ ...newUser, ...data.user }, data.token);
           syncFromBackend();
         }

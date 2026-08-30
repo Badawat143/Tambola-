@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useTambola } from '../../context/TambolaContext';
 import { X, UserPlus, LogIn, Sparkles, ShieldCheck, Gift, AlertCircle, Cloud, Key, CheckCircle, ArrowRight } from 'lucide-react';
+import { captureReferralCodeFromUrl, getCachedReferralCode } from '../../services/authService';
 import {
   appwriteRegister,
   appwriteLogin,
@@ -22,7 +23,7 @@ export const AuthModal: React.FC = () => {
   const [phone, setPhone] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [referralCode, setReferralCode] = useState('');
+  const [referralCode, setReferralCode] = useState(() => getCachedReferralCode() || '');
   const [stateOfResidence, setStateOfResidence] = useState('Maharashtra');
   const [ageConfirmed, setAgeConfirmed] = useState(true);
   const [loginInput, setLoginInput] = useState('');
@@ -32,15 +33,10 @@ export const AuthModal: React.FC = () => {
 
   // Check URL referral parameter
   useEffect(() => {
-    if (typeof window !== 'undefined') {
-      try {
-        const params = new URLSearchParams(window.location.search);
-        const ref = params.get('ref');
-        if (ref) {
-          setReferralCode(ref);
-          setMode('register');
-        }
-      } catch {}
+    const captured = captureReferralCodeFromUrl();
+    if (captured) {
+      setReferralCode(captured);
+      setMode('register');
     }
   }, []);
 

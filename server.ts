@@ -543,10 +543,55 @@ app.get('/api/users', (req: Request, res: Response) => {
   }
 });
 
+// 0c. Cross-Device Users Sync Endpoint: /api/users/sync
+app.post('/api/users/sync', (req: Request, res: Response) => {
+  try {
+    const { users } = req.body;
+    if (Array.isArray(users) && users.length > 0) {
+      const userMap = new Map<string, any>();
+      state.users.forEach((u) => userMap.set(u.id.toUpperCase(), u));
+
+      users.forEach((incoming: any) => {
+        if (!incoming || !incoming.id) return;
+        const key = incoming.id.toUpperCase();
+        const existing = userMap.get(key);
+
+        if (!existing) {
+          userMap.set(key, {
+            ...incoming,
+            id: incoming.id.toUpperCase(),
+            depositWallet: incoming.depositWallet || 0,
+            ticketWallet: incoming.ticketWallet || 0,
+            winningWallet: incoming.winningWallet !== undefined ? incoming.winningWallet : 10,
+            walletBalance: incoming.walletBalance !== undefined ? incoming.walletBalance : 10,
+            referredBy: incoming.referredBy ? incoming.referredBy.trim().toUpperCase() : null,
+          });
+        } else {
+          // If existing is missing referredBy but incoming has it, update it
+          if (!existing.referredBy && incoming.referredBy) {
+            existing.referredBy = incoming.referredBy.trim().toUpperCase();
+          }
+        }
+      });
+
+      state.users = Array.from(userMap.values());
+    }
+
+    const safeUsers = state.users.map((u) => {
+      const { password, adminPin, ...safe } = u;
+      return safe;
+    });
+
+    res.json({ success: true, users: safeUsers, count: safeUsers.length });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // 1. User Registration: /api/auth/register
 app.post('/api/auth/register', (req: Request, res: Response) => {
   try {
-    const { name, phone, email, password, confirmPassword, referralCode, termsAccepted, state: userState } = req.body;
+    const { userId: requestedUserId, name, phone, email, password, confirmPassword, referralCode, termsAccepted, state: userState } = req.body;
 
     if (!name || !phone || !email || !password) {
       return res.status(400).json({ error: 'Please provide all required fields: Full Name, Phone, Email, and Password.' });
@@ -574,24 +619,48 @@ app.post('/api/auth/register', (req: Request, res: Response) => {
       return res.status(409).json({ error: 'An account with this email or mobile number already exists. Please login instead.' });
     }
 
-    // Capture Referrer (prevent self-referral and validate against database)
+    // Capture Referrer (prevent self-referral and validate flexibly across all attributes)
     let verifiedReferrer: string | null = null;
     let sponsorName: string | null = null;
 
     if (referralCode && referralCode.toString().trim()) {
-      const cleanRef = referralCode.toString().trim().toUpperCase();
-      const refUser = state.users.find(
-        (u) =>
-          (u.referralCode && u.referralCode.trim().toUpperCase() === cleanRef) ||
-          (u.id && u.id.trim().toUpperCase() === cleanRef)
-      );
+      const rawRef = referralCode.toString().trim();
+      const cleanRef = rawRef.toUpperCase();
+      const alphaRef = cleanRef.replace(/[^A-Z0-9]/g, '');
+      const digitsRef = rawRef.replace(/[^0-9]/g, '');
+
+      const refUser = state.users.find((u) => {
+        if (!u) return false;
+        const uId = (u.id || '').toUpperCase();
+        const uCode = (u.referralCode || u.id || '').toUpperCase();
+        const uPhone = (u.phone || '').replace(/[^0-9]/g, '');
+        const uEmail = (u.email || '').trim().toLowerCase();
+
+        return (
+          uId === cleanRef ||
+          uCode === cleanRef ||
+          uId.replace(/[^A-Z0-9]/g, '') === alphaRef ||
+          uCode.replace(/[^A-Z0-9]/g, '') === alphaRef ||
+          (digitsRef.length >= 10 && uPhone === digitsRef) ||
+          uEmail === rawRef.toLowerCase()
+        );
+      });
+
       if (refUser) {
         verifiedReferrer = refUser.id;
         sponsorName = refUser.name;
+      } else {
+        // Retain sponsor ID even if not yet loaded in server memory so the referral chain is never broken
+        verifiedReferrer = cleanRef;
+        sponsorName = 'Referral Sponsor';
       }
     }
 
-    const newUserId = generateUniqueUserId();
+    // Use client-generated ID if provided and unique, else generate server ID
+    let newUserId = requestedUserId ? requestedUserId.toString().trim().toUpperCase() : '';
+    if (!newUserId || state.users.some((u) => u.id === newUserId)) {
+      newUserId = generateUniqueUserId();
+    }
 
     const newUser = {
       id: newUserId,
@@ -630,9 +699,13 @@ app.post('/api/auth/register', (req: Request, res: Response) => {
       expiresAt: Date.now() + 7 * 24 * 60 * 60 * 1000,
     };
 
-    // Push notification to sponsor if sponsor is another user
+    // Push notification to sponsor if sponsor is found
     if (verifiedReferrer) {
-      const sponsorUser = state.users.find((u) => u.id === verifiedReferrer);
+      const sponsorUser = state.users.find(
+        (u) =>
+          u.id.toUpperCase() === verifiedReferrer!.toUpperCase() ||
+          (u.referralCode && u.referralCode.toUpperCase() === verifiedReferrer!.toUpperCase())
+      );
       if (sponsorUser) {
         state.notifications.unshift({
           id: `NOTIF-REF-${Date.now()}`,
@@ -1732,18 +1805,35 @@ app.post('/api/wallet/withdraw', (req: Request, res: Response) => {
 app.get('/api/users/downline/:userId', (req: Request, res: Response) => {
   try {
     const { userId } = req.params;
-    const user = state.users.find((u) => u.id === userId);
+    const cleanUserId = (userId || '').trim().toUpperCase();
+    const user = state.users.find(
+      (u) =>
+        u.id.toUpperCase() === cleanUserId ||
+        (u.referralCode && u.referralCode.toUpperCase() === cleanUserId)
+    );
 
     if (!user) {
       return res.status(404).json({ error: 'User not found.' });
     }
 
+    const userRefCode = (user.referralCode || user.id).trim().toUpperCase();
+    const userIdClean = user.id.trim().toUpperCase();
+    const userPhoneClean = (user.phone || '').replace(/[^0-9]/g, '');
+
     // Direct Referrals (Level 1)
-    const directUsers = state.users.filter(
-      (u) =>
-        u.id !== user.id &&
-        (u.referredBy === user.id || (user.referralCode && u.referredBy === user.referralCode))
-    );
+    const directUsers = state.users.filter((u) => {
+      if (!u || u.id === user.id) return false;
+      const ref = (u.referredBy || '').trim().toUpperCase();
+      if (!ref) return false;
+      return (
+        ref === userIdClean ||
+        ref === userRefCode ||
+        (userPhoneClean && ref === userPhoneClean) ||
+        (user.email && ref.toLowerCase() === user.email.toLowerCase()) ||
+        ref.replace(/[^A-Z0-9]/g, '') === userIdClean.replace(/[^A-Z0-9]/g, '') ||
+        ref.replace(/[^A-Z0-9]/g, '') === userRefCode.replace(/[^A-Z0-9]/g, '')
+      );
+    });
 
     const directReferrals = directUsers.map((u) => {
       const userTickets = state.tickets.filter((t) => t.userId === u.id);
