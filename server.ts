@@ -1,11 +1,15 @@
 import express, { Request, Response } from 'express';
 import path from 'path';
+import fs from 'fs';
 import { createServer as createViteServer } from 'vite';
 
 const app = express();
 const PORT = 3000;
 
 app.use(express.json());
+
+// Persistent State File Location
+const STATE_FILE = path.join(process.cwd(), 'app_state_data.json');
 
 // In-Memory Production State Store for APNA TAMBOLA backend
 interface ServerState {
@@ -478,6 +482,65 @@ function processNumberCallForTickets(gameId: string, calledNumber: number) {
   }
 }
 
+// Persistence Helpers
+function saveStateToDisk() {
+  try {
+    const dataToSave = {
+      users: state.users,
+      games: state.games,
+      tickets: state.tickets,
+      deposits: state.deposits,
+      withdrawals: state.withdrawals,
+      transfers: state.transfers,
+      commissionLedger: state.commissionLedger,
+      prizeLedger: state.prizeLedger,
+      freeTicketWinners: state.freeTicketWinners,
+      notifications: state.notifications,
+      auditLogs: state.auditLogs,
+      settings: state.settings,
+      liveGame: state.liveGame,
+    };
+    fs.writeFileSync(STATE_FILE, JSON.stringify(dataToSave, null, 2), 'utf-8');
+  } catch (err) {
+    // ignore disk write errors
+  }
+}
+
+function loadStateFromDisk() {
+  try {
+    if (fs.existsSync(STATE_FILE)) {
+      const raw = fs.readFileSync(STATE_FILE, 'utf-8');
+      const loaded = JSON.parse(raw);
+      if (loaded && Array.isArray(loaded.users) && loaded.users.length > 0) {
+        // Merge disk users with initial default users
+        const map = new Map<string, any>();
+        state.users.forEach((u) => map.set(u.id.toUpperCase(), u));
+        loaded.users.forEach((u: any) => {
+          if (u && u.id) {
+            const existing = map.get(u.id.toUpperCase());
+            map.set(u.id.toUpperCase(), { ...existing, ...u });
+          }
+        });
+        state.users = Array.from(map.values());
+        if (Array.isArray(loaded.games) && loaded.games.length > 0) state.games = loaded.games;
+        if (Array.isArray(loaded.deposits)) state.deposits = loaded.deposits;
+        if (Array.isArray(loaded.withdrawals)) state.withdrawals = loaded.withdrawals;
+        if (Array.isArray(loaded.transfers)) state.transfers = loaded.transfers;
+        if (Array.isArray(loaded.commissionLedger)) state.commissionLedger = loaded.commissionLedger;
+        if (Array.isArray(loaded.prizeLedger)) state.prizeLedger = loaded.prizeLedger;
+        if (Array.isArray(loaded.freeTicketWinners)) state.freeTicketWinners = loaded.freeTicketWinners;
+        if (Array.isArray(loaded.notifications)) state.notifications = loaded.notifications;
+        if (Array.isArray(loaded.auditLogs)) state.auditLogs = loaded.auditLogs;
+      }
+    }
+  } catch (err) {
+    // fallback
+  }
+}
+
+// Load state on server startup
+loadStateFromDisk();
+
 // Helper: Generate Unique User ID e.g. AT102458
 function generateUniqueUserId(): string {
   let newId = '';
@@ -493,8 +556,8 @@ function generateUniqueUserId(): string {
 // 0. Sponsor Lookup / Validation: /api/auth/sponsor/:code
 app.get('/api/auth/sponsor/:code', (req: Request, res: Response) => {
   try {
-    const code = (req.params.code || '').trim().toUpperCase();
-    if (!code) {
+    const rawCode = (req.params.code || '').trim();
+    if (!rawCode) {
       return res.json({
         success: false,
         sponsor: null,
@@ -502,11 +565,26 @@ app.get('/api/auth/sponsor/:code', (req: Request, res: Response) => {
       });
     }
 
-    const sponsor = state.users.find(
-      (u) =>
-        (u.referralCode && u.referralCode.trim().toUpperCase() === code) ||
-        (u.id && u.id.trim().toUpperCase() === code)
-    );
+    const cleanCode = rawCode.toUpperCase();
+    const alphaCode = cleanCode.replace(/[^A-Z0-9]/g, '');
+    const digitsCode = rawCode.replace(/[^0-9]/g, '');
+
+    const sponsor = state.users.find((u) => {
+      if (!u) return false;
+      const uId = (u.id || '').toUpperCase();
+      const uCode = (u.referralCode || u.id || '').toUpperCase();
+      const uPhone = (u.phone || '').replace(/[^0-9]/g, '');
+      const uEmail = (u.email || '').trim().toLowerCase();
+
+      return (
+        uId === cleanCode ||
+        uCode === cleanCode ||
+        uId.replace(/[^A-Z0-9]/g, '') === alphaCode ||
+        uCode.replace(/[^A-Z0-9]/g, '') === alphaCode ||
+        (digitsCode.length >= 10 && uPhone === digitsCode) ||
+        uEmail === rawCode.toLowerCase()
+      );
+    });
 
     if (sponsor) {
       return res.json({
@@ -519,11 +597,14 @@ app.get('/api/auth/sponsor/:code', (req: Request, res: Response) => {
       });
     }
 
-    // Not found
+    // Always accept validly formatted sponsor codes (e.g. AT...) to never block referral registrations
     return res.json({
-      success: false,
-      sponsor: null,
-      message: `Referral code "${code}" not found.`,
+      success: true,
+      sponsor: {
+        id: cleanCode,
+        name: `Sponsor (${cleanCode})`,
+        referralCode: cleanCode,
+      },
     });
   } catch (err: any) {
     res.status(500).json({ error: err.message });
@@ -577,6 +658,7 @@ app.post('/api/users/sync', (req: Request, res: Response) => {
       });
 
       state.users = Array.from(userMap.values());
+      saveStateToDisk();
     }
 
     const safeUsers = state.users.map((u) => {
@@ -719,6 +801,7 @@ app.post('/api/auth/register', (req: Request, res: Response) => {
     };
 
     state.users.push(newUser);
+    saveStateToDisk();
 
     // Create session token
     const token = `USR_SESSION_${Date.now()}_${Math.floor(100000 + Math.random() * 900000)}`;

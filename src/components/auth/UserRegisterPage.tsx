@@ -139,7 +139,7 @@ export const UserRegisterPage: React.FC<UserRegisterPageProps> = ({ onNavigate }
     try {
       // Call Context Register Method
       const sponsorCode = referralId.trim().toUpperCase();
-      const res = registerUser(
+      const res = await registerUser(
         fullName.trim(),
         cleanPhone,
         email.trim().toLowerCase(),

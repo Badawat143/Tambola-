@@ -135,7 +135,7 @@ interface TambolaContextType {
     referralCode?: string,
     state?: string,
     password?: string
-  ) => { success: boolean; message: string; user?: User };
+  ) => Promise<{ success: boolean; message: string; user?: User }>;
   loginUser: (
     phoneOrEmail: string,
     password?: string
@@ -741,26 +741,19 @@ export const TambolaProvider: React.FC<{ children: React.ReactNode }> = ({ child
   };
 
   // Register User
-  const registerUser = (
+  const registerUser = async (
     name: string,
     phone: string,
     email: string,
     referralCodeInput?: string,
     stateOfResidence: string = 'Maharashtra',
     passwordInput?: string
-  ) => {
+  ): Promise<{ success: boolean; message: string; user?: User }> => {
     const cleanEmail = email.trim().toLowerCase();
     const cleanPhone = phone.trim().replace(/[^0-9]/g, '');
     const cleanRefInput = referralCodeInput ? referralCodeInput.trim().toUpperCase() : '';
 
-    const existing = allUsers.find(
-      (u) => u.email.toLowerCase() === cleanEmail || u.phone.replace(/[^0-9]/g, '') === cleanPhone
-    );
-    if (existing) {
-      return { success: false, message: 'An account with this email or mobile number already exists.' };
-    }
-
-    let verifiedReferredBy: string | null = null;
+    let verifiedReferredBy: string | null = cleanRefInput || null;
     let sponsorName: string = 'APNA TAMBOLA Official';
 
     if (cleanRefInput) {
@@ -772,9 +765,6 @@ export const TambolaProvider: React.FC<{ children: React.ReactNode }> = ({ child
       if (parentUser) {
         verifiedReferredBy = parentUser.id;
         sponsorName = parentUser.name;
-      } else {
-        // Even if not in local allUsers, preserve cleanRefInput so backend can validate
-        verifiedReferredBy = cleanRefInput;
       }
     }
 
@@ -787,98 +777,137 @@ export const TambolaProvider: React.FC<{ children: React.ReactNode }> = ({ child
       exists = allUsers.some((u) => u.id === uniqueId);
     }
 
-    const newUser: User = {
-      id: uniqueId,
-      name: name.trim(),
-      phone: cleanPhone,
-      email: cleanEmail,
-      referralCode: uniqueId,
-      referredBy: verifiedReferredBy,
-      depositWallet: 0,
-      ticketWallet: 0,
-      winningWallet: 10, // ₹10 Registration Bonus directly into Withdrawal / Winning Wallet
-      walletBalance: 10, // Total = 10
-      referralEarnings: 0,
-      directIncomeEarnings: 0,
-      gameWinnings: 0,
-      totalDeposited: 0,
-      totalWithdrawn: 0,
-      freeTicketsAvailable: 2, // 2 Free Tickets on Registration!
-      role: 'user',
-      createdAt: new Date().toISOString(),
-      ageVerified: true,
-      stateOfResidence,
-      isKycVerified: false,
-    };
+    // Try calling Backend Registration first for authoritative multi-device consistency
+    try {
+      const res = await fetch('/api/auth/register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          userId: uniqueId,
+          name: name.trim(),
+          phone: cleanPhone,
+          email: cleanEmail,
+          password: passwordInput || 'Password@123',
+          referralCode: cleanRefInput || undefined,
+          state: stateOfResidence,
+        }),
+      });
 
-    setAllUsers((prev) => [newUser, ...prev]);
-    setCurrentUser(newUser);
-    setUserSession(newUser);
-    syncUserToFirestore(newUser);
+      const data = await res.json();
 
-    // Call Backend Registration for Authoritative Database Sync
-    fetch('/api/auth/register', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        userId: newUser.id,
-        name: newUser.name,
-        phone: newUser.phone,
-        email: newUser.email,
-        password: passwordInput || 'Password@123',
-        referralCode: cleanRefInput || undefined,
-        state: stateOfResidence,
-      }),
-    })
-      .then((r) => r.json())
-      .then((data) => {
-        if (data && data.success && data.user) {
-          // Update user with server-authoritative values (including verified referredBy)
-          setAllUsers((prev) => {
-            const map = new Map<string, User>();
-            prev.forEach((u) => map.set(u.id.toUpperCase(), u));
-            map.set(data.user.id.toUpperCase(), {
-              ...newUser,
-              ...data.user,
-              referredBy: data.user.referredBy || verifiedReferredBy || null,
-            });
-            return Array.from(map.values());
-          });
-          setCurrentUser((prev) => (prev.id.toUpperCase() === data.user.id.toUpperCase() ? { ...prev, ...data.user } : prev));
-          setUserSession({ ...newUser, ...data.user }, data.token);
-          syncFromBackend();
-        }
-      })
-      .catch(() => {});
+      if (!res.ok || !data.success) {
+        return {
+          success: false,
+          message: data.error || data.message || 'Registration failed. Please check your details.',
+        };
+      }
 
-    // Initial starter ticket
-    const initialTicket = createNewTicket('AT-1025', newUser.id, newUser.name, `TKT-${Math.floor(10000 + Math.random() * 90000)}`);
-    initialTicket.ticketPrice = 20;
-    setMyTickets((prev) => [initialTicket, ...prev]);
+      const serverUser: User = {
+        ...data.user,
+        depositWallet: data.user.depositWallet ?? 0,
+        ticketWallet: data.user.ticketWallet ?? 0,
+        winningWallet: data.user.winningWallet ?? 10,
+        walletBalance: data.user.walletBalance ?? 10,
+        referralEarnings: data.user.referralEarnings ?? 0,
+        directIncomeEarnings: data.user.directIncomeEarnings ?? 0,
+        gameWinnings: data.user.gameWinnings ?? 0,
+        totalDeposited: data.user.totalDeposited ?? 0,
+        totalWithdrawn: data.user.totalWithdrawn ?? 0,
+        freeTicketsAvailable: data.user.freeTicketsAvailable ?? 2,
+        role: data.user.role ?? 'user',
+        referredBy: data.user.referredBy || verifiedReferredBy || null,
+      };
 
-    // Welcome Notification
-    addNotification(
-      '🎉 Welcome to APNA TAMBOLA!',
-      `₹10 Registration Bonus has been credited to your Withdrawal Wallet and 2 Free Tickets added to your account. Your User ID is ${newUser.id}.`,
-      'system',
-      newUser.id
-    );
+      setAllUsers((prev) => {
+        const map = new Map<string, User>();
+        prev.forEach((u) => {
+          if (u && u.id) map.set(u.id.toUpperCase(), u);
+        });
+        map.set(serverUser.id.toUpperCase(), serverUser);
+        return Array.from(map.values());
+      });
 
-    // If referred by another user, notify the referrer
-    if (verifiedReferredBy && verifiedReferredBy !== 'AT10001') {
+      setCurrentUser(serverUser);
+      setUserSession(serverUser, data.token);
+      syncUserToFirestore(serverUser);
+
+      // Starter ticket
+      const initialTicket = createNewTicket('AT-1025', serverUser.id, serverUser.name, `TKT-${Math.floor(10000 + Math.random() * 90000)}`);
+      initialTicket.ticketPrice = 20;
+      setMyTickets((prev) => [initialTicket, ...prev]);
+
+      // Welcome Notification
       addNotification(
-        '👥 New Direct Referral Joined!',
-        `${newUser.name} (${newUser.id}) just registered using your referral link!`,
-        'referral',
-        verifiedReferredBy
+        '🎉 Welcome to APNA TAMBOLA!',
+        `₹10 Registration Bonus has been credited to your Withdrawal Wallet and 2 Free Tickets added to your account. Your User ID is ${serverUser.id}.`,
+        'system',
+        serverUser.id
       );
-    }
 
-    return {
-      success: true,
-      message: `Account created successfully! Welcome to APNA TAMBOLA, ${newUser.name}. Your User ID is ${newUser.id}.`,
-      user: newUser,
-    };
+      // Trigger multi-device state sync
+      syncFromBackend();
+
+      return {
+        success: true,
+        message: `Account created successfully! Welcome, ${serverUser.name}. User ID: ${serverUser.id}`,
+        user: serverUser,
+      };
+    } catch {
+      // Offline fallback: create local user
+      const newUser: User = {
+        id: uniqueId,
+        name: name.trim(),
+        phone: cleanPhone,
+        email: cleanEmail,
+        referralCode: uniqueId,
+        referredBy: verifiedReferredBy,
+        depositWallet: 0,
+        ticketWallet: 0,
+        winningWallet: 10,
+        walletBalance: 10,
+        referralEarnings: 0,
+        directIncomeEarnings: 0,
+        gameWinnings: 0,
+        totalDeposited: 0,
+        totalWithdrawn: 0,
+        freeTicketsAvailable: 2,
+        role: 'user',
+        createdAt: new Date().toISOString(),
+        ageVerified: true,
+        stateOfResidence,
+        isKycVerified: false,
+      };
+
+      setAllUsers((prev) => [newUser, ...prev]);
+      setCurrentUser(newUser);
+      setUserSession(newUser);
+      syncUserToFirestore(newUser);
+
+      // Initial starter ticket
+      const initialTicket = createNewTicket('AT-1025', newUser.id, newUser.name, `TKT-${Math.floor(10000 + Math.random() * 90000)}`);
+      initialTicket.ticketPrice = 20;
+      setMyTickets((prev) => [initialTicket, ...prev]);
+
+      addNotification(
+        '🎉 Welcome to APNA TAMBOLA!',
+        `₹10 Registration Bonus has been credited to your Withdrawal Wallet and 2 Free Tickets added to your account. Your User ID is ${newUser.id}.`,
+        'system',
+        newUser.id
+      );
+
+      // Push sync in background
+      fetch('/api/users/sync', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ users: [newUser] }),
+      }).catch(() => {});
+
+      return {
+        success: true,
+        message: `Account created! User ID: ${newUser.id}`,
+        user: newUser,
+      };
+    }
   };
 
   // Login User with robust multi-field search (phone digits, email, referral code, ID, name, admin aliases)
