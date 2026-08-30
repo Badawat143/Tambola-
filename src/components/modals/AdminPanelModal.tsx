@@ -2108,41 +2108,63 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({ isPageMode = f
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {allUsers.map((user) => (
-                    <div
-                      key={user.id}
-                      className="p-5 rounded-3xl bg-[#0e102a] border border-purple-500/30 space-y-3"
-                    >
-                      <div className="flex items-center justify-between border-b border-white/10 pb-2">
-                        <div>
-                          <h4 className="font-bold text-white">{user.name}</h4>
-                          <p className="text-xs text-amber-300 font-mono">Code: {user.referralCode}</p>
-                        </div>
-                        <span className="px-2.5 py-1 rounded-xl bg-pink-500/20 text-pink-300 text-xs font-mono font-bold">
-                          Earnings: ₹{user.referralEarnings}
-                        </span>
-                      </div>
+                  {allUsers.map((user) => {
+                    const directReferrals = allUsers.filter(
+                      (u) =>
+                        u.id !== user.id &&
+                        ((u.referredBy && u.referredBy.trim().toUpperCase() === user.id.toUpperCase()) ||
+                          (u.referredBy && user.referralCode && u.referredBy.trim().toUpperCase() === user.referralCode.toUpperCase()))
+                    );
 
-                      <div className="grid grid-cols-4 gap-2 text-center text-xs">
-                        <div className="p-2 rounded-xl bg-black/40 border border-white/5">
-                          <span className="text-[10px] text-slate-400">Direct</span>
-                          <p className="font-mono font-bold text-white">2</p>
+                    return (
+                      <div
+                        key={user.id}
+                        className="p-5 rounded-3xl bg-[#0e102a] border border-purple-500/30 space-y-3"
+                      >
+                        <div className="flex items-center justify-between border-b border-white/10 pb-2">
+                          <div>
+                            <h4 className="font-bold text-white flex items-center gap-2">
+                              <span>{user.name}</span>
+                              <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded bg-amber-400/20 text-amber-300">
+                                {user.id}
+                              </span>
+                            </h4>
+                            <p className="text-xs text-slate-400 font-mono">
+                              Sponsor: <strong className="text-purple-300">{user.referredBy || 'None (Direct)'}</strong>
+                            </p>
+                          </div>
+                          <div className="text-right">
+                            <span className="px-2.5 py-1 rounded-xl bg-pink-500/20 text-pink-300 text-xs font-mono font-bold block">
+                              Earnings: ₹{user.referralEarnings || 0}
+                            </span>
+                            <span className="text-[10px] text-emerald-400 font-bold font-mono mt-0.5 block">
+                              Directs: {directReferrals.length}
+                            </span>
+                          </div>
                         </div>
-                        <div className="p-2 rounded-xl bg-black/40 border border-white/5">
-                          <span className="text-[10px] text-slate-400">L2-L4</span>
-                          <p className="font-mono font-bold text-white">14</p>
-                        </div>
-                        <div className="p-2 rounded-xl bg-black/40 border border-white/5">
-                          <span className="text-[10px] text-slate-400">L5-L8</span>
-                          <p className="font-mono font-bold text-white">28</p>
-                        </div>
-                        <div className="p-2 rounded-xl bg-black/40 border border-white/5">
-                          <span className="text-[10px] text-slate-400">Total</span>
-                          <p className="font-mono font-bold text-pink-400">44</p>
+
+                        <div className="space-y-1.5">
+                          <p className="text-[11px] font-bold text-slate-300 uppercase tracking-wider">
+                            Direct Members ({directReferrals.length}):
+                          </p>
+                          {directReferrals.length === 0 ? (
+                            <p className="text-xs text-slate-500 italic bg-black/30 p-2 rounded-xl">
+                              No direct referrals registered yet.
+                            </p>
+                          ) : (
+                            <div className="max-h-28 overflow-y-auto space-y-1 bg-black/40 p-2 rounded-xl border border-white/5 text-xs">
+                              {directReferrals.map((dr) => (
+                                <div key={dr.id} className="flex justify-between items-center text-[11px] py-0.5">
+                                  <span className="font-bold text-white">{dr.name}</span>
+                                  <span className="font-mono text-amber-300 font-bold">{dr.id}</span>
+                                </div>
+                              ))}
+                            </div>
+                          )}
                         </div>
                       </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               </div>
             )}

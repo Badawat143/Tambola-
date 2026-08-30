@@ -22,33 +22,41 @@ export interface AdminSessionData {
 }
 
 /**
- * Captures referral ID from URL parameters (?ref=AT10001 or ?referral=...)
- * and permanently caches it so even if user navigates across pages or switches devices,
- * it is pre-populated in the registration form.
+ * Captures referral ID from URL parameters (?ref=AT10001 or ?referral=... or ?r=...)
+ * and caches it in localStorage so if user navigates during registration, it is preserved.
+ * Returns empty string if no referral code was provided.
  */
 export function captureReferralCodeFromUrl(): string {
   try {
-    if (typeof window === 'undefined') return 'AT10001';
+    if (typeof window === 'undefined') return '';
     const params = new URLSearchParams(window.location.search);
-    const ref = params.get('ref') || params.get('referral') || params.get('sponsor');
+    const ref = params.get('ref') || params.get('referral') || params.get('r') || params.get('sponsor');
     if (ref && ref.trim().length > 0) {
       const clean = ref.trim().toUpperCase();
       localStorage.setItem(CAPTURED_REF_KEY, clean);
       return clean;
     }
     const cached = localStorage.getItem(CAPTURED_REF_KEY);
-    if (cached) return cached;
+    if (cached && cached.trim().length > 0) return cached.trim().toUpperCase();
   } catch {
     // fallback
   }
-  return 'AT10001';
+  return '';
 }
 
 export function getCachedReferralCode(): string {
   try {
-    return localStorage.getItem(CAPTURED_REF_KEY) || 'AT10001';
+    return (localStorage.getItem(CAPTURED_REF_KEY) || '').trim().toUpperCase();
   } catch {
-    return 'AT10001';
+    return '';
+  }
+}
+
+export function clearCachedReferralCode(): void {
+  try {
+    localStorage.removeItem(CAPTURED_REF_KEY);
+  } catch {
+    // fallback
   }
 }
 

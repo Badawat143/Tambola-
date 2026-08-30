@@ -496,15 +496,16 @@ app.get('/api/auth/sponsor/:code', (req: Request, res: Response) => {
     const code = (req.params.code || '').trim().toUpperCase();
     if (!code) {
       return res.json({
-        success: true,
-        sponsor: { id: 'AT10001', name: 'APNA TAMBOLA Official', referralCode: 'AT10001' },
+        success: false,
+        sponsor: null,
+        message: 'No referral code provided',
       });
     }
 
     const sponsor = state.users.find(
       (u) =>
-        (u.referralCode && u.referralCode.toUpperCase() === code) ||
-        (u.id && u.id.toUpperCase() === code)
+        (u.referralCode && u.referralCode.trim().toUpperCase() === code) ||
+        (u.id && u.id.trim().toUpperCase() === code)
     );
 
     if (sponsor) {
@@ -518,11 +519,25 @@ app.get('/api/auth/sponsor/:code', (req: Request, res: Response) => {
       });
     }
 
-    // Default fallback sponsor
+    // Not found
     return res.json({
-      success: true,
-      sponsor: { id: 'AT10001', name: 'APNA TAMBOLA Official', referralCode: 'AT10001' },
+      success: false,
+      sponsor: null,
+      message: `Referral code "${code}" not found.`,
     });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// 0b. All Users List: /api/users
+app.get('/api/users', (req: Request, res: Response) => {
+  try {
+    const safeUsers = state.users.map((u) => {
+      const { password, adminPin, ...safe } = u;
+      return safe;
+    });
+    res.json({ success: true, users: safeUsers });
   } catch (err: any) {
     res.status(500).json({ error: err.message });
   }
@@ -550,23 +565,25 @@ app.post('/api/auth/register', (req: Request, res: Response) => {
       return res.status(400).json({ error: 'Please enter a valid 10-digit mobile number.' });
     }
 
-    // Check duplicate
+    // Check duplicate email or phone
     const existingUser = state.users.find(
-      (u) => u.email.toLowerCase() === email.toLowerCase() || u.phone.replace(/[^0-9]/g, '') === cleanPhone
+      (u) => u.email.toLowerCase() === email.toLowerCase().trim() || u.phone.replace(/[^0-9]/g, '') === cleanPhone
     );
 
     if (existingUser) {
       return res.status(409).json({ error: 'An account with this email or mobile number already exists. Please login instead.' });
     }
 
-    // Capture Referrer (prevent self-referral or invalid code)
-    let verifiedReferrer = 'AT10001';
-    let sponsorName = 'APNA TAMBOLA Official';
+    // Capture Referrer (prevent self-referral and validate against database)
+    let verifiedReferrer: string | null = null;
+    let sponsorName: string | null = null;
 
     if (referralCode && referralCode.toString().trim()) {
       const cleanRef = referralCode.toString().trim().toUpperCase();
       const refUser = state.users.find(
-        (u) => (u.referralCode && u.referralCode.toUpperCase() === cleanRef) || (u.id && u.id.toUpperCase() === cleanRef)
+        (u) =>
+          (u.referralCode && u.referralCode.trim().toUpperCase() === cleanRef) ||
+          (u.id && u.id.trim().toUpperCase() === cleanRef)
       );
       if (refUser) {
         verifiedReferrer = refUser.id;
@@ -614,17 +631,19 @@ app.post('/api/auth/register', (req: Request, res: Response) => {
     };
 
     // Push notification to sponsor if sponsor is another user
-    const sponsorUser = state.users.find((u) => u.id === verifiedReferrer);
-    if (sponsorUser && sponsorUser.id !== 'AT10001') {
-      state.notifications.unshift({
-        id: `NOTIF-REF-${Date.now()}`,
-        title: '👥 New Direct Referral Joined!',
-        message: `${newUser.name} (ID: ${newUser.id}) just joined APNA TAMBOLA using your referral link!`,
-        type: 'referral',
-        userId: sponsorUser.id,
-        isRead: false,
-        createdAt: new Date().toISOString(),
-      });
+    if (verifiedReferrer) {
+      const sponsorUser = state.users.find((u) => u.id === verifiedReferrer);
+      if (sponsorUser) {
+        state.notifications.unshift({
+          id: `NOTIF-REF-${Date.now()}`,
+          title: '👥 New Direct Referral Joined!',
+          message: `${newUser.name} (ID: ${newUser.id}) just joined APNA TAMBOLA using your referral link!`,
+          type: 'referral',
+          userId: sponsorUser.id,
+          isRead: false,
+          createdAt: new Date().toISOString(),
+        });
+      }
     }
 
     // Audit Log
@@ -633,20 +652,22 @@ app.post('/api/auth/register', (req: Request, res: Response) => {
       adminId: 'SYSTEM_AUTH',
       adminName: 'Registration Gateway',
       action: 'USER_REGISTERED',
-      details: `New User registered: ${newUser.name} (ID: ${newUser.id}) referred by ${verifiedReferrer} (${sponsorName})`,
+      details: `New User registered: ${newUser.name} (ID: ${newUser.id}) referred by ${verifiedReferrer || 'Direct Registration'} (${sponsorName || 'None'})`,
       category: 'USER_MGMT',
       createdAt: new Date().toISOString(),
     });
 
+    const { password: _, ...safeNewUser } = newUser;
+
     res.status(201).json({
       success: true,
       message: `Account created successfully! Welcome to APNA TAMBOLA, ${newUser.name}. Your User ID is ${newUser.id}.`,
-      user: newUser,
+      user: safeNewUser,
       token,
-      sponsor: {
+      sponsor: verifiedReferrer ? {
         id: verifiedReferrer,
         name: sponsorName,
-      },
+      } : null,
       referralLink: `/register?ref=${newUser.id}`,
       redirect: '/dashboard',
     });

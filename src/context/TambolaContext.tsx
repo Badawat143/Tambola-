@@ -541,12 +541,51 @@ export const TambolaProvider: React.FC<{ children: React.ReactNode }> = ({ child
     } catch {}
   }, [allUsers, settings, myTickets, currentUser, deposits, withdrawals, transfers, commissionLedger, platformFeeLedger, prizeLedger, freeTicketWinners, notifications, auditLogs, upcomingGames]);
 
+  // Real-time Database & Cross-Device State Synchronizer
+  const syncFromBackend = async () => {
+    try {
+      const res = await fetch('/api/state');
+      if (!res.ok) return;
+      const data = await res.json();
+      if (data && data.success) {
+        if (Array.isArray(data.users) && data.users.length > 0) {
+          setAllUsers((prevUsers) => {
+            const map = new Map<string, User>();
+            prevUsers.forEach((u) => map.set(u.id, u));
+            data.users.forEach((su: any) => {
+              const existing = map.get(su.id);
+              map.set(su.id, {
+                ...existing,
+                ...su,
+                referredBy: su.referredBy !== undefined ? su.referredBy : existing?.referredBy,
+              });
+            });
+            return Array.from(map.values());
+          });
+        }
+        if (Array.isArray(data.deposits)) setDeposits(data.deposits);
+        if (Array.isArray(data.withdrawals)) setWithdrawals(data.withdrawals);
+        if (Array.isArray(data.commissionLedger)) setCommissionLedger(data.commissionLedger);
+        if (Array.isArray(data.prizeLedger)) setPrizeLedger(data.prizeLedger);
+        if (Array.isArray(data.freeTicketWinners)) setFreeTicketWinners(data.freeTicketWinners);
+      }
+    } catch {
+      // offline / transient error
+    }
+  };
+
+  useEffect(() => {
+    syncFromBackend();
+    const interval = setInterval(syncFromBackend, 2500);
+    return () => clearInterval(interval);
+  }, []);
+
   // URL referral detection
   useEffect(() => {
     if (typeof window !== 'undefined') {
       try {
         const params = new URLSearchParams(window.location.search);
-        const ref = params.get('ref');
+        const ref = params.get('ref') || params.get('referral') || params.get('r');
         if (ref) {
           setActiveModal('register');
         }
@@ -645,25 +684,30 @@ export const TambolaProvider: React.FC<{ children: React.ReactNode }> = ({ child
   ) => {
     const cleanEmail = email.trim().toLowerCase();
     const cleanPhone = phone.trim().replace(/[^0-9]/g, '');
+    const cleanRefInput = referralCodeInput ? referralCodeInput.trim().toUpperCase() : '';
 
-    const existing = allUsers.find((u) => u.email.toLowerCase() === cleanEmail || u.phone.replace(/[^0-9]/g, '') === cleanPhone);
+    const existing = allUsers.find(
+      (u) => u.email.toLowerCase() === cleanEmail || u.phone.replace(/[^0-9]/g, '') === cleanPhone
+    );
     if (existing) {
       return { success: false, message: 'An account with this email or mobile number already exists.' };
     }
 
-    let verifiedReferredBy: string = 'AT10001';
+    let verifiedReferredBy: string | null = null;
     let sponsorName: string = 'APNA TAMBOLA Official';
 
-    if (referralCodeInput && referralCodeInput.trim()) {
-      const code = referralCodeInput.trim().toUpperCase();
+    if (cleanRefInput) {
       const parentUser = allUsers.find(
         (u) =>
-          (u.referralCode && u.referralCode.trim().toUpperCase() === code) ||
-          (u.id && u.id.trim().toUpperCase() === code)
+          (u.referralCode && u.referralCode.trim().toUpperCase() === cleanRefInput) ||
+          (u.id && u.id.trim().toUpperCase() === cleanRefInput)
       );
       if (parentUser) {
         verifiedReferredBy = parentUser.id;
         sponsorName = parentUser.name;
+      } else {
+        // Even if not in local allUsers, preserve cleanRefInput so backend can validate
+        verifiedReferredBy = cleanRefInput;
       }
     }
 
@@ -705,7 +749,7 @@ export const TambolaProvider: React.FC<{ children: React.ReactNode }> = ({ child
     setUserSession(newUser);
     syncUserToFirestore(newUser);
 
-    // Call Backend Registration Async for Authoritative Server Sync
+    // Call Backend Registration for Authoritative Database Sync
     fetch('/api/auth/register', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -714,10 +758,29 @@ export const TambolaProvider: React.FC<{ children: React.ReactNode }> = ({ child
         phone: newUser.phone,
         email: newUser.email,
         password: 'Password@123',
-        referralCode: verifiedReferredBy,
+        referralCode: cleanRefInput || undefined,
         state: stateOfResidence,
       }),
-    }).catch(() => {});
+    })
+      .then((r) => r.json())
+      .then((data) => {
+        if (data && data.success && data.user) {
+          // Update user with server-authoritative values (including verified referredBy)
+          setAllUsers((prev) => {
+            const map = new Map<string, User>();
+            prev.forEach((u) => map.set(u.id, u));
+            map.set(data.user.id, {
+              ...newUser,
+              ...data.user,
+            });
+            return Array.from(map.values());
+          });
+          setCurrentUser((prev) => (prev.id === data.user.id ? { ...prev, ...data.user } : prev));
+          setUserSession({ ...newUser, ...data.user }, data.token);
+          syncFromBackend();
+        }
+      })
+      .catch(() => {});
 
     // Initial starter ticket
     const initialTicket = createNewTicket('AT-1025', newUser.id, newUser.name, `TKT-${Math.floor(10000 + Math.random() * 90000)}`);

@@ -138,12 +138,12 @@ export const UserRegisterPage: React.FC<UserRegisterPageProps> = ({ onNavigate }
 
     try {
       // Call Context Register Method
-      const sponsorCode = referralId.trim().toUpperCase() || 'AT10001';
+      const sponsorCode = referralId.trim().toUpperCase();
       const res = registerUser(
         fullName.trim(),
         cleanPhone,
         email.trim().toLowerCase(),
-        sponsorCode,
+        sponsorCode || undefined,
         stateOfResidence
       );
 
@@ -155,8 +155,8 @@ export const UserRegisterPage: React.FC<UserRegisterPageProps> = ({ onNavigate }
           name: res.user.name,
           phone: res.user.phone,
           email: res.user.email,
-          sponsorId: res.user.sponsorId || sponsorCode,
-          sponsorName: verifiedSponsor?.name || 'Admin',
+          sponsorId: res.user.referredBy || sponsorCode || 'Direct',
+          sponsorName: verifiedSponsor?.name || (sponsorCode ? 'Sponsor Verified' : 'Direct Registration'),
           referralLink: refLink,
         });
         setSuccessMessage(`Account created successfully! User ID: ${res.user.id}`);

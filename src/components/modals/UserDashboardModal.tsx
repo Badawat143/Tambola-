@@ -72,6 +72,7 @@ export const UserDashboardModal: React.FC<UserDashboardModalProps> = ({ isPageMo
     activeModal,
     setActiveModal,
     currentUser,
+    allUsers,
     userDashboardTab,
     setUserDashboardTab,
     downlineStats,
@@ -2507,71 +2508,172 @@ export const UserDashboardModal: React.FC<UserDashboardModalProps> = ({ isPageMo
             {/* ================================================================= */}
             {/* TAB 14: 👥 MY REFERRALS */}
             {/* ================================================================= */}
-            {activeTab === 'referral' && (
-              <div className="max-w-4xl mx-auto space-y-6 animate-fade-in">
-                <div className="p-6 rounded-3xl bg-gradient-to-r from-purple-950/60 to-pink-950/60 border border-purple-500/40 space-y-4">
-                  <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
-                    <div>
-                      <h3 className="text-xl font-black text-white">👥 8-LEVEL TEAM REFERRAL</h3>
-                      <p className="text-xs text-slate-300">Earn passive income on every ticket bought by your downline team!</p>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <button
-                        onClick={handleCopyRef}
-                        className="px-4 py-2 rounded-xl bg-purple-600 hover:bg-purple-500 text-white font-bold text-xs flex items-center gap-1.5"
-                      >
-                        <Copy className="w-3.5 h-3.5" />
-                        <span>{copiedLink ? 'Copied Link!' : 'Copy Link'}</span>
-                      </button>
-                    </div>
-                  </div>
+            {activeTab === 'referral' && (() => {
+              const directReferralsList = allUsers.filter(
+                (u) =>
+                  u.id !== currentUser.id &&
+                  ((u.referredBy && u.referredBy.trim().toUpperCase() === currentUser.id.toUpperCase()) ||
+                    (u.referredBy && currentUser.referralCode && u.referredBy.trim().toUpperCase() === currentUser.referralCode.toUpperCase()))
+              );
 
-                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-2">
-                    <div className="p-3 rounded-2xl bg-black/50 border border-white/5 text-center">
-                      <span className="text-[10px] text-slate-400">Direct Members</span>
-                      <p className="text-lg font-black text-white font-mono">{downlineStats.directMembersCount}</p>
-                    </div>
-                    <div className="p-3 rounded-2xl bg-black/50 border border-white/5 text-center">
-                      <span className="text-[10px] text-slate-400">Total Team Size</span>
-                      <p className="text-lg font-black text-pink-400 font-mono">{downlineStats.totalTeamCount}</p>
-                    </div>
-                    <div className="p-3 rounded-2xl bg-black/50 border border-white/5 text-center">
-                      <span className="text-[10px] text-slate-400">Referral Income</span>
-                      <p className="text-lg font-black text-emerald-400 font-mono">₹{currentUser.referralEarnings}</p>
-                    </div>
-                    <div className="p-3 rounded-2xl bg-black/50 border border-white/5 text-center">
-                      <span className="text-[10px] text-slate-400">Direct Income</span>
-                      <p className="text-lg font-black text-amber-400 font-mono">₹{currentUser.directIncomeEarnings}</p>
-                    </div>
-                  </div>
-                </div>
-
-                {/* 8 Levels Matrix */}
-                <div className="p-6 rounded-3xl bg-[#0e112d] border border-white/10 space-y-4">
-                  <h4 className="text-sm font-black text-white">8-LEVEL COMMISSION MATRIX</h4>
-                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
-                    {[
-                      { lvl: 1, pct: '2.0%' },
-                      { lvl: 2, pct: '1.0%' },
-                      { lvl: 3, pct: '0.5%' },
-                      { lvl: 4, pct: '0.4%' },
-                      { lvl: 5, pct: '0.3%' },
-                      { lvl: 6, pct: '0.2%' },
-                      { lvl: 7, pct: '0.1%' },
-                      { lvl: 8, pct: '0.1%' },
-                    ].map((l) => (
-                      <div key={l.lvl} className="p-3 rounded-2xl bg-black/40 border border-white/5 flex justify-between items-center text-xs">
-                        <span className="text-slate-400">Level {l.lvl}</span>
-                        <span className="font-bold text-pink-400">{l.pct}</span>
+              return (
+                <div className="max-w-4xl mx-auto space-y-6 animate-fade-in">
+                  <div className="p-6 rounded-3xl bg-gradient-to-r from-purple-950/60 to-pink-950/60 border border-purple-500/40 space-y-4">
+                    <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
+                      <div>
+                        <h3 className="text-xl font-black text-white">👥 8-LEVEL TEAM REFERRAL</h3>
+                        <p className="text-xs text-slate-300">Earn passive income on every ticket bought by your downline team!</p>
                       </div>
-                    ))}
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={handleCopyRef}
+                          className="px-4 py-2 rounded-xl bg-purple-600 hover:bg-purple-500 text-white font-bold text-xs flex items-center gap-1.5 cursor-pointer"
+                        >
+                          <Copy className="w-3.5 h-3.5" />
+                          <span>{copiedLink ? 'Copied Link!' : 'Copy Link'}</span>
+                        </button>
+                        <button
+                          onClick={() => {
+                            const origin = typeof window !== 'undefined' ? window.location.origin : '';
+                            const link = `${origin}/register?ref=${currentUser.id}`;
+                            const msg = `🎉 Join Apna Tambola with my Referral Link & get ₹200 Free Welcome Bonus + 2 Free Tickets! Register here: ${link}`;
+                            window.open(`https://wa.me/?text=${encodeURIComponent(msg)}`, '_blank');
+                          }}
+                          className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs flex items-center gap-1.5 cursor-pointer"
+                        >
+                          <Share2 className="w-3.5 h-3.5" />
+                          <span>WhatsApp Share</span>
+                        </button>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-2">
+                      <div className="p-3 rounded-2xl bg-black/50 border border-white/5 text-center">
+                        <span className="text-[10px] text-slate-400">Direct Members</span>
+                        <p className="text-lg font-black text-white font-mono">{directReferralsList.length || downlineStats.directMembersCount}</p>
+                      </div>
+                      <div className="p-3 rounded-2xl bg-black/50 border border-white/5 text-center">
+                        <span className="text-[10px] text-slate-400">Total Team Size</span>
+                        <p className="text-lg font-black text-pink-400 font-mono">{downlineStats.totalTeamCount}</p>
+                      </div>
+                      <div className="p-3 rounded-2xl bg-black/50 border border-white/5 text-center">
+                        <span className="text-[10px] text-slate-400">Referral Income</span>
+                        <p className="text-lg font-black text-emerald-400 font-mono">₹{currentUser.referralEarnings}</p>
+                      </div>
+                      <div className="p-3 rounded-2xl bg-black/50 border border-white/5 text-center">
+                        <span className="text-[10px] text-slate-400">Direct Income</span>
+                        <p className="text-lg font-black text-amber-400 font-mono">₹{currentUser.directIncomeEarnings}</p>
+                      </div>
+                    </div>
                   </div>
-                  <p className="text-[11px] text-amber-300/80 bg-amber-400/10 p-3 rounded-xl border border-amber-400/20">
-                    Important: Commission is strictly credited on eligible ticket gameplay, not merely upon deposit.
-                  </p>
+
+                  {/* Direct Referrals List Section */}
+                  <div className="p-6 rounded-3xl bg-[#0e112d] border border-white/10 space-y-4">
+                    <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 border-b border-white/10 pb-3">
+                      <div>
+                        <h4 className="text-sm font-black text-white flex items-center gap-2">
+                          <Users className="w-4 h-4 text-purple-400" />
+                          MY DIRECT REFERRALS (LEVEL 1)
+                        </h4>
+                        <p className="text-[11px] text-slate-400">Users who joined directly using your referral link ({currentUser.id})</p>
+                      </div>
+                      <span className="text-xs font-bold font-mono px-2.5 py-1 rounded-full bg-purple-500/20 text-purple-300 border border-purple-500/30">
+                        {directReferralsList.length} Active Directs
+                      </span>
+                    </div>
+
+                    {directReferralsList.length === 0 ? (
+                      <div className="py-8 text-center space-y-2 bg-black/30 rounded-2xl border border-white/5 p-4">
+                        <p className="text-sm font-bold text-slate-300">No direct referrals yet</p>
+                        <p className="text-xs text-slate-500 max-w-sm mx-auto">
+                          Share your referral link on WhatsApp, Telegram, or social media to start earning 2% commission on all games!
+                        </p>
+                        <button
+                          onClick={handleCopyRef}
+                          className="mt-2 inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-purple-600 text-white text-xs font-bold hover:bg-purple-500 cursor-pointer"
+                        >
+                          <Copy className="w-3.5 h-3.5" />
+                          <span>Copy My Referral Link</span>
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="overflow-x-auto">
+                        <table className="w-full text-left text-xs">
+                          <thead>
+                            <tr className="border-b border-white/10 text-slate-400 uppercase text-[10px] tracking-wider">
+                              <th className="pb-3 px-2">#</th>
+                              <th className="pb-3 px-2">User ID</th>
+                              <th className="pb-3 px-2">Name</th>
+                              <th className="pb-3 px-2">Mobile</th>
+                              <th className="pb-3 px-2">Joined Date</th>
+                              <th className="pb-3 px-2">Status</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-white/5 font-mono">
+                            {directReferralsList.map((refUser, idx) => {
+                              const maskedPhone = refUser.phone && refUser.phone.length >= 10
+                                ? `${refUser.phone.slice(0, 2)}****${refUser.phone.slice(-4)}`
+                                : refUser.phone || '--';
+                              const joinedDate = refUser.createdAt
+                                ? new Date(refUser.createdAt).toLocaleDateString('en-IN', {
+                                    day: '2-digit',
+                                    month: 'short',
+                                    year: 'numeric',
+                                  })
+                                : 'Recent';
+
+                              return (
+                                <tr key={refUser.id} className="hover:bg-white/5 transition-colors">
+                                  <td className="py-3 px-2 text-slate-500">{idx + 1}</td>
+                                  <td className="py-3 px-2">
+                                    <span className="px-2 py-0.5 rounded-md bg-amber-400/20 text-amber-300 font-black border border-amber-400/30 text-[11px]">
+                                      {refUser.id}
+                                    </span>
+                                  </td>
+                                  <td className="py-3 px-2 font-sans font-bold text-white">{refUser.name}</td>
+                                  <td className="py-3 px-2 text-slate-400">{maskedPhone}</td>
+                                  <td className="py-3 px-2 text-slate-400 text-[11px] font-sans">{joinedDate}</td>
+                                  <td className="py-3 px-2">
+                                    <span className="px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 font-bold text-[10px] border border-emerald-500/30 font-sans">
+                                      Active ✓
+                                    </span>
+                                  </td>
+                                </tr>
+                              );
+                            })}
+                          </tbody>
+                        </table>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* 8 Levels Matrix */}
+                  <div className="p-6 rounded-3xl bg-[#0e112d] border border-white/10 space-y-4">
+                    <h4 className="text-sm font-black text-white">8-LEVEL COMMISSION MATRIX</h4>
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+                      {[
+                        { lvl: 1, pct: '2.0%' },
+                        { lvl: 2, pct: '1.0%' },
+                        { lvl: 3, pct: '0.5%' },
+                        { lvl: 4, pct: '0.4%' },
+                        { lvl: 5, pct: '0.3%' },
+                        { lvl: 6, pct: '0.2%' },
+                        { lvl: 7, pct: '0.1%' },
+                        { lvl: 8, pct: '0.1%' },
+                      ].map((l) => (
+                        <div key={l.lvl} className="p-3 rounded-2xl bg-black/40 border border-white/5 flex justify-between items-center text-xs">
+                          <span className="text-slate-400">Level {l.lvl}</span>
+                          <span className="font-bold text-pink-400">{l.pct}</span>
+                        </div>
+                      ))}
+                    </div>
+                    <p className="text-[11px] text-amber-300/80 bg-amber-400/10 p-3 rounded-xl border border-amber-400/20">
+                      Important: Commission is strictly credited on eligible ticket gameplay, not merely upon deposit.
+                    </p>
+                  </div>
                 </div>
-              </div>
-            )}
+              );
+            })()}
 
             {/* ================================================================= */}
             {/* TAB 15: 💎 COMMISSION */}
