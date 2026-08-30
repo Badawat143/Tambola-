@@ -191,7 +191,7 @@ export const UserRegisterPage: React.FC<UserRegisterPageProps> = ({ onNavigate }
 
   const handleShareWhatsApp = () => {
     if (!registeredUserData) return;
-    const msg = `🎉 Play Apna Tambola with me and get ₹10 Free Withdrawal Bonus + 2 Free Tickets! Register here: ${registeredUserData.referralLink}`;
+    const msg = `🎉 Play Apna Tambola with me and get ₹10 Free Withdrawal Bonus! Register here: ${registeredUserData.referralLink}`;
     window.open(`https://wa.me/?text=${encodeURIComponent(msg)}`, '_blank');
   };
 
@@ -202,7 +202,7 @@ export const UserRegisterPage: React.FC<UserRegisterPageProps> = ({ onNavigate }
         <div className="text-center mb-8">
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-xs font-bold mb-3 shadow-sm">
             <Sparkles className="w-3.5 h-3.5" />
-            <span>INSTANT ₹10 WITHDRAWAL BONUS + 2 FREE TICKETS</span>
+            <span>INSTANT ₹10 WITHDRAWAL BONUS ON REGISTRATION</span>
           </div>
 
           <h1 className="text-2xl sm:text-3xl font-black tracking-tight text-white font-['Outfit']">
@@ -246,7 +246,7 @@ export const UserRegisterPage: React.FC<UserRegisterPageProps> = ({ onNavigate }
               </div>
               <div className="flex justify-between items-center pt-1 text-emerald-400 font-bold">
                 <span>Registration Bonus Credited:</span>
-                <span>₹10 (Withdrawal Wallet) + 2 Free Passes</span>
+                <span>₹10 (Instant Withdrawal Wallet)</span>
               </div>
             </div>
 

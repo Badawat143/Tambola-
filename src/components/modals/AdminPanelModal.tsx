@@ -185,6 +185,9 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({ isPageMode = f
     adjustUserWallet,
     drawFreeTicketWinnersForGame,
     myTickets,
+    deleteUserPermanently,
+    clearAllNotifications,
+    clearAuditLogs,
   } = useTambola();
 
   if (!isPageMode && activeModal !== 'admin') return null;
@@ -1043,6 +1046,20 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({ isPageMode = f
                               <span>{selectedUserForDetail.isDeleted ? 'RESTORE' : 'SOFT DELETE'}</span>
                             </button>
                           </div>
+
+                          <button
+                            type="button"
+                            onClick={() => {
+                              if (window.confirm(`क्या आप यूजर "${selectedUserForDetail.name}" (ID: ${selectedUserForDetail.id}) को हमेशा के लिए डिलीट करना चाहते हैं? यह क्रिया वापस नहीं होगी!\n\nAre you sure you want to PERMANENTLY delete user "${selectedUserForDetail.name}" (ID: ${selectedUserForDetail.id})? This cannot be undone!`)) {
+                                deleteUserPermanently(selectedUserForDetail.id);
+                                setSelectedUserForDetail(null);
+                              }
+                            }}
+                            className="w-full py-2 rounded-xl bg-red-600/30 text-red-300 hover:bg-red-600 hover:text-white border border-red-500/50 font-black text-xs flex items-center justify-center gap-1.5 cursor-pointer transition-all"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                            <span>DELETE USER ID PERMANENTLY (हमेशा के लिए डिलीट)</span>
+                          </button>
 
                           {!selectedUserForDetail.isKycVerified && (
                             <button

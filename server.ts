@@ -67,7 +67,7 @@ const state: ServerState = {
       gameWinnings: 3500,
       totalDeposited: 3000,
       totalWithdrawn: 1500,
-      freeTicketsAvailable: 2,
+      freeTicketsAvailable: 0,
       role: 'user',
       createdAt: '2026-08-10T10:00:00.000Z',
       ageVerified: true,
@@ -91,7 +91,7 @@ const state: ServerState = {
       gameWinnings: 1500,
       totalDeposited: 1200,
       totalWithdrawn: 400,
-      freeTicketsAvailable: 1,
+      freeTicketsAvailable: 0,
       role: 'user',
       createdAt: '2026-08-12T11:30:00.000Z',
       ageVerified: true,
@@ -115,7 +115,7 @@ const state: ServerState = {
       gameWinnings: 2000,
       totalDeposited: 1500,
       totalWithdrawn: 600,
-      freeTicketsAvailable: 1,
+      freeTicketsAvailable: 0,
       role: 'user',
       createdAt: '2026-08-14T14:15:00.000Z',
       ageVerified: true,
@@ -139,7 +139,7 @@ const state: ServerState = {
       gameWinnings: 0,
       totalDeposited: 600,
       totalWithdrawn: 0,
-      freeTicketsAvailable: 1,
+      freeTicketsAvailable: 0,
       role: 'user',
       createdAt: '2026-08-16T09:45:00.000Z',
       ageVerified: true,
@@ -163,7 +163,7 @@ const state: ServerState = {
       gameWinnings: 1500,
       totalDeposited: 800,
       totalWithdrawn: 250,
-      freeTicketsAvailable: 1,
+      freeTicketsAvailable: 0,
       role: 'user',
       createdAt: '2026-08-18T16:20:00.000Z',
       ageVerified: true,
@@ -187,7 +187,7 @@ const state: ServerState = {
       gameWinnings: 500,
       totalDeposited: 400,
       totalWithdrawn: 0,
-      freeTicketsAvailable: 1,
+      freeTicketsAvailable: 0,
       role: 'user',
       createdAt: '2026-08-20T12:10:00.000Z',
       ageVerified: true,
@@ -211,7 +211,7 @@ const state: ServerState = {
       gameWinnings: 1200,
       totalDeposited: 3000,
       totalWithdrawn: 500,
-      freeTicketsAvailable: 2,
+      freeTicketsAvailable: 0,
       role: 'user',
       createdAt: '2026-08-01T10:00:00.000Z',
       ageVerified: true,
@@ -237,7 +237,7 @@ const state: ServerState = {
       gameWinnings: 0,
       totalDeposited: 100000,
       totalWithdrawn: 0,
-      freeTicketsAvailable: 100,
+      freeTicketsAvailable: 0,
       role: 'superadmin',
       createdAt: '2026-07-01T10:00:00.000Z',
       ageVerified: true,
@@ -2695,12 +2695,62 @@ app.post('/api/admin/users/delete', (req: Request, res: Response) => {
       category: 'USER_MGMT',
       createdAt: new Date().toISOString(),
     });
+    saveStateToDisk();
 
     res.json({
       success: true,
       userId: user.id,
       isDeleted: user.isDeleted,
       message: `User ${user.name} (${user.id}) has been ${actionText}.`,
+    });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// 15B. Admin User Management: Permanent Delete User Account
+app.post('/api/admin/users/delete-permanent', (req: Request, res: Response) => {
+  try {
+    const { userId, adminId, adminName } = req.body;
+    const userIndex = state.users.findIndex((u) => u.id === userId);
+
+    if (userIndex === -1) {
+      return res.status(404).json({ error: 'User account not found.' });
+    }
+
+    const targetUser = state.users[userIndex];
+    if (targetUser.role === 'superadmin') {
+      return res.status(403).json({ error: 'Super Admin accounts cannot be deleted.' });
+    }
+
+    // Terminate all sessions
+    for (const token of Object.keys(state.userSessions)) {
+      if (state.userSessions[token].userId === userId) {
+        delete state.userSessions[token];
+      }
+    }
+
+    // Remove user permanently from users array
+    state.users.splice(userIndex, 1);
+
+    // Audit log
+    state.auditLogs.unshift({
+      id: `LOG-${Date.now()}`,
+      adminId: adminId || 'ADM-MASTER',
+      adminName: adminName || 'Super Admin',
+      action: 'USER_PERMANENTLY_DELETED',
+      details: `PERMANENTLY DELETED user account ${targetUser.name} (ID: ${targetUser.id}, Phone: ${targetUser.phone}).`,
+      category: 'USER_MGMT',
+      createdAt: new Date().toISOString(),
+    });
+    saveStateToDisk();
+
+    console.log(`[Server 🗑️ User Deleted] Admin permanently removed user ${targetUser.name} (${targetUser.id})`);
+
+    res.json({
+      success: true,
+      userId,
+      message: `User ID ${targetUser.id} (${targetUser.name}) has been PERMANENTLY deleted from the system.`,
     });
   } catch (err: any) {
     res.status(500).json({ error: err.message });

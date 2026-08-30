@@ -58,6 +58,7 @@ import {
   Settings,
   List,
   RefreshCw,
+  Trash2,
 } from 'lucide-react';
 import { TAMBOLA_CALLS } from '../../utils/soundEffects';
 import { WinningPatternCode, User as UserType } from '../../types/tambola';
@@ -100,6 +101,11 @@ export const UserDashboardModal: React.FC<UserDashboardModalProps> = ({ isPageMo
     saveBankDetails,
     useFreeTicketToBuy,
     markNotificationAsRead,
+    deleteNotification,
+    clearAllNotifications,
+    clearTransactionHistory,
+    clearTicketHistory,
+    clearAllUserHistory,
     settings,
     verifyClaim,
     buyTicket,
@@ -396,8 +402,7 @@ export const UserDashboardModal: React.FC<UserDashboardModalProps> = ({ isPageMo
     { tab: 'referral', label: 'Referral', icon: Share2 },
     { tab: 'commission', label: 'Income', icon: BarChart3 },
     { tab: 'transactions', label: 'Transactions', icon: ArrowLeftRight },
-    { tab: 'freeTickets', label: 'Free Tickets', icon: Gift, badge: 'New', badgeColor: 'bg-red-500' },
-    { tab: 'notifications', label: 'Notifications', icon: Bell, badge: notifications.filter((n) => !n.isRead).length || 5, badgeColor: 'bg-red-500' },
+    { tab: 'notifications', label: 'Notifications', icon: Bell, badge: notifications.filter((n) => !n.isRead).length || undefined, badgeColor: 'bg-red-500' },
     { tab: 'support', label: 'Support', icon: Headphones },
     { tab: 'security', label: 'Settings', icon: Settings },
     { tab: 'logout', label: 'Logout', icon: LogOut },
@@ -2652,7 +2657,7 @@ export const UserDashboardModal: React.FC<UserDashboardModalProps> = ({ isPageMo
                         </button>
                         <button
                           onClick={() => {
-                            const msg = `🎉 Join Apna Tambola with my Referral Link & get ₹10 Free Withdrawal Bonus + 2 Free Tickets! Register here: ${myRefLink}`;
+                            const msg = `🎉 Join Apna Tambola with my Referral Link & get ₹10 Free Withdrawal Bonus! Register here: ${myRefLink}`;
                             window.open(`https://wa.me/?text=${encodeURIComponent(msg)}`, '_blank');
                           }}
                           className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs flex items-center gap-1.5 cursor-pointer shadow-md transition-all active:scale-95"
@@ -3035,102 +3040,115 @@ export const UserDashboardModal: React.FC<UserDashboardModalProps> = ({ isPageMo
             )}
 
             {/* ================================================================= */}
-            {/* TAB 17: 🎁 FREE TICKETS */}
-            {/* ================================================================= */}
-            {activeTab === 'freeTickets' && (
-              <div className="max-w-4xl mx-auto space-y-6 animate-fade-in">
-                <div className="p-6 rounded-3xl bg-gradient-to-r from-pink-950/60 to-purple-950/60 border border-pink-500/30 space-y-4">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <h3 className="text-xl font-black text-pink-400">🎁 FREE LUCKY TICKETS (5 PER GAME)</h3>
-                      <p className="text-xs text-slate-300">In every game, 5 random lucky winners receive 100% free passes!</p>
-                    </div>
-                    <Gift className="w-8 h-8 text-pink-400" />
-                  </div>
-
-                  <div className="p-4 rounded-2xl bg-black/50 border border-white/10 flex items-center justify-between">
-                    <div>
-                      <span className="text-xs text-slate-400">Available Free Passes:</span>
-                      <p className="text-2xl font-black text-pink-400 font-mono">{currentUser.freeTicketsAvailable}</p>
-                    </div>
-                    <button
-                      onClick={() => navigateToTab('buyTicket')}
-                      className="px-4 py-2 rounded-xl bg-pink-500 hover:bg-pink-600 text-white text-xs font-bold"
-                    >
-                      Redeem Free Ticket
-                    </button>
-                  </div>
-                </div>
-
-                {/* Free ticket winners history */}
-                <div className="space-y-3">
-                  <h4 className="text-xs font-black uppercase text-slate-400">Recent Free Ticket Lucky Winners</h4>
-                  <div className="space-y-2">
-                    {freeTicketWinners.map((fw) => (
-                      <div key={fw.id} className="p-3 rounded-xl bg-[#0e112d] border border-white/5 flex justify-between items-center text-xs">
-                        <div>
-                          <p className="font-bold text-white">{fw.userName} (Ticket #{fw.ticketNumber})</p>
-                          <p className="text-[10px] text-slate-400">{fw.gameTitle}</p>
-                        </div>
-                        <span className="px-2 py-0.5 rounded-full bg-pink-500/20 text-pink-300 text-[10px] font-bold">
-                          FREE PASS
-                        </span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* ================================================================= */}
-            {/* TAB 18: 🔔 NOTIFICATIONS */}
+            {/* TAB 18: 🔔 NOTIFICATIONS & NOTIFICATION REMOVAL */}
             {/* ================================================================= */}
             {activeTab === 'notifications' && (
               <div className="max-w-4xl mx-auto space-y-6 animate-fade-in">
-                <div className="flex items-center justify-between pb-2">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-2 border-b border-white/10">
                   <div>
-                    <h3 className="text-xl font-black text-white">🔔 NOTIFICATION CENTER</h3>
+                    <h3 className="text-xl font-black text-white flex items-center gap-2">
+                      <Bell className="w-5 h-5 text-amber-400" />
+                      <span>NOTIFICATION CENTER</span>
+                    </h3>
                     <p className="text-xs text-slate-400">Stay updated on games, deposits, prize claims and commissions</p>
                   </div>
-                  <Bell className="w-6 h-6 text-amber-400" />
+
+                  {notifications.length > 0 && (
+                    <button
+                      onClick={() => {
+                        if (window.confirm('क्या आप सभी नोटिफिकेशन हटाना चाहते हैं? / Are you sure you want to clear all notifications?')) {
+                          clearAllNotifications(currentUser.id);
+                        }
+                      }}
+                      className="px-3.5 py-1.5 rounded-xl bg-red-500/20 hover:bg-red-500 text-red-300 hover:text-white border border-red-500/40 text-xs font-bold flex items-center gap-1.5 cursor-pointer transition-all self-start sm:self-auto"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                      <span>सब नोटिफिकेशन हटाएं (Clear All)</span>
+                    </button>
+                  )}
                 </div>
 
-                <div className="space-y-2">
-                  {notifications.map((n) => (
-                    <div
-                      key={n.id}
-                      onClick={() => markNotificationAsRead(n.id)}
-                      className={`p-4 rounded-2xl border transition-all cursor-pointer ${
-                        n.isRead ? 'bg-[#0a0c24] border-white/5 opacity-80' : 'bg-[#0e112d] border-purple-500/30'
-                      }`}
-                    >
-                      <div className="flex items-center justify-between">
-                        <p className="text-xs font-bold text-white">{n.title}</p>
-                        <span className="text-[10px] text-slate-500">{n.createdAt.split('T')[0]}</span>
-                      </div>
-                      <p className="text-xs text-slate-300 mt-1">{n.message}</p>
+                {notifications.length === 0 ? (
+                  <div className="p-12 text-center rounded-3xl bg-[#0e112d] border border-white/5 space-y-2">
+                    <div className="w-12 h-12 rounded-full bg-white/5 flex items-center justify-center mx-auto text-slate-500">
+                      <Bell className="w-6 h-6" />
                     </div>
-                  ))}
-                </div>
+                    <p className="text-sm font-bold text-slate-300">कोई नया नोटिफिकेशन नहीं है</p>
+                    <p className="text-xs text-slate-500">No active notifications. You are all caught up!</p>
+                  </div>
+                ) : (
+                  <div className="space-y-2.5">
+                    {notifications.map((n) => (
+                      <div
+                        key={n.id}
+                        className={`p-4 rounded-2xl border transition-all flex items-start justify-between gap-3 ${
+                          n.isRead ? 'bg-[#0a0c24] border-white/5 opacity-85' : 'bg-[#0e112d] border-purple-500/30'
+                        }`}
+                      >
+                        <div
+                          className="flex-1 cursor-pointer"
+                          onClick={() => markNotificationAsRead(n.id)}
+                        >
+                          <div className="flex items-center justify-between">
+                            <p className="text-xs font-bold text-white flex items-center gap-1.5">
+                              {!n.isRead && <span className="w-2 h-2 rounded-full bg-pink-500"></span>}
+                              {n.title}
+                            </p>
+                            <span className="text-[10px] text-slate-500 font-mono">{n.createdAt.split('T')[0]}</span>
+                          </div>
+                          <p className="text-xs text-slate-300 mt-1 leading-relaxed">{n.message}</p>
+                        </div>
+
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            deleteNotification(n.id);
+                          }}
+                          className="p-1.5 rounded-lg text-slate-500 hover:text-red-400 hover:bg-red-500/10 transition-colors cursor-pointer"
+                          title="Delete Notification"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             )}
 
             {/* ================================================================= */}
-            {/* TAB 19: 📊 TRANSACTIONS & HISTORY ARCHIVE */}
+            {/* TAB 19: 📊 TRANSACTIONS & HISTORY (WITH CLEAR HISTORY OPTION) */}
             {/* ================================================================= */}
             {activeTab === 'transactions' && (
               <div className="max-w-4xl mx-auto space-y-6 animate-fade-in">
-                <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pb-2">
+                <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pb-2 border-b border-white/10">
                   <div>
-                    <h3 className="text-xl font-black text-white">📊 COMPLETE FINANCIAL LEDGER</h3>
+                    <h3 className="text-xl font-black text-white flex items-center gap-2">
+                      <FileText className="w-5 h-5 text-indigo-400" />
+                      <span>COMPLETE FINANCIAL LEDGER</span>
+                    </h3>
                     <p className="text-xs text-slate-400">Detailed deposits, withdrawals (15% fee), transfers and earnings</p>
                   </div>
 
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (window.confirm('क्या आप सभी ट्रांजेक्शन हिस्ट्री हटाना चाहते हैं? / Are you sure you want to clear all history records?')) {
+                          clearTransactionHistory();
+                        }
+                      }}
+                      className="px-3 py-1.5 rounded-xl bg-red-500/20 hover:bg-red-500 text-red-300 hover:text-white border border-red-500/40 text-xs font-bold flex items-center gap-1.5 cursor-pointer transition-all"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                      <span>सब हिस्ट्री हटाएं (Clear History)</span>
+                    </button>
+
                     <button
                       type="button"
                       onClick={() => setShowArchivedHistory(!showArchivedHistory)}
-                      className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 border ${
+                      className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 border cursor-pointer ${
                         showArchivedHistory
                           ? 'bg-amber-500/20 border-amber-500/50 text-amber-300'
                           : 'bg-white/5 border-white/10 text-slate-400 hover:text-white'
@@ -3154,7 +3172,7 @@ export const UserDashboardModal: React.FC<UserDashboardModalProps> = ({ isPageMo
                     <button
                       key={f.key}
                       onClick={() => setTxFilter(f.key as any)}
-                      className={`px-3 py-1 rounded-lg text-xs font-bold transition-all ${
+                      className={`px-3 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer ${
                         txFilter === f.key
                           ? 'bg-gradient-to-r from-purple-600 to-pink-600 text-white shadow-md'
                           : 'bg-white/5 text-slate-400 hover:bg-white/10'

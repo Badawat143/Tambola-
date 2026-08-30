@@ -233,10 +233,17 @@ interface TambolaContextType {
   updateTicketConfig: (gameId: string, updates: Partial<GameItem>) => void;
   toggleBlockUser: (userId: string) => void;
   softDeleteUser: (userId: string, isDeleted?: boolean) => void;
+  deleteUserPermanently: (userId: string) => Promise<{ success: boolean; message: string }>;
   resetUserPassword: (userId: string, newPassword: string) => { success: boolean; message: string };
   verifyUserKyc: (userId: string) => void;
   addNotification: (title: string, message: string, type: NotificationItem['type'], userId?: string) => void;
   markNotificationAsRead: (id: string) => void;
+  deleteNotification: (id: string) => void;
+  clearAllNotifications: (userId?: string) => void;
+  clearTransactionHistory: () => void;
+  clearTicketHistory: () => void;
+  clearAllUserHistory: () => void;
+  clearAuditLogs: () => void;
 }
 
 const TambolaContext = createContext<TambolaContextType | undefined>(undefined);
@@ -903,7 +910,7 @@ export const TambolaProvider: React.FC<{ children: React.ReactNode }> = ({ child
         gameWinnings: data.user.gameWinnings ?? 0,
         totalDeposited: data.user.totalDeposited ?? 0,
         totalWithdrawn: data.user.totalWithdrawn ?? 0,
-        freeTicketsAvailable: data.user.freeTicketsAvailable ?? 2,
+        freeTicketsAvailable: 0,
         role: data.user.role ?? 'user',
         referredBy: data.user.referredBy || verifiedReferredBy || null,
       };
@@ -921,15 +928,10 @@ export const TambolaProvider: React.FC<{ children: React.ReactNode }> = ({ child
       setUserSession(serverUser, data.token);
       syncUserToFirestore(serverUser);
 
-      // Starter ticket
-      const initialTicket = createNewTicket('AT-1025', serverUser.id, serverUser.name, `TKT-${Math.floor(10000 + Math.random() * 90000)}`);
-      initialTicket.ticketPrice = 20;
-      setMyTickets((prev) => [initialTicket, ...prev]);
-
       // Welcome Notification
       addNotification(
         '🎉 Welcome to APNA TAMBOLA!',
-        `₹10 Registration Bonus has been credited to your Withdrawal Wallet and 2 Free Tickets added to your account. Your User ID is ${serverUser.id}.`,
+        `₹10 Registration Bonus has been credited to your Withdrawal Wallet. Your User ID is ${serverUser.id}. Recharge wallet to book tournament tickets.`,
         'system',
         serverUser.id
       );
@@ -960,7 +962,7 @@ export const TambolaProvider: React.FC<{ children: React.ReactNode }> = ({ child
         gameWinnings: 0,
         totalDeposited: 0,
         totalWithdrawn: 0,
-        freeTicketsAvailable: 2,
+        freeTicketsAvailable: 0,
         role: 'user',
         createdAt: new Date().toISOString(),
         ageVerified: true,
@@ -973,14 +975,9 @@ export const TambolaProvider: React.FC<{ children: React.ReactNode }> = ({ child
       setUserSession(newUser);
       syncUserToFirestore(newUser);
 
-      // Initial starter ticket
-      const initialTicket = createNewTicket('AT-1025', newUser.id, newUser.name, `TKT-${Math.floor(10000 + Math.random() * 90000)}`);
-      initialTicket.ticketPrice = 20;
-      setMyTickets((prev) => [initialTicket, ...prev]);
-
       addNotification(
         '🎉 Welcome to APNA TAMBOLA!',
-        `₹10 Registration Bonus has been credited to your Withdrawal Wallet and 2 Free Tickets added to your account. Your User ID is ${newUser.id}.`,
+        `₹10 Registration Bonus has been credited to your Withdrawal Wallet. Your User ID is ${newUser.id}. Recharge wallet to book tournament tickets.`,
         'system',
         newUser.id
       );
@@ -2830,6 +2827,50 @@ export const TambolaProvider: React.FC<{ children: React.ReactNode }> = ({ child
     ]);
   };
 
+  const deleteUserPermanently = async (userId: string): Promise<{ success: boolean; message: string }> => {
+    try {
+      const targetUser = allUsers.find((u) => u.id === userId);
+      if (!targetUser) {
+        return { success: false, message: 'User account not found.' };
+      }
+      if (targetUser.role === 'admin' || targetUser.role === 'superadmin') {
+        return { success: false, message: 'Super Admin accounts cannot be deleted.' };
+      }
+
+      // Remove from state immediately
+      setAllUsers((prev) => prev.filter((u) => u.id !== userId));
+
+      // Call backend API
+      const res = await fetch('/api/admin/users/delete-permanent', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId, adminId: 'ADM-MASTER', adminName: 'Super Admin' }),
+      });
+
+      const data = await res.json().catch(() => ({}));
+
+      setAuditLogs((prev) => [
+        {
+          id: `LOG-${Date.now()}`,
+          adminId: 'ADM-MASTER',
+          adminName: 'Super Admin',
+          action: 'USER_PERMANENTLY_DELETED',
+          details: `PERMANENTLY DELETED User ID: ${userId} (${targetUser.name}). Account and sessions purged.`,
+          category: 'USER_MGMT',
+          createdAt: new Date().toISOString(),
+        },
+        ...prev,
+      ]);
+
+      return {
+        success: true,
+        message: data.message || `User ID ${userId} has been permanently deleted.`,
+      };
+    } catch (err: any) {
+      return { success: false, message: err.message || 'Failed to delete user.' };
+    }
+  };
+
   const resetUserPassword = (userId: string, newPassword: string) => {
     if (!newPassword || newPassword.length < 6) {
       return { success: false, message: 'Password must be at least 6 characters.' };
@@ -2887,6 +2928,45 @@ export const TambolaProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
   const markNotificationAsRead = (id: string) => {
     setNotifications((prev) => prev.map((n) => (n.id === id ? { ...n, isRead: true } : n)));
+  };
+
+  const deleteNotification = (id: string) => {
+    setNotifications((prev) => prev.filter((n) => n.id !== id));
+  };
+
+  const clearAllNotifications = (userId?: string) => {
+    if (userId && userId !== 'all') {
+      setNotifications((prev) => prev.filter((n) => n.userId !== userId && n.userId !== 'all'));
+    } else {
+      setNotifications([]);
+    }
+  };
+
+  const clearTransactionHistory = () => {
+    setDeposits([]);
+    setWithdrawals([]);
+    setTransfers([]);
+    setCommissionLedger([]);
+    setPlatformFeeLedger([]);
+    setPrizeLedger([]);
+  };
+
+  const clearTicketHistory = () => {
+    setMyTickets([]);
+  };
+
+  const clearAllUserHistory = () => {
+    setDeposits([]);
+    setWithdrawals([]);
+    setTransfers([]);
+    setCommissionLedger([]);
+    setPlatformFeeLedger([]);
+    setPrizeLedger([]);
+    setMyTickets([]);
+  };
+
+  const clearAuditLogs = () => {
+    setAuditLogs([]);
   };
 
   const adjustUserWallet = (
@@ -3019,10 +3099,17 @@ export const TambolaProvider: React.FC<{ children: React.ReactNode }> = ({ child
         updateTicketConfig,
         toggleBlockUser,
         softDeleteUser,
+        deleteUserPermanently,
         resetUserPassword,
         verifyUserKyc,
         addNotification,
         markNotificationAsRead,
+        deleteNotification,
+        clearAllNotifications,
+        clearTransactionHistory,
+        clearTicketHistory,
+        clearAllUserHistory,
+        clearAuditLogs,
       }}
     >
       {children}

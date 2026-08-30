@@ -8,7 +8,6 @@ import {
   CheckCircle,
   AlertCircle,
   Wallet,
-  Gift,
   ArrowDownToLine,
   Percent,
 } from 'lucide-react';
@@ -21,8 +20,6 @@ export const BuyTicketModal: React.FC = () => {
     settings,
     availableTicketPrices,
     buyTicket,
-    useFreeTicketToBuy,
-    freeTicketWinners,
     setActiveModal,
     setUserDashboardTab,
   } = useTambola();
@@ -34,29 +31,16 @@ export const BuyTicketModal: React.FC = () => {
 
   const pricePerTicket = selectedPrice;
   const totalCost = pricePerTicket * quantity;
-  const hasSufficientBalance = currentUser.walletBalance >= totalCost;
-
-  // Check if current user has an available free ticket voucher for this game or any game
-  const availableFreeTicket = freeTicketWinners.find(
-    (f) => f.userId === currentUser.id && f.status === 'available'
-  );
+  const totalAvailableFunds = (currentUser.ticketWallet || 0) + (currentUser.depositWallet || 0) + (currentUser.winningWallet || 0);
+  const hasSufficientBalance = totalAvailableFunds >= totalCost;
 
   const handlePurchase = () => {
     if (!game) return;
-    const res = buyTicket(game.id, quantity, pricePerTicket);
-    if (res.success) {
-      setFeedback({ type: 'success', message: res.message });
-      setTimeout(() => {
-        setActiveModal('myTickets');
-      }, 1500);
-    } else {
-      setFeedback({ type: 'error', message: res.message });
+    if (!hasSufficientBalance) {
+      setFeedback({ type: 'error', message: `वॉलेट में पर्याप्त राशि नहीं है! आवश्यक: ₹${totalCost}, उपलब्ध: ₹${totalAvailableFunds}। कृपया पहले वॉलेट रिचार्ज करें।` });
+      return;
     }
-  };
-
-  const handleRedeemFree = () => {
-    if (!availableFreeTicket || !game) return;
-    const res = useFreeTicketToBuy(game.id, availableFreeTicket.id);
+    const res = buyTicket(game.id, quantity, pricePerTicket);
     if (res.success) {
       setFeedback({ type: 'success', message: res.message });
       setTimeout(() => {
@@ -84,7 +68,7 @@ export const BuyTicketModal: React.FC = () => {
 
           <button
             onClick={() => setActiveModal(null)}
-            className="p-1.5 rounded-xl bg-white/10 hover:bg-white/20 text-slate-300 hover:text-white"
+            className="p-1.5 rounded-xl bg-white/10 hover:bg-white/20 text-slate-300 hover:text-white cursor-pointer"
           >
             <X className="w-5 h-5" />
           </button>
@@ -98,7 +82,7 @@ export const BuyTicketModal: React.FC = () => {
                 : 'bg-red-500/20 text-red-300 border border-red-500/40'
             }`}
           >
-            {feedback.type === 'success' ? <CheckCircle className="w-4 h-4" /> : <AlertCircle className="w-4 h-4" />}
+            {feedback.type === 'success' ? <CheckCircle className="w-4 h-4 shrink-0" /> : <AlertCircle className="w-4 h-4 shrink-0" />}
             <span>{feedback.message}</span>
           </div>
         )}
@@ -115,7 +99,7 @@ export const BuyTicketModal: React.FC = () => {
                   key={opt.price}
                   type="button"
                   onClick={() => setSelectedPrice(opt.price)}
-                  className={`py-2 rounded-xl text-xs font-black border transition-all ${
+                  className={`py-2 rounded-xl text-xs font-black border transition-all cursor-pointer ${
                     selectedPrice === opt.price
                       ? 'bg-gradient-to-r from-pink-500 to-purple-600 text-white border-pink-400 shadow-md shadow-pink-500/30'
                       : 'bg-white/5 border-white/10 text-slate-300 hover:bg-white/10'
@@ -153,7 +137,7 @@ export const BuyTicketModal: React.FC = () => {
                     key={q}
                     type="button"
                     onClick={() => setQuantity(q)}
-                    className={`px-2.5 py-1 rounded-lg text-xs font-bold border ${
+                    className={`px-2.5 py-1 rounded-lg text-xs font-bold border cursor-pointer ${
                       quantity === q
                         ? 'bg-amber-400 text-black border-amber-300'
                         : 'bg-white/5 border-white/10 text-slate-300'
@@ -195,8 +179,8 @@ export const BuyTicketModal: React.FC = () => {
           <div className="flex items-center justify-between p-3 rounded-2xl bg-purple-900/30 border border-purple-500/30 text-xs">
             <div className="flex items-center gap-2">
               <Wallet className="w-4 h-4 text-emerald-400" />
-              <span className="text-slate-300">Wallet Balance:</span>
-              <strong className="text-emerald-400 font-mono">₹{currentUser.walletBalance}</strong>
+              <span className="text-slate-300">Available Funds:</span>
+              <strong className="text-emerald-400 font-mono">₹{totalAvailableFunds}</strong>
             </div>
 
             {!hasSufficientBalance && (
@@ -205,29 +189,13 @@ export const BuyTicketModal: React.FC = () => {
                   setUserDashboardTab('deposit');
                   setActiveModal('userDashboard');
                 }}
-                className="px-2.5 py-1 rounded-lg bg-emerald-500 text-black text-[11px] font-bold flex items-center gap-1"
+                className="px-2.5 py-1 rounded-lg bg-emerald-500 text-black text-[11px] font-bold flex items-center gap-1 cursor-pointer hover:bg-emerald-400"
               >
                 <ArrowDownToLine className="w-3.5 h-3.5" />
-                <span>+ Deposit</span>
+                <span>+ Deposit Money</span>
               </button>
             )}
           </div>
-
-          {/* Free Ticket Voucher Alert if Available */}
-          {availableFreeTicket && (
-            <div className="p-3 rounded-xl bg-pink-500/20 border border-pink-500/40 text-pink-300 text-xs flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <Gift className="w-4 h-4" />
-                <span>You have 1 Free Ticket Pass!</span>
-              </div>
-              <button
-                onClick={handleRedeemFree}
-                className="px-2.5 py-1 rounded-lg bg-pink-500 text-white text-[11px] font-black hover:opacity-90"
-              >
-                Redeem Free
-              </button>
-            </div>
-          )}
 
           {/* Referral Commission Notice */}
           <div className="p-2.5 rounded-xl bg-blue-500/10 border border-blue-500/20 text-[10px] text-blue-300 flex items-center gap-1.5">
