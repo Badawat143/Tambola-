@@ -71,9 +71,20 @@ export const UserRegisterPage: React.FC<UserRegisterPageProps> = ({ onNavigate }
       return;
     }
 
-    const localMatch = allUsers.find(
-      (u) => u.referralCode?.toUpperCase() === code || u.id?.toUpperCase() === code
-    );
+    const cleanDigits = code.replace(/[^0-9]/g, '');
+    const localMatch = allUsers.find((u) => {
+      const uId = (u.id || '').toUpperCase();
+      const uCode = (u.referralCode || u.id || '').toUpperCase();
+      const uPhoneDigits = (u.phone || '').replace(/[^0-9]/g, '');
+      const uEmail = (u.email || '').toLowerCase();
+      return (
+        uId === code ||
+        uCode === code ||
+        (cleanDigits.length >= 10 && uPhoneDigits.length >= 10 && uPhoneDigits.slice(-10) === cleanDigits.slice(-10)) ||
+        (cleanDigits.length >= 4 && uId.replace(/[^0-9]/g, '').endsWith(cleanDigits)) ||
+        uEmail === code.toLowerCase()
+      );
+    });
     if (localMatch) {
       setVerifiedSponsor({ name: localMatch.name, id: localMatch.id });
       return;

@@ -35,9 +35,10 @@ export const MlmIncomeSummary: React.FC<MlmIncomeSummaryProps> = ({
   const rewardIncome = 500;
   const totalIncome = directIncome + levelIncome + winningIncome + rewardIncome;
 
+  const origin = typeof window !== 'undefined' ? window.location.origin : '';
   const referralLink =
     downlineStats?.referralLink ||
-    `https://apnatambola.in/register?ref=${currentUser.referralCode || 'AT10245'}`;
+    `${origin}/register?ref=${currentUser.id || currentUser.referralCode || 'AT10245'}`;
 
   const handleCopyLink = () => {
     navigator.clipboard.writeText(referralLink);

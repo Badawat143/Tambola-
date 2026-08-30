@@ -1192,7 +1192,7 @@ export const UserDashboardModal: React.FC<UserDashboardModalProps> = ({ isPageMo
 
                   {/* URL Box */}
                   <div className="p-2.5 rounded-xl bg-black/40 border border-white/10 text-[11px] font-mono text-slate-300 truncate select-all">
-                    {`https://apnatambola.com/register?ref=${currentUser.referralCode || 'AT102458'}`}
+                    {downlineStats?.referralLink || `${typeof window !== 'undefined' ? window.location.origin : ''}/register?ref=${currentUser.id || currentUser.referralCode || 'AT102458'}`}
                   </div>
 
                   {/* Action Buttons: Copy, Share, WhatsApp */}
@@ -1207,11 +1207,12 @@ export const UserDashboardModal: React.FC<UserDashboardModalProps> = ({ isPageMo
 
                     <button
                       onClick={() => {
+                        const linkToShare = downlineStats?.referralLink || `${window.location.origin}/register?ref=${currentUser.id || currentUser.referralCode || 'AT102458'}`;
                         if (navigator.share) {
                           navigator.share({
                             title: 'APNA TAMBOLA',
-                            text: `Join APNA TAMBOLA with my referral code ${currentUser.referralCode || 'AT102458'}!`,
-                            url: `https://apnatambola.com/register?ref=${currentUser.referralCode || 'AT102458'}`,
+                            text: `Join APNA TAMBOLA with my referral code ${currentUser.id || currentUser.referralCode || 'AT102458'}!`,
+                            url: linkToShare,
                           });
                         } else {
                           handleCopyRef();
@@ -1225,8 +1226,9 @@ export const UserDashboardModal: React.FC<UserDashboardModalProps> = ({ isPageMo
 
                     <button
                       onClick={() => {
+                        const linkToShare = downlineStats?.referralLink || `${window.location.origin}/register?ref=${currentUser.id || currentUser.referralCode || 'AT102458'}`;
                         const url = `https://api.whatsapp.com/send?text=${encodeURIComponent(
-                          `🎱 Join APNA TAMBOLA now! Play live games & win real prizes! Click here: https://apnatambola.com/register?ref=${currentUser.referralCode || 'AT102458'}`
+                          `🎱 Join APNA TAMBOLA now! Play live games & win real prizes! Click here: ${linkToShare}`
                         )}`;
                         window.open(url, '_blank');
                       }}
@@ -2552,16 +2554,20 @@ export const UserDashboardModal: React.FC<UserDashboardModalProps> = ({ isPageMo
                 const sponsorPhone = (sponsor.phone || '').replace(/[^0-9]/g, '');
                 const sponsorEmail = (sponsor.email || '').trim().toLowerCase();
 
-                return (
-                  ref === sponsorId ||
-                  ref === sponsorCode ||
-                  (sponsorIdAlpha && refAlpha === sponsorIdAlpha) ||
-                  (sponsorCodeAlpha && refAlpha === sponsorCodeAlpha) ||
-                  (sponsorDigits.length >= 4 && refDigits === sponsorDigits) ||
-                  (sponsorCodeDigits.length >= 4 && refDigits === sponsorCodeDigits) ||
-                  (sponsorPhone && refDigits.length >= 10 && refDigits === sponsorPhone) ||
-                  (sponsorEmail && targetUser.referredBy.trim().toLowerCase() === sponsorEmail)
-                );
+                // 1. Direct string comparison
+                if (ref === sponsorId || ref === sponsorCode) return true;
+                // 2. Alphanumeric comparison
+                if (sponsorIdAlpha && refAlpha === sponsorIdAlpha) return true;
+                if (sponsorCodeAlpha && refAlpha === sponsorCodeAlpha) return true;
+                // 3. Digits match (e.g. 102458 matches AT102458)
+                if (sponsorDigits.length >= 4 && refDigits.length >= 4 && (sponsorDigits.endsWith(refDigits) || refDigits.endsWith(sponsorDigits))) return true;
+                if (sponsorCodeDigits.length >= 4 && refDigits.length >= 4 && (sponsorCodeDigits.endsWith(refDigits) || refDigits.endsWith(sponsorCodeDigits))) return true;
+                // 4. Phone number 10-digit match
+                if (sponsorPhone.length >= 10 && refDigits.length >= 10 && (sponsorPhone.slice(-10) === refDigits.slice(-10))) return true;
+                // 5. Email match
+                if (sponsorEmail && targetUser.referredBy.trim().toLowerCase() === sponsorEmail) return true;
+
+                return false;
               };
 
               // Level 1: Direct Referrals (Sponsor = currentUser)

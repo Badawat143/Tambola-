@@ -51,9 +51,153 @@ interface ServerState {
 const state: ServerState = {
   users: [
     {
+      id: 'USR-101',
+      name: 'Rajesh Sharma',
+      phone: '9876543210',
+      email: 'rajesh.sharma@example.com',
+      password: 'Password@123',
+      referralCode: 'APNA100',
+      referredBy: null,
+      depositWallet: 650,
+      ticketWallet: 200,
+      winningWallet: 400,
+      walletBalance: 1250,
+      referralEarnings: 240,
+      directIncomeEarnings: 50,
+      gameWinnings: 3500,
+      totalDeposited: 3000,
+      totalWithdrawn: 1500,
+      freeTicketsAvailable: 2,
+      role: 'user',
+      createdAt: '2026-08-10T10:00:00.000Z',
+      ageVerified: true,
+      stateOfResidence: 'Maharashtra',
+      isKycVerified: true,
+    },
+    {
+      id: 'USR-102',
+      name: 'Pooja Verma',
+      phone: '9876543211',
+      email: 'pooja.verma@example.com',
+      password: 'Password@123',
+      referralCode: 'APNA200',
+      referredBy: 'APNA100',
+      depositWallet: 400,
+      ticketWallet: 150,
+      winningWallet: 250,
+      walletBalance: 800,
+      referralEarnings: 80,
+      directIncomeEarnings: 20,
+      gameWinnings: 1500,
+      totalDeposited: 1200,
+      totalWithdrawn: 400,
+      freeTicketsAvailable: 1,
+      role: 'user',
+      createdAt: '2026-08-12T11:30:00.000Z',
+      ageVerified: true,
+      stateOfResidence: 'Delhi',
+      isKycVerified: true,
+    },
+    {
+      id: 'USR-103',
+      name: 'Amit Patel',
+      phone: '9876543212',
+      email: 'amit.patel@example.com',
+      password: 'Password@123',
+      referralCode: 'APNA300',
+      referredBy: 'APNA100',
+      depositWallet: 300,
+      ticketWallet: 100,
+      winningWallet: 250,
+      walletBalance: 650,
+      referralEarnings: 60,
+      directIncomeEarnings: 15,
+      gameWinnings: 2000,
+      totalDeposited: 1500,
+      totalWithdrawn: 600,
+      freeTicketsAvailable: 1,
+      role: 'user',
+      createdAt: '2026-08-14T14:15:00.000Z',
+      ageVerified: true,
+      stateOfResidence: 'Gujarat',
+      isKycVerified: true,
+    },
+    {
+      id: 'USR-104',
+      name: 'Sneha Roy',
+      phone: '9876543213',
+      email: 'sneha.roy@example.com',
+      password: 'Password@123',
+      referralCode: 'APNA400',
+      referredBy: 'APNA200',
+      depositWallet: 200,
+      ticketWallet: 100,
+      winningWallet: 100,
+      walletBalance: 400,
+      referralEarnings: 30,
+      directIncomeEarnings: 10,
+      gameWinnings: 0,
+      totalDeposited: 600,
+      totalWithdrawn: 0,
+      freeTicketsAvailable: 1,
+      role: 'user',
+      createdAt: '2026-08-16T09:45:00.000Z',
+      ageVerified: true,
+      stateOfResidence: 'Karnataka',
+      isKycVerified: true,
+    },
+    {
+      id: 'USR-105',
+      name: 'Vikas Kumar',
+      phone: '9876543214',
+      email: 'vikas.kumar@example.com',
+      password: 'Password@123',
+      referralCode: 'APNA500',
+      referredBy: 'APNA300',
+      depositWallet: 300,
+      ticketWallet: 50,
+      winningWallet: 200,
+      walletBalance: 550,
+      referralEarnings: 20,
+      directIncomeEarnings: 5,
+      gameWinnings: 1500,
+      totalDeposited: 800,
+      totalWithdrawn: 250,
+      freeTicketsAvailable: 1,
+      role: 'user',
+      createdAt: '2026-08-18T16:20:00.000Z',
+      ageVerified: true,
+      stateOfResidence: 'Uttar Pradesh',
+      isKycVerified: true,
+    },
+    {
+      id: 'USR-106',
+      name: 'Kiran Gupta',
+      phone: '9876543215',
+      email: 'kiran.gupta@example.com',
+      password: 'Password@123',
+      referralCode: 'APNA600',
+      referredBy: 'APNA400',
+      depositWallet: 150,
+      ticketWallet: 50,
+      winningWallet: 50,
+      walletBalance: 250,
+      referralEarnings: 10,
+      directIncomeEarnings: 0,
+      gameWinnings: 500,
+      totalDeposited: 400,
+      totalWithdrawn: 0,
+      freeTicketsAvailable: 1,
+      role: 'user',
+      createdAt: '2026-08-20T12:10:00.000Z',
+      ageVerified: true,
+      stateOfResidence: 'Rajasthan',
+      isKycVerified: true,
+    },
+    {
       id: 'AT10245',
       name: 'Ramesh Kumar',
-      phone: '9876543210',
+      phone: '9876543216',
       email: 'ramesh@example.com',
       password: 'Password@123',
       referralCode: 'AT10245',
@@ -573,15 +717,21 @@ app.get('/api/auth/sponsor/:code', (req: Request, res: Response) => {
       if (!u) return false;
       const uId = (u.id || '').toUpperCase();
       const uCode = (u.referralCode || u.id || '').toUpperCase();
-      const uPhone = (u.phone || '').replace(/[^0-9]/g, '');
+      const uIdAlpha = uId.replace(/[^A-Z0-9]/g, '');
+      const uCodeAlpha = uCode.replace(/[^A-Z0-9]/g, '');
+      const uIdDigits = u.id.replace(/[^0-9]/g, '');
+      const uCodeDigits = (u.referralCode || '').replace(/[^0-9]/g, '');
+      const uPhoneDigits = (u.phone || '').replace(/[^0-9]/g, '');
       const uEmail = (u.email || '').trim().toLowerCase();
 
       return (
         uId === cleanCode ||
         uCode === cleanCode ||
-        uId.replace(/[^A-Z0-9]/g, '') === alphaCode ||
-        uCode.replace(/[^A-Z0-9]/g, '') === alphaCode ||
-        (digitsCode.length >= 10 && uPhone === digitsCode) ||
+        (uIdAlpha && uIdAlpha === alphaCode) ||
+        (uCodeAlpha && uCodeAlpha === alphaCode) ||
+        (digitsCode.length >= 4 && uIdDigits.length >= 4 && (uIdDigits.endsWith(digitsCode) || digitsCode.endsWith(uIdDigits))) ||
+        (digitsCode.length >= 4 && uCodeDigits.length >= 4 && (uCodeDigits.endsWith(digitsCode) || digitsCode.endsWith(uCodeDigits))) ||
+        (digitsCode.length >= 10 && uPhoneDigits.length >= 10 && digitsCode.slice(-10) === uPhoneDigits.slice(-10)) ||
         uEmail === rawCode.toLowerCase()
       );
     });
@@ -746,15 +896,21 @@ app.post('/api/auth/register', (req: Request, res: Response) => {
         if (!u) return false;
         const uId = (u.id || '').toUpperCase();
         const uCode = (u.referralCode || u.id || '').toUpperCase();
-        const uPhone = (u.phone || '').replace(/[^0-9]/g, '');
+        const uIdAlpha = uId.replace(/[^A-Z0-9]/g, '');
+        const uCodeAlpha = uCode.replace(/[^A-Z0-9]/g, '');
+        const uIdDigits = u.id.replace(/[^0-9]/g, '');
+        const uCodeDigits = (u.referralCode || '').replace(/[^0-9]/g, '');
+        const uPhoneDigits = (u.phone || '').replace(/[^0-9]/g, '');
         const uEmail = (u.email || '').trim().toLowerCase();
 
         return (
           uId === cleanRef ||
           uCode === cleanRef ||
-          uId.replace(/[^A-Z0-9]/g, '') === alphaRef ||
-          uCode.replace(/[^A-Z0-9]/g, '') === alphaRef ||
-          (digitsRef.length >= 10 && uPhone === digitsRef) ||
+          (uIdAlpha && uIdAlpha === alphaRef) ||
+          (uCodeAlpha && uCodeAlpha === alphaRef) ||
+          (digitsRef.length >= 4 && uIdDigits.length >= 4 && (uIdDigits.endsWith(digitsRef) || digitsRef.endsWith(uIdDigits))) ||
+          (digitsRef.length >= 4 && uCodeDigits.length >= 4 && (uCodeDigits.endsWith(digitsRef) || digitsRef.endsWith(uCodeDigits))) ||
+          (digitsRef.length >= 10 && uPhoneDigits.length >= 10 && digitsRef.slice(-10) === uPhoneDigits.slice(-10)) ||
           uEmail === rawRef.toLowerCase()
         );
       });
@@ -802,6 +958,8 @@ app.post('/api/auth/register', (req: Request, res: Response) => {
 
     state.users.push(newUser);
     saveStateToDisk();
+
+    console.log(`[Server 👥 Referral Linked] New user registered: ${newUser.name} (${newUser.id}) -> Sponsor: ${verifiedReferrer || 'Direct'} (${sponsorName || 'None'}). Total users: ${state.users.length}`);
 
     // Create session token
     const token = `USR_SESSION_${Date.now()}_${Math.floor(100000 + Math.random() * 900000)}`;

@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
 import {
   syncUserToFirestore,
   syncTicketToFirestore,
@@ -49,6 +49,7 @@ import {
   calculateReferralDownline,
   evaluateTicketPatterns,
   INITIAL_SEED_USERS,
+  isDirectlyReferredBy,
   validatePrizePool,
   verifyWinningClaim,
 } from '../utils/referralEngine';
@@ -543,14 +544,81 @@ export const TambolaProvider: React.FC<{ children: React.ReactNode }> = ({ child
     } catch {}
   }, [allUsers, settings, myTickets, currentUser, deposits, withdrawals, transfers, commissionLedger, platformFeeLedger, prizeLedger, freeTicketWinners, notifications, auditLogs, upcomingGames]);
 
-  // Real-time Database & Cross-Device State Synchronizer
+  // Referral Synchronization & Multi-Device Real-Time Tracking Refs
+  const prevUsersCountRef = useRef<number>(0);
+  const prevDirectIdsRef = useRef<Set<string>>(new Set());
+  const syncCountRef = useRef<number>(0);
+
+  // Real-time Database & Cross-Device State Synchronizer with Live Logging
   const syncFromBackend = async () => {
     try {
       const res = await fetch('/api/state');
-      if (!res.ok) return;
+      if (!res.ok) {
+        console.warn('[ReferralSync ⚠️] Backend status check returned non-OK status:', res.status);
+        return;
+      }
       const data = await res.json();
       if (data && data.success) {
+        syncCountRef.current += 1;
+        const currentSyncNum = syncCountRef.current;
+
         if (Array.isArray(data.users) && data.users.length > 0) {
+          const serverUsers: User[] = data.users;
+          const prevTotal = prevUsersCountRef.current;
+          const newTotal = serverUsers.length;
+
+          // Compute direct referrals specifically for the active current user
+          const activeUserDirects = serverUsers.filter((u) => isDirectlyReferredBy(u, currentUser));
+          const currentDirectIds = new Set(activeUserDirects.map((u) => u.id.toUpperCase()));
+
+          // Detect any newly joined direct referrals for this inviter
+          const newlyDiscoveredDirects = activeUserDirects.filter(
+            (u) => !prevDirectIdsRef.current.has(u.id.toUpperCase())
+          );
+
+          // Real-time Console Log on new referral or data propagation
+          if (newlyDiscoveredDirects.length > 0 && prevTotal > 0) {
+            console.group(
+              `%c[ReferralSync 🚀 NEW DIRECT REFERRAL PROPAGATED]`,
+              'background: #064e3b; color: #34d399; font-weight: bold; font-size: 12px; padding: 4px 8px; border-radius: 4px;'
+            );
+            console.log(
+              `%c👤 Inviter / Sponsor: %c${currentUser.name} (ID: ${currentUser.id})`,
+              'color: #94a3b8; font-weight: bold;',
+              'color: #38bdf8; font-weight: bold;'
+            );
+            console.log(
+              `%c📊 Total Direct Level 1 Network: %c${activeUserDirects.length} members`,
+              'color: #94a3b8; font-weight: bold;',
+              'color: #fbbf24; font-weight: bold;'
+            );
+            newlyDiscoveredDirects.forEach((nd) => {
+              console.log(
+                `%c✨ New Downline Member: %c${nd.name} (ID: ${nd.id}) %c| Phone: ${nd.phone || 'N/A'} | Sponsor Ref Field: "${nd.referredBy}"`,
+                'color: #ec4899; font-weight: bold;',
+                'color: #ffffff; font-weight: bold;',
+                'color: #94a3b8;'
+              );
+            });
+            console.groupEnd();
+          } else if (newTotal > prevTotal && prevTotal > 0) {
+            console.log(
+              `%c[ReferralSync 🌐 Multi-Device Sync] %cTotal registered users updated: ${prevTotal} ➔ ${newTotal} users across devices. Inviter directs: ${activeUserDirects.length}.`,
+              'color: #818cf8; font-weight: bold;',
+              'color: #cbd5e1;'
+            );
+          } else if (currentSyncNum === 1 || currentSyncNum % 15 === 0) {
+            // Heartbeat info log
+            console.log(
+              `%c[ReferralSync 🔄 Polling #${currentSyncNum}] %cActive Inviter: ${currentUser.name} (${currentUser.id}) | Level 1 Directs: ${activeUserDirects.length} | System Users: ${newTotal}`,
+              'color: #64748b; font-size: 10px;',
+              'color: #94a3b8; font-size: 10px;'
+            );
+          }
+
+          prevUsersCountRef.current = newTotal;
+          prevDirectIdsRef.current = currentDirectIds;
+
           setAllUsers((prevUsers) => {
             const map = new Map<string, User>();
             prevUsers.forEach((u) => {

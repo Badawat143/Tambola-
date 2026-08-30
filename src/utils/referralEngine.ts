@@ -211,6 +211,40 @@ export function verifyWinningClaim(
 }
 
 /**
+ * Helper to determine if a target user is directly referred by a sponsor using
+ * robust multi-attribute matching (ID, Referral Code, Alphanumeric, Digits, Phone Suffix, Email).
+ */
+export function isDirectlyReferredBy(targetUser: User, sponsor: User): boolean {
+  if (!targetUser || !sponsor || !targetUser.referredBy || targetUser.id === sponsor.id) return false;
+  const ref = (targetUser.referredBy || '').trim().toUpperCase();
+  const sponsorId = (sponsor.id || '').trim().toUpperCase();
+  const sponsorCode = (sponsor.referralCode || sponsor.id || '').trim().toUpperCase();
+  const refAlpha = ref.replace(/[^A-Z0-9]/g, '');
+  const sponsorIdAlpha = sponsorId.replace(/[^A-Z0-9]/g, '');
+  const sponsorCodeAlpha = sponsorCode.replace(/[^A-Z0-9]/g, '');
+  const refDigits = (targetUser.referredBy || '').replace(/[^0-9]/g, '');
+  const sponsorDigits = (sponsor.id || '').replace(/[^0-9]/g, '');
+  const sponsorCodeDigits = (sponsor.referralCode || '').replace(/[^0-9]/g, '');
+  const sponsorPhone = (sponsor.phone || '').replace(/[^0-9]/g, '');
+  const sponsorEmail = (sponsor.email || '').trim().toLowerCase();
+
+  // 1. Direct string comparison
+  if (ref === sponsorId || ref === sponsorCode) return true;
+  // 2. Alphanumeric comparison
+  if (sponsorIdAlpha && refAlpha === sponsorIdAlpha) return true;
+  if (sponsorCodeAlpha && refAlpha === sponsorCodeAlpha) return true;
+  // 3. Digits match (e.g. 102458 matches AT102458)
+  if (sponsorDigits.length >= 4 && refDigits.length >= 4 && (sponsorDigits.endsWith(refDigits) || refDigits.endsWith(sponsorDigits))) return true;
+  if (sponsorCodeDigits.length >= 4 && refDigits.length >= 4 && (sponsorCodeDigits.endsWith(refDigits) || refDigits.endsWith(sponsorCodeDigits))) return true;
+  // 4. Phone number 10-digit match
+  if (sponsorPhone.length >= 10 && refDigits.length >= 10 && (sponsorPhone.slice(-10) === refDigits.slice(-10))) return true;
+  // 5. Email match
+  if (sponsorEmail && targetUser.referredBy.trim().toLowerCase() === sponsorEmail) return true;
+
+  return false;
+}
+
+/**
  * Calculates complete multi-level referral hierarchy dynamically from users dataset.
  */
 export function calculateReferralDownline(
@@ -220,32 +254,47 @@ export function calculateReferralDownline(
   defaultTicketPrice: number = 50
 ): ReferralDownlineStats {
   const origin = typeof window !== 'undefined' ? window.location.origin : 'https://apnatambola.com';
-  const referralLink = `${origin}?ref=${currentUser.referralCode}`;
+  const referralLink = `${origin}/register?ref=${currentUser.id || currentUser.referralCode}`;
+
+  const visitedIds = new Set<string>([currentUser.id.toUpperCase()]);
 
   const findDirectReferrals = (parents: User[]): User[] => {
     if (!parents.length) return [];
-    const parentCodes = new Set(parents.map((p) => (p.referralCode || '').trim().toUpperCase()));
-    const parentIds = new Set(parents.map((p) => (p.id || '').trim().toUpperCase()));
+    const parentCodes = new Set(parents.map((p) => (p.referralCode || '').trim().toUpperCase()).filter(Boolean));
+    const parentIds = new Set(parents.map((p) => (p.id || '').trim().toUpperCase()).filter(Boolean));
     const parentAlphas = new Set(
-      parents.map((p) => (p.referralCode || p.id || '').trim().toUpperCase().replace(/[^A-Z0-9]/g, ''))
+      parents.map((p) => (p.referralCode || p.id || '').trim().toUpperCase().replace(/[^A-Z0-9]/g, '')).filter(Boolean)
     );
-    const parentPhones = new Set(parents.map((p) => (p.phone || '').replace(/[^0-9]/g, '')).filter(Boolean));
+    const parentPhone10s = new Set(
+      parents.map((p) => (p.phone || '').replace(/[^0-9]/g, '').slice(-10)).filter((p) => p.length >= 10)
+    );
+    const parentIdDigits = new Set(
+      parents.map((p) => (p.id || '').replace(/[^0-9]/g, '')).filter((d) => d.length >= 4)
+    );
+    const parentCodeDigits = new Set(
+      parents.map((p) => (p.referralCode || '').replace(/[^0-9]/g, '')).filter((d) => d.length >= 4)
+    );
     const parentEmails = new Set(parents.map((p) => (p.email || '').trim().toLowerCase()).filter(Boolean));
 
     return allUsers.filter((u) => {
-      if (!u.referredBy) return false;
+      if (!u || !u.id || !u.referredBy) return false;
+      const uIdUpper = u.id.trim().toUpperCase();
+      if (visitedIds.has(uIdUpper)) return false;
+
       const ref = u.referredBy.trim().toUpperCase();
       const refAlpha = ref.replace(/[^A-Z0-9]/g, '');
       const refDigits = u.referredBy.replace(/[^0-9]/g, '');
       const refEmail = u.referredBy.trim().toLowerCase();
 
-      return (
+      const isMatch =
         parentCodes.has(ref) ||
         parentIds.has(ref) ||
-        parentAlphas.has(refAlpha) ||
-        (refDigits.length >= 10 && parentPhones.has(refDigits)) ||
-        parentEmails.has(refEmail)
-      );
+        (refAlpha && parentAlphas.has(refAlpha)) ||
+        (refDigits.length >= 10 && parentPhone10s.has(refDigits.slice(-10))) ||
+        (refDigits.length >= 4 && (parentIdDigits.has(refDigits) || parentCodeDigits.has(refDigits))) ||
+        (refEmail && parentEmails.has(refEmail));
+
+      return isMatch;
     });
   };
 
@@ -260,6 +309,7 @@ export function calculateReferralDownline(
     const lvlPercent = lvlConfig.percent;
 
     const membersAtLevel = findDirectReferrals(currentParentGroup);
+    membersAtLevel.forEach((m) => visitedIds.add(m.id.toUpperCase()));
 
     let levelEarnings = 0;
     const levelMembers: LevelMember[] = membersAtLevel.map((m) => {
