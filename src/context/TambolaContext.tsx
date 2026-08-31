@@ -105,6 +105,14 @@ interface TambolaContextType {
     prizeAmount: number;
   } | null;
   dismissWinnerFlash: () => void;
+  activeReferralFlash: {
+    userName: string;
+    userId: string;
+    referralCode: string;
+    joinedAt: string;
+    totalDirects: number;
+  } | null;
+  dismissReferralFlash: () => void;
 
   // Active Modals & Dashboard
   activeModal:
@@ -539,6 +547,18 @@ export const TambolaProvider: React.FC<{ children: React.ReactNode }> = ({ child
     setActiveWinnerFlash(null);
   };
 
+  const [activeReferralFlash, setActiveReferralFlash] = useState<{
+    userName: string;
+    userId: string;
+    referralCode: string;
+    joinedAt: string;
+    totalDirects: number;
+  } | null>(null);
+
+  const dismissReferralFlash = () => {
+    setActiveReferralFlash(null);
+  };
+
   // Persistence to LocalStorage
   useEffect(() => {
     try {
@@ -616,6 +636,31 @@ export const TambolaProvider: React.FC<{ children: React.ReactNode }> = ({ child
               );
             });
             console.groupEnd();
+
+            // Set active celebration flash and add notification for current user
+            const nd = newlyDiscoveredDirects[0];
+            if (nd) {
+              setActiveReferralFlash({
+                userName: nd.name,
+                userId: nd.id,
+                referralCode: nd.referralCode || nd.id,
+                joinedAt: nd.createdAt || new Date().toISOString(),
+                totalDirects: activeUserDirects.length,
+              });
+              setNotifications((prev) => [
+                {
+                  id: `NOTIF-REF-${Date.now()}`,
+                  userId: currentUser.id,
+                  title: '🎉 New Direct Referral Registered!',
+                  message: `${nd.name} (ID: ${nd.id}) has joined your Level 1 network using your referral link.`,
+                  type: 'referral',
+                  isRead: false,
+                  createdAt: new Date().toISOString(),
+                  linkModal: 'userDashboard',
+                },
+                ...prev,
+              ]);
+            }
           } else if (newTotal > prevTotal && prevTotal > 0) {
             console.log(
               `%c[ReferralSync 🌐 Multi-Device Sync] %cTotal registered users updated: ${prevTotal} ➔ ${newTotal} users across devices. Inviter directs: ${activeUserDirects.length}.`,
@@ -3081,6 +3126,8 @@ export const TambolaProvider: React.FC<{ children: React.ReactNode }> = ({ child
         availableTicketPrices,
         activeWinnerFlash,
         dismissWinnerFlash,
+        activeReferralFlash,
+        dismissReferralFlash,
 
         activeModal,
         selectedGameForPurchase,

@@ -550,3 +550,96 @@ export const INITIAL_SEED_USERS: User[] = [
     isKycVerified: true,
   },
 ];
+
+export interface DownlineTreeNode {
+  id: string;
+  name: string;
+  referralCode: string;
+  phone?: string;
+  email?: string;
+  level: number;
+  joinedDate: string;
+  status: 'Active' | 'Inactive';
+  directCount: number;
+  totalTeamCount: number;
+  referredBy?: string | null;
+  children: DownlineTreeNode[];
+}
+
+/**
+ * Builds a complete hierarchical downline tree recursive structure starting from the root user.
+ */
+export function buildDownlineTreeHierarchy(rootUser: User, allUsers: User[], maxDepth: number = 8): DownlineTreeNode {
+  const visited = new Set<string>([rootUser.id.toUpperCase()]);
+
+  function getChildren(parent: User, currentLevel: number): DownlineTreeNode[] {
+    if (currentLevel > maxDepth) return [];
+
+    const directs = allUsers.filter((u) => {
+      if (!u || !u.id || !u.referredBy) return false;
+      const uIdUpper = u.id.trim().toUpperCase();
+      if (visited.has(uIdUpper)) return false;
+      return isDirectlyReferredBy(u, parent);
+    });
+
+    return directs.map((child) => {
+      visited.add(child.id.toUpperCase());
+      const subChildren = getChildren(child, currentLevel + 1);
+
+      // Count total downline underneath this child
+      function countSubTeam(nodes: DownlineTreeNode[]): number {
+        return nodes.reduce((sum, n) => sum + 1 + countSubTeam(n.children), 0);
+      }
+
+      const totalTeamCount = countSubTeam(subChildren);
+
+      return {
+        id: child.id,
+        name: child.name,
+        referralCode: child.referralCode || child.id,
+        phone: child.phone,
+        email: child.email,
+        level: currentLevel,
+        joinedDate: child.createdAt
+          ? new Date(child.createdAt).toLocaleDateString('en-IN', {
+              day: '2-digit',
+              month: 'short',
+              year: 'numeric',
+            })
+          : 'Active',
+        status: 'Active',
+        directCount: subChildren.length,
+        totalTeamCount,
+        referredBy: child.referredBy,
+        children: subChildren,
+      };
+    });
+  }
+
+  const rootChildren = getChildren(rootUser, 1);
+
+  function countSubTeam(nodes: DownlineTreeNode[]): number {
+    return nodes.reduce((sum, n) => sum + 1 + countSubTeam(n.children), 0);
+  }
+
+  return {
+    id: rootUser.id,
+    name: rootUser.name,
+    referralCode: rootUser.referralCode || rootUser.id,
+    phone: rootUser.phone,
+    email: rootUser.email,
+    level: 0,
+    joinedDate: rootUser.createdAt
+      ? new Date(rootUser.createdAt).toLocaleDateString('en-IN', {
+          day: '2-digit',
+          month: 'short',
+          year: 'numeric',
+        })
+      : 'Active',
+    status: 'Active',
+    directCount: rootChildren.length,
+    totalTeamCount: countSubTeam(rootChildren),
+    referredBy: rootUser.referredBy,
+    children: rootChildren,
+  };
+}

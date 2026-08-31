@@ -3,6 +3,7 @@ import { User, AuthSession, AuthResult } from '../types/tambola';
 const USER_SESSION_KEY = 'tambola_user_session_v1';
 const ADMIN_SESSION_KEY = 'tambola_admin_session_v1';
 const CAPTURED_REF_KEY = 'tambola_captured_ref_v1';
+const PENDING_REF_KEY = 'pendingReferralCode';
 
 export interface UserSessionData {
   user: User;
@@ -22,8 +23,9 @@ export interface AdminSessionData {
 }
 
 /**
- * Captures referral ID from URL parameters (?ref=AT10001 or ?referral=... or ?r=...)
- * and caches it in localStorage so if user navigates during registration, it is preserved.
+ * Captures referral ID from URL parameters (?ref=APNA831 or ?referral=... or ?r=...)
+ * and permanently caches it in localStorage and sessionStorage as pendingReferralCode
+ * so if the user navigates, opens login/register, or refreshes, the referral code is never lost.
  * Returns empty string if no referral code was provided.
  */
 export function captureReferralCodeFromUrl(): string {
@@ -44,10 +46,17 @@ export function captureReferralCodeFromUrl(): string {
       params.get('inviter');
     if (ref && ref.trim().length > 0) {
       const clean = ref.trim().toUpperCase();
+      localStorage.setItem(PENDING_REF_KEY, clean);
       localStorage.setItem(CAPTURED_REF_KEY, clean);
+      sessionStorage.setItem(PENDING_REF_KEY, clean);
+      sessionStorage.setItem(CAPTURED_REF_KEY, clean);
       return clean;
     }
-    const cached = localStorage.getItem(CAPTURED_REF_KEY);
+    const cached =
+      localStorage.getItem(PENDING_REF_KEY) ||
+      sessionStorage.getItem(PENDING_REF_KEY) ||
+      localStorage.getItem(CAPTURED_REF_KEY) ||
+      sessionStorage.getItem(CAPTURED_REF_KEY);
     if (cached && cached.trim().length > 0) return cached.trim().toUpperCase();
   } catch {
     // fallback
@@ -57,7 +66,13 @@ export function captureReferralCodeFromUrl(): string {
 
 export function getCachedReferralCode(): string {
   try {
-    return (localStorage.getItem(CAPTURED_REF_KEY) || '').trim().toUpperCase();
+    const cached =
+      localStorage.getItem(PENDING_REF_KEY) ||
+      sessionStorage.getItem(PENDING_REF_KEY) ||
+      localStorage.getItem(CAPTURED_REF_KEY) ||
+      sessionStorage.getItem(CAPTURED_REF_KEY) ||
+      '';
+    return cached.trim().toUpperCase();
   } catch {
     return '';
   }
@@ -65,7 +80,10 @@ export function getCachedReferralCode(): string {
 
 export function clearCachedReferralCode(): void {
   try {
+    localStorage.removeItem(PENDING_REF_KEY);
+    sessionStorage.removeItem(PENDING_REF_KEY);
     localStorage.removeItem(CAPTURED_REF_KEY);
+    sessionStorage.removeItem(CAPTURED_REF_KEY);
   } catch {
     // fallback
   }

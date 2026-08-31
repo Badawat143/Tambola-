@@ -925,7 +925,7 @@ app.get(['/api/state', '/api/bootstrap'], (req: Request, res: Response) => {
 // 1. User Registration: /api/auth/register
 app.post('/api/auth/register', (req: Request, res: Response) => {
   try {
-    const { userId: requestedUserId, name, phone, email, password, confirmPassword, referralCode, termsAccepted, state: userState } = req.body;
+    const { userId: requestedUserId, name, phone, email, password, confirmPassword, referralCode, sponsorCode, sponsorId, ref, referredBy, termsAccepted, state: userState } = req.body;
 
     if (!name || !phone || !email || !password) {
       return res.status(400).json({ error: 'Please provide all required fields: Full Name, Phone, Email, and Password.' });
@@ -958,8 +958,10 @@ app.post('/api/auth/register', (req: Request, res: Response) => {
     let verifiedReferredByCode: string | null = null;
     let sponsorName: string | null = null;
 
-    if (referralCode && referralCode.toString().trim()) {
-      const rawRef = referralCode.toString().trim();
+    const incomingRef = (referralCode || sponsorCode || sponsorId || ref || referredBy || '').toString().trim();
+
+    if (incomingRef) {
+      const rawRef = incomingRef;
       const cleanRef = rawRef.toUpperCase();
       const cleanAlpha = cleanRef.replace(/[^A-Z0-9]/g, '');
       const cleanDigits = rawRef.replace(/[^0-9]/g, '');

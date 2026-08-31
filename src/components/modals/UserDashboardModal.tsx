@@ -61,11 +61,13 @@ import {
   Trash2,
   MessageCircle,
   Mail,
+  GitFork,
 } from 'lucide-react';
 import { TAMBOLA_CALLS } from '../../utils/soundEffects';
 import { WinningPatternCode, User as UserType } from '../../types/tambola';
 import { clearUserSession } from '../../services/authService';
 import { isDirectlyReferredBy } from '../../utils/referralEngine';
+import { DownlineTreeView } from '../dashboard/DownlineTreeView';
 
 interface UserDashboardModalProps {
   isPageMode?: boolean;
@@ -186,7 +188,7 @@ export const UserDashboardModal: React.FC<UserDashboardModalProps> = ({ isPageMo
   const [txFilter, setTxFilter] = useState<'all' | 'deposit' | 'ticket' | 'prize' | 'withdrawal' | 'transfer' | 'commission' | 'direct' | 'freeticket'>('all');
 
   // Referral Sub-View and Search
-  const [referralSubView, setReferralSubView] = useState<'level1' | 'level2' | 'matrix'>('level1');
+  const [referralSubView, setReferralSubView] = useState<'level1' | 'level2' | 'tree' | 'matrix'>('level1');
   const [referralSearchQuery, setReferralSearchQuery] = useState<string>('');
 
   // Ticket Theme Map
@@ -2727,36 +2729,48 @@ export const UserDashboardModal: React.FC<UserDashboardModalProps> = ({ isPageMo
                     </div>
                   </div>
 
-                  {/* Level 1 / Level 2 Sub-Nav Switcher */}
-                  <div className="flex flex-col sm:flex-row items-center justify-between gap-3 bg-[#0a0c24] p-2 rounded-2xl border border-white/10">
-                    <div className="grid grid-cols-3 gap-1.5 w-full sm:w-auto">
+                  {/* Level 1 / Level 2 / Tree / Matrix Sub-Nav Switcher */}
+                  <div className="flex flex-col lg:flex-row items-center justify-between gap-3 bg-[#0a0c24] p-2.5 rounded-2xl border border-white/10">
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5 w-full lg:w-auto">
                       <button
                         onClick={() => setReferralSubView('level1')}
-                        className={`px-4 py-2 rounded-xl text-xs font-black transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
+                        className={`px-3 sm:px-4 py-2 rounded-xl text-xs font-black transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
                           referralSubView === 'level1'
                             ? 'bg-gradient-to-r from-amber-500 to-yellow-600 text-black shadow-lg shadow-amber-500/20'
                             : 'text-slate-400 hover:text-white hover:bg-white/5'
                         }`}
                       >
                         <Users className="w-3.5 h-3.5" />
-                        <span>LEVEL 1 DIRECTS ({level1Users.length})</span>
+                        <span>DIRECTS ({level1Users.length})</span>
                       </button>
 
                       <button
                         onClick={() => setReferralSubView('level2')}
-                        className={`px-4 py-2 rounded-xl text-xs font-black transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
+                        className={`px-3 sm:px-4 py-2 rounded-xl text-xs font-black transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
                           referralSubView === 'level2'
                             ? 'bg-gradient-to-r from-purple-600 to-pink-600 text-white shadow-lg shadow-purple-600/20'
                             : 'text-slate-400 hover:text-white hover:bg-white/5'
                         }`}
                       >
                         <Users className="w-3.5 h-3.5" />
-                        <span>LEVEL 2 MEMBERS ({level2Users.length})</span>
+                        <span>LEVEL 2 ({level2Users.length})</span>
+                      </button>
+
+                      <button
+                        onClick={() => setReferralSubView('tree')}
+                        className={`px-3 sm:px-4 py-2 rounded-xl text-xs font-black transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
+                          referralSubView === 'tree'
+                            ? 'bg-gradient-to-r from-emerald-500 to-teal-600 text-black shadow-lg shadow-emerald-500/20'
+                            : 'text-slate-400 hover:text-white hover:bg-white/5'
+                        }`}
+                      >
+                        <GitFork className="w-3.5 h-3.5" />
+                        <span>🌳 DOWNLINE TREE</span>
                       </button>
 
                       <button
                         onClick={() => setReferralSubView('matrix')}
-                        className={`px-4 py-2 rounded-xl text-xs font-black transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
+                        className={`px-3 sm:px-4 py-2 rounded-xl text-xs font-black transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
                           referralSubView === 'matrix'
                             ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-lg shadow-blue-600/20'
                             : 'text-slate-400 hover:text-white hover:bg-white/5'
@@ -2767,8 +2781,8 @@ export const UserDashboardModal: React.FC<UserDashboardModalProps> = ({ isPageMo
                       </button>
                     </div>
 
-                    {referralSubView !== 'matrix' && (
-                      <div className="w-full sm:w-64">
+                    {referralSubView !== 'matrix' && referralSubView !== 'tree' && (
+                      <div className="w-full lg:w-64">
                         <input
                           type="text"
                           placeholder="Search member by Name or ID..."
@@ -2984,6 +2998,13 @@ export const UserDashboardModal: React.FC<UserDashboardModalProps> = ({ isPageMo
                     </div>
                   )}
 
+                  {/* TREE VIEW: INTERACTIVE 8-LEVEL DOWNLINE NETWORK TREE */}
+                  {referralSubView === 'tree' && (
+                    <div className="space-y-4">
+                      <DownlineTreeView currentUser={currentUser} allUsers={allUsers} />
+                    </div>
+                  )}
+
                   {/* 8 Levels Matrix */}
                   {referralSubView === 'matrix' && (
                     <div className="p-6 rounded-3xl bg-[#0e112d] border border-white/10 space-y-4 shadow-xl">
@@ -2999,12 +3020,12 @@ export const UserDashboardModal: React.FC<UserDashboardModalProps> = ({ isPageMo
                         {[
                           { lvl: 1, name: 'Level 1 (Direct)', pct: '2.0%', count: level1Users.length, color: 'text-amber-400 border-amber-500/30 bg-amber-500/5' },
                           { lvl: 2, name: 'Level 2 (Sub-Team)', pct: '1.0%', count: level2Users.length, color: 'text-purple-400 border-purple-500/30 bg-purple-500/5' },
-                          { lvl: 3, name: 'Level 3', pct: '0.5%', count: 0, color: 'text-pink-400 border-white/5 bg-black/40' },
-                          { lvl: 4, name: 'Level 4', pct: '0.4%', count: 0, color: 'text-pink-400 border-white/5 bg-black/40' },
-                          { lvl: 5, name: 'Level 5', pct: '0.3%', count: 0, color: 'text-pink-400 border-white/5 bg-black/40' },
-                          { lvl: 6, name: 'Level 6', pct: '0.2%', count: 0, color: 'text-pink-400 border-white/5 bg-black/40' },
-                          { lvl: 7, name: 'Level 7', pct: '0.1%', count: 0, color: 'text-pink-400 border-white/5 bg-black/40' },
-                          { lvl: 8, name: 'Level 8', pct: '0.1%', count: 0, color: 'text-pink-400 border-white/5 bg-black/40' },
+                          { lvl: 3, name: 'Level 3', pct: '0.5%', count: downlineStats?.levelStats?.find(s => s.level === 3)?.membersCount || 0, color: 'text-cyan-400 border-cyan-500/30 bg-cyan-500/5' },
+                          { lvl: 4, name: 'Level 4', pct: '0.4%', count: downlineStats?.levelStats?.find(s => s.level === 4)?.membersCount || 0, color: 'text-pink-400 border-white/5 bg-black/40' },
+                          { lvl: 5, name: 'Level 5', pct: '0.3%', count: downlineStats?.levelStats?.find(s => s.level === 5)?.membersCount || 0, color: 'text-pink-400 border-white/5 bg-black/40' },
+                          { lvl: 6, name: 'Level 6', pct: '0.2%', count: downlineStats?.levelStats?.find(s => s.level === 6)?.membersCount || 0, color: 'text-pink-400 border-white/5 bg-black/40' },
+                          { lvl: 7, name: 'Level 7', pct: '0.1%', count: downlineStats?.levelStats?.find(s => s.level === 7)?.membersCount || 0, color: 'text-pink-400 border-white/5 bg-black/40' },
+                          { lvl: 8, name: 'Level 8', pct: '0.1%', count: downlineStats?.levelStats?.find(s => s.level === 8)?.membersCount || 0, color: 'text-pink-400 border-white/5 bg-black/40' },
                         ].map((l) => (
                           <div key={l.lvl} className={`p-3.5 rounded-2xl border ${l.color} space-y-1`}>
                             <div className="flex justify-between items-center text-xs font-bold">
