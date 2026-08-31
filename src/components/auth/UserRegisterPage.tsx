@@ -161,7 +161,7 @@ export const UserRegisterPage: React.FC<UserRegisterPageProps> = ({ onNavigate }
 
       if (res.success && res.user) {
         const origin = window.location.origin;
-        const refLink = `${origin}/?ref=${res.user.referralCode || res.user.id}`;
+        const refLink = `${origin}/register?ref=${res.user.referralCode || res.user.id}`;
         setRegisteredUserData({
           id: res.user.id,
           name: res.user.name,

@@ -29,16 +29,16 @@ export const MlmIncomeSummary: React.FC<MlmIncomeSummaryProps> = ({
 }) => {
   const [copiedLink, setCopiedLink] = useState(false);
 
-  const directIncome = currentUser.directIncomeEarnings || 850;
-  const levelIncome = currentUser.referralEarnings || 3750;
-  const winningIncome = currentUser.gameWinnings || 1250;
-  const rewardIncome = 500;
+  const directIncome = currentUser.directIncomeEarnings || 0;
+  const levelIncome = currentUser.referralEarnings || 0;
+  const winningIncome = currentUser.gameWinnings || 0;
+  const rewardIncome = 0;
   const totalIncome = directIncome + levelIncome + winningIncome + rewardIncome;
 
   const origin = typeof window !== 'undefined' ? window.location.origin : '';
   const referralLink =
     downlineStats?.referralLink ||
-    `${origin}/register?ref=${currentUser.id || currentUser.referralCode || 'AT10245'}`;
+    `${origin}/register?ref=${currentUser.referralCode || currentUser.id || 'APNA100'}`;
 
   const handleCopyLink = () => {
     navigator.clipboard.writeText(referralLink);

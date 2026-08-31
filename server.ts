@@ -1109,7 +1109,7 @@ app.post('/api/auth/register', (req: Request, res: Response) => {
         id: verifiedReferrerId,
         name: sponsorName,
       } : null,
-      referralLink: `/?ref=${newUser.referralCode || newUser.id}`,
+      referralLink: `/register?ref=${newUser.referralCode || newUser.id}`,
       redirect: '/dashboard',
     });
   } catch (err: any) {

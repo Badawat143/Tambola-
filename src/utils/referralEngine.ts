@@ -254,7 +254,7 @@ export function calculateReferralDownline(
   defaultTicketPrice: number = 50
 ): ReferralDownlineStats {
   const origin = typeof window !== 'undefined' ? window.location.origin : 'https://apnatambola.com';
-  const referralLink = `${origin}/register?ref=${currentUser.id || currentUser.referralCode}`;
+  const referralLink = `${origin}/register?ref=${currentUser.referralCode || currentUser.id}`;
 
   const visitedIds = new Set<string>([currentUser.id.toUpperCase()]);
 

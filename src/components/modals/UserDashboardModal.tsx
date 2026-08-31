@@ -1224,7 +1224,7 @@ export const UserDashboardModal: React.FC<UserDashboardModalProps> = ({ isPageMo
 
                   {/* URL Box */}
                   <div className="p-2.5 rounded-xl bg-black/40 border border-white/10 text-[11px] font-mono text-slate-300 truncate select-all">
-                    {downlineStats?.referralLink || `${typeof window !== 'undefined' ? window.location.origin : ''}/register?ref=${currentUser.id || currentUser.referralCode || 'AT102458'}`}
+                    {downlineStats?.referralLink || `${typeof window !== 'undefined' ? window.location.origin : ''}/register?ref=${currentUser.referralCode || currentUser.id || 'APNA100'}`}
                   </div>
 
                   {/* Action Buttons: Copy, Share, WhatsApp */}
@@ -1239,11 +1239,11 @@ export const UserDashboardModal: React.FC<UserDashboardModalProps> = ({ isPageMo
 
                     <button
                       onClick={() => {
-                        const linkToShare = downlineStats?.referralLink || `${window.location.origin}/register?ref=${currentUser.id || currentUser.referralCode || 'AT102458'}`;
+                        const linkToShare = downlineStats?.referralLink || `${window.location.origin}/register?ref=${currentUser.referralCode || currentUser.id || 'APNA100'}`;
                         if (navigator.share) {
                           navigator.share({
                             title: 'APNA TAMBOLA',
-                            text: `Join APNA TAMBOLA with my referral code ${currentUser.id || currentUser.referralCode || 'AT102458'}!`,
+                            text: `Join APNA TAMBOLA with my referral code ${currentUser.referralCode || currentUser.id || 'APNA100'}!`,
                             url: linkToShare,
                           });
                         } else {
@@ -1258,7 +1258,7 @@ export const UserDashboardModal: React.FC<UserDashboardModalProps> = ({ isPageMo
 
                     <button
                       onClick={() => {
-                        const linkToShare = downlineStats?.referralLink || `${window.location.origin}/register?ref=${currentUser.id || currentUser.referralCode || 'AT102458'}`;
+                        const linkToShare = downlineStats?.referralLink || `${window.location.origin}/register?ref=${currentUser.referralCode || currentUser.id || 'APNA100'}`;
                         const url = `https://api.whatsapp.com/send?text=${encodeURIComponent(
                           `🎱 Join APNA TAMBOLA now! Play live games & win real prizes! Click here: ${linkToShare}`
                         )}`;
@@ -2643,7 +2643,7 @@ export const UserDashboardModal: React.FC<UserDashboardModalProps> = ({ isPageMo
 
               const origin = typeof window !== 'undefined' ? window.location.origin : '';
               const myRefCode = currentUser.referralCode || currentUser.id;
-              const myRefLink = `${origin}/?ref=${myRefCode}`;
+              const myRefLink = `${origin}/register?ref=${myRefCode}`;
 
               return (
                 <div className="max-w-4xl mx-auto space-y-6 animate-fade-in">
