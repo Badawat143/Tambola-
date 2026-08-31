@@ -65,6 +65,7 @@ import {
 import { TAMBOLA_CALLS } from '../../utils/soundEffects';
 import { WinningPatternCode, User as UserType } from '../../types/tambola';
 import { clearUserSession } from '../../services/authService';
+import { isDirectlyReferredBy } from '../../utils/referralEngine';
 
 interface UserDashboardModalProps {
   isPageMode?: boolean;
@@ -1109,8 +1110,11 @@ export const UserDashboardModal: React.FC<UserDashboardModalProps> = ({ isPageMo
                         <User className="w-3.5 h-3.5" />
                       </div>
                       <div>
-                        <p className="text-[9px] text-slate-400">Level 1</p>
-                        <p className="text-xs font-black text-white font-mono">25 <span className="text-[9px] text-slate-400 font-normal">Members</span></p>
+                        <p className="text-[9px] text-slate-400">Level 1 (Direct)</p>
+                        <p className="text-xs font-black text-white font-mono">
+                          {allUsers.filter((u) => isDirectlyReferredBy(u, currentUser)).length || downlineStats?.levelStats[0]?.membersCount || 0}{' '}
+                          <span className="text-[9px] text-slate-400 font-normal">Members</span>
+                        </p>
                       </div>
                     </div>
 
@@ -1121,7 +1125,10 @@ export const UserDashboardModal: React.FC<UserDashboardModalProps> = ({ isPageMo
                       </div>
                       <div>
                         <p className="text-[9px] text-slate-400">Level 2</p>
-                        <p className="text-xs font-black text-white font-mono">64 <span className="text-[9px] text-slate-400 font-normal">Members</span></p>
+                        <p className="text-xs font-black text-white font-mono">
+                          {downlineStats?.levelStats[1]?.membersCount || 0}{' '}
+                          <span className="text-[9px] text-slate-400 font-normal">Members</span>
+                        </p>
                       </div>
                     </div>
 
@@ -1132,7 +1139,10 @@ export const UserDashboardModal: React.FC<UserDashboardModalProps> = ({ isPageMo
                       </div>
                       <div>
                         <p className="text-[9px] text-slate-400">Level 3</p>
-                        <p className="text-xs font-black text-white font-mono">120 <span className="text-[9px] text-slate-400 font-normal">Members</span></p>
+                        <p className="text-xs font-black text-white font-mono">
+                          {downlineStats?.levelStats[2]?.membersCount || 0}{' '}
+                          <span className="text-[9px] text-slate-400 font-normal">Members</span>
+                        </p>
                       </div>
                     </div>
 
@@ -1143,7 +1153,10 @@ export const UserDashboardModal: React.FC<UserDashboardModalProps> = ({ isPageMo
                       </div>
                       <div>
                         <p className="text-[9px] text-slate-400">Level 4</p>
-                        <p className="text-xs font-black text-white font-mono">180 <span className="text-[9px] text-slate-400 font-normal">Members</span></p>
+                        <p className="text-xs font-black text-white font-mono">
+                          {downlineStats?.levelStats[3]?.membersCount || 0}{' '}
+                          <span className="text-[9px] text-slate-400 font-normal">Members</span>
+                        </p>
                       </div>
                     </div>
 
@@ -1154,7 +1167,10 @@ export const UserDashboardModal: React.FC<UserDashboardModalProps> = ({ isPageMo
                       </div>
                       <div>
                         <p className="text-[9px] text-slate-400">Level 5</p>
-                        <p className="text-xs font-black text-white font-mono">250 <span className="text-[9px] text-slate-400 font-normal">Members</span></p>
+                        <p className="text-xs font-black text-white font-mono">
+                          {downlineStats?.levelStats[4]?.membersCount || 0}{' '}
+                          <span className="text-[9px] text-slate-400 font-normal">Members</span>
+                        </p>
                       </div>
                     </div>
 
@@ -1165,7 +1181,10 @@ export const UserDashboardModal: React.FC<UserDashboardModalProps> = ({ isPageMo
                       </div>
                       <div>
                         <p className="text-[9px] text-slate-400">Level 6</p>
-                        <p className="text-xs font-black text-white font-mono">320 <span className="text-[9px] text-slate-400 font-normal">Members</span></p>
+                        <p className="text-xs font-black text-white font-mono">
+                          {downlineStats?.levelStats[5]?.membersCount || 0}{' '}
+                          <span className="text-[9px] text-slate-400 font-normal">Members</span>
+                        </p>
                       </div>
                     </div>
 
@@ -1176,7 +1195,10 @@ export const UserDashboardModal: React.FC<UserDashboardModalProps> = ({ isPageMo
                       </div>
                       <div>
                         <p className="text-[9px] text-slate-400">Level 7</p>
-                        <p className="text-xs font-black text-white font-mono">400 <span className="text-[9px] text-slate-400 font-normal">Members</span></p>
+                        <p className="text-xs font-black text-white font-mono">
+                          {downlineStats?.levelStats[6]?.membersCount || 0}{' '}
+                          <span className="text-[9px] text-slate-400 font-normal">Members</span>
+                        </p>
                       </div>
                     </div>
 
@@ -1187,7 +1209,10 @@ export const UserDashboardModal: React.FC<UserDashboardModalProps> = ({ isPageMo
                       </div>
                       <div>
                         <p className="text-[9px] text-slate-400">Level 8</p>
-                        <p className="text-xs font-black text-white font-mono">520 <span className="text-[9px] text-slate-400 font-normal">Members</span></p>
+                        <p className="text-xs font-black text-white font-mono">
+                          {downlineStats?.levelStats[7]?.membersCount || 0}{' '}
+                          <span className="text-[9px] text-slate-400 font-normal">Members</span>
+                        </p>
                       </div>
                     </div>
                   </div>
@@ -1250,15 +1275,21 @@ export const UserDashboardModal: React.FC<UserDashboardModalProps> = ({ isPageMo
                   <div className="grid grid-cols-3 gap-2 pt-2 border-t border-white/10 text-center">
                     <div>
                       <p className="text-[9px] text-slate-400">Direct Members</p>
-                      <p className="text-sm font-black text-white font-mono mt-0.5">25</p>
+                      <p className="text-sm font-black text-amber-300 font-mono mt-0.5">
+                        {allUsers.filter((u) => isDirectlyReferredBy(u, currentUser)).length || downlineStats?.levelStats[0]?.membersCount || 0}
+                      </p>
                     </div>
                     <div>
                       <p className="text-[9px] text-slate-400">Total Team</p>
-                      <p className="text-sm font-black text-white font-mono mt-0.5">1,881</p>
+                      <p className="text-sm font-black text-pink-400 font-mono mt-0.5">
+                        {downlineStats?.totalTeamCount || allUsers.filter((u) => isDirectlyReferredBy(u, currentUser)).length || 0}
+                      </p>
                     </div>
                     <div>
                       <p className="text-[9px] text-slate-400">Active Members</p>
-                      <p className="text-sm font-black text-white font-mono mt-0.5">1,245</p>
+                      <p className="text-sm font-black text-emerald-400 font-mono mt-0.5">
+                        {allUsers.filter((u) => isDirectlyReferredBy(u, currentUser)).length || downlineStats?.totalTeamCount || 0}
+                      </p>
                     </div>
                   </div>
                 </div>

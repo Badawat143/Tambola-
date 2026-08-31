@@ -774,6 +774,77 @@ app.get('/api/users', (req: Request, res: Response) => {
   }
 });
 
+// 0b2. Direct Referrals and Downline Endpoint: /api/referrals/downline/:userId
+app.get('/api/referrals/downline/:userId', (req: Request, res: Response) => {
+  try {
+    const target = (req.params.userId || '').trim().toUpperCase();
+    const targetAlpha = target.replace(/[^A-Z0-9]/g, '');
+    const targetDigits = target.replace(/[^0-9]/g, '');
+
+    const sponsor = state.users.find((u) => {
+      if (!u) return false;
+      const uId = (u.id || '').toUpperCase();
+      const uCode = (u.referralCode || u.id || '').toUpperCase();
+      return uId === target || uCode === target || (uId.replace(/[^A-Z0-9]/g, '') === targetAlpha);
+    });
+
+    const isMatch = (targetUser: any, parent: any) => {
+      if (!targetUser || !parent || !targetUser.referredBy || targetUser.id === parent.id) return false;
+      const ref = (targetUser.referredBy || '').trim().toUpperCase();
+      const pId = (parent.id || '').trim().toUpperCase();
+      const pCode = (parent.referralCode || parent.id || '').trim().toUpperCase();
+      const refAlpha = ref.replace(/[^A-Z0-9]/g, '');
+      const pIdAlpha = pId.replace(/[^A-Z0-9]/g, '');
+      const pCodeAlpha = pCode.replace(/[^A-Z0-9]/g, '');
+      const refDigits = (targetUser.referredBy || '').replace(/[^0-9]/g, '');
+      const pDigits = (parent.id || '').replace(/[^0-9]/g, '');
+      const pCodeDigits = (parent.referralCode || '').replace(/[^0-9]/g, '');
+      const pPhone = (parent.phone || '').replace(/[^0-9]/g, '');
+      const pEmail = (parent.email || '').trim().toLowerCase();
+
+      if (ref === pId || ref === pCode) return true;
+      if (pIdAlpha && refAlpha === pIdAlpha) return true;
+      if (pCodeAlpha && refAlpha === pCodeAlpha) return true;
+      if (pDigits.length >= 4 && refDigits.length >= 4 && (pDigits.endsWith(refDigits) || refDigits.endsWith(pDigits))) return true;
+      if (pCodeDigits.length >= 4 && refDigits.length >= 4 && (pCodeDigits.endsWith(refDigits) || refDigits.endsWith(pCodeDigits))) return true;
+      if (pPhone.length >= 10 && refDigits.length >= 10 && (pPhone.slice(-10) === refDigits.slice(-10))) return true;
+      if (pEmail && targetUser.referredBy.trim().toLowerCase() === pEmail) return true;
+      return false;
+    };
+
+    const currentParent = sponsor || { id: target, referralCode: target };
+    const level1 = state.users.filter((u) => isMatch(u, currentParent));
+    const level1Ids = new Set(level1.map((u) => u.id.toUpperCase()));
+
+    const level2 = state.users.filter((u) => {
+      if (!u || u.id === currentParent.id || level1Ids.has(u.id.toUpperCase()) || !u.referredBy) return false;
+      return level1.some((l1) => isMatch(u, l1));
+    });
+
+    const safeL1 = level1.map((u) => {
+      const { password, adminPin, ...safe } = u;
+      return safe;
+    });
+    const safeL2 = level2.map((u) => {
+      const { password, adminPin, ...safe } = u;
+      return safe;
+    });
+
+    res.json({
+      success: true,
+      userId: target,
+      sponsorName: sponsor ? sponsor.name : 'Unknown',
+      level1: safeL1,
+      level2: safeL2,
+      level1Count: safeL1.length,
+      level2Count: safeL2.length,
+      totalTeamCount: safeL1.length + safeL2.length,
+    });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // 0c. Cross-Device Users Sync Endpoint: /api/users/sync
 app.post('/api/users/sync', (req: Request, res: Response) => {
   try {
@@ -890,19 +961,27 @@ app.post('/api/auth/register', (req: Request, res: Response) => {
     if (referralCode && referralCode.toString().trim()) {
       const rawRef = referralCode.toString().trim();
       const cleanRef = rawRef.toUpperCase();
+      const cleanAlpha = cleanRef.replace(/[^A-Z0-9]/g, '');
+      const cleanDigits = rawRef.replace(/[^0-9]/g, '');
       console.log(`[REFERRAL] URL referral code: ${cleanRef}`);
 
       const refUser = state.users.find((u) => {
         if (!u) return false;
         const uId = (u.id || '').toUpperCase();
         const uCode = (u.referralCode || u.id || '').toUpperCase();
+        const uIdAlpha = uId.replace(/[^A-Z0-9]/g, '');
+        const uCodeAlpha = uCode.replace(/[^A-Z0-9]/g, '');
         const uPhoneDigits = (u.phone || '').replace(/[^0-9]/g, '');
         const uEmail = (u.email || '').trim().toLowerCase();
 
         return (
           uId === cleanRef ||
           uCode === cleanRef ||
-          (cleanRef.length >= 10 && uPhoneDigits.length >= 10 && cleanRef.endsWith(uPhoneDigits)) ||
+          (uIdAlpha && cleanAlpha && uIdAlpha === cleanAlpha) ||
+          (uCodeAlpha && cleanAlpha && uCodeAlpha === cleanAlpha) ||
+          (cleanDigits.length >= 4 && (uId.replace(/[^0-9]/g, '').endsWith(cleanDigits) || cleanDigits.endsWith(uId.replace(/[^0-9]/g, '')))) ||
+          (cleanDigits.length >= 4 && ((u.referralCode || '').replace(/[^0-9]/g, '').endsWith(cleanDigits) || cleanDigits.endsWith((u.referralCode || '').replace(/[^0-9]/g, '')))) ||
+          (cleanDigits.length >= 10 && uPhoneDigits.length >= 10 && cleanDigits.slice(-10) === uPhoneDigits.slice(-10)) ||
           uEmail === rawRef.toLowerCase()
         );
       });
@@ -911,7 +990,7 @@ app.post('/api/auth/register', (req: Request, res: Response) => {
         verifiedReferrerId = refUser.id;
         verifiedReferredByCode = refUser.referralCode || refUser.id;
         sponsorName = refUser.name;
-        console.log(`[REFERRAL] Resolved referrer ID: ${verifiedReferrerId}`);
+        console.log(`[REFERRAL] Successfully resolved referrer ID: ${verifiedReferrerId} (${sponsorName})`);
       } else {
         console.log(`[REFERRAL] Referral code ${cleanRef} not matched in existing users, recording as code.`);
         verifiedReferrerId = cleanRef;
