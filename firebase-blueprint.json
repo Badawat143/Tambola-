@@ -1,0 +1,110 @@
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "User profile in Apna Tambola with MLM referral attributes and wallet balances",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique user identifier (e.g. AT123456 or USR-101)",
+          "maxLength": 64
+        },
+        "name": {
+          "type": "string",
+          "description": "Full name of the user",
+          "maxLength": 100
+        },
+        "email": {
+          "type": "string",
+          "description": "Unique email address for authentication and notices",
+          "maxLength": 128
+        },
+        "phone": {
+          "type": "string",
+          "description": "10-digit mobile number",
+          "maxLength": 20
+        },
+        "referralCode": {
+          "type": "string",
+          "description": "Unique referral code for sharing (e.g. APNA100)",
+          "maxLength": 32
+        },
+        "referredBy": {
+          "type": "string",
+          "description": "User ID of the upline sponsor/referrer. Atomically assigned during registration transaction.",
+          "maxLength": 64
+        },
+        "referredByCode": {
+          "type": "string",
+          "description": "Referral code of the sponsor",
+          "maxLength": 32
+        },
+        "sponsorName": {
+          "type": "string",
+          "description": "Display name of the upline sponsor",
+          "maxLength": 100
+        },
+        "directReferralsCount": {
+          "type": "number",
+          "description": "Count of direct Level 1 downline members"
+        },
+        "depositWallet": {
+          "type": "number",
+          "description": "Deposit balance in INR"
+        },
+        "ticketWallet": {
+          "type": "number",
+          "description": "Ticket wallet balance for buying tickets"
+        },
+        "winningWallet": {
+          "type": "number",
+          "description": "Winning wallet balance eligible for withdrawal"
+        },
+        "walletBalance": {
+          "type": "number",
+          "description": "Total combined wallet balance"
+        },
+        "referralEarnings": {
+          "type": "number",
+          "description": "Total commission earned across 8 referral levels"
+        },
+        "directIncomeEarnings": {
+          "type": "number",
+          "description": "Direct referral signup bonuses and incentives"
+        },
+        "gameWinnings": {
+          "type": "number",
+          "description": "Total game prizes won"
+        },
+        "totalDeposited": {
+          "type": "number",
+          "description": "Cumulative deposits made"
+        },
+        "totalWithdrawn": {
+          "type": "number",
+          "description": "Cumulative withdrawals approved"
+        },
+        "role": {
+          "type": "string",
+          "description": "User access role: user or admin"
+        },
+        "createdAt": {
+          "type": "string",
+          "description": "ISO timestamp or server timestamp of account registration"
+        },
+        "updatedAt": {
+          "type": "string",
+          "description": "ISO timestamp or server timestamp of last profile update"
+        }
+      },
+      "required": ["id", "name", "email", "phone", "referralCode"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "User",
+      "description": "Master collection of user profiles with referral relationships and downline stats"
+    }
+  }
+}

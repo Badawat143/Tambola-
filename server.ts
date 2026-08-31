@@ -2,11 +2,34 @@ import express, { Request, Response } from 'express';
 import path from 'path';
 import fs from 'fs';
 import { createServer as createViteServer } from 'vite';
+import { initializeApp as initFirebaseApp, getApps as getFirebaseApps, getApp as getExistingFirebaseApp } from 'firebase/app';
+import {
+  getFirestore as getFirebaseFirestore,
+  doc as firestoreDoc,
+  runTransaction as runFirestoreTransaction,
+  serverTimestamp as firestoreServerTimestamp,
+  increment as firestoreIncrement,
+} from 'firebase/firestore';
 
 const app = express();
 const PORT = 3000;
 
 app.use(express.json());
+
+// Server-Side Firestore initialization
+let serverFirestoreDb: any = null;
+try {
+  const firebaseConfigPath = path.join(process.cwd(), 'firebase-applet-config.json');
+  if (fs.existsSync(firebaseConfigPath)) {
+    const rawConfig = fs.readFileSync(firebaseConfigPath, 'utf8');
+    const fbConfig = JSON.parse(rawConfig);
+    const fbApp = getFirebaseApps().length === 0 ? initFirebaseApp(fbConfig) : getExistingFirebaseApp();
+    serverFirestoreDb = fbConfig.firestoreDatabaseId ? getFirebaseFirestore(fbApp, fbConfig.firestoreDatabaseId) : getFirebaseFirestore(fbApp);
+    console.log('[Server 🔥 Firestore] Initialized server-side Firestore connection successfully.');
+  }
+} catch (fbInitErr) {
+  console.warn('[Server 🔥 Firestore] Initialization warning:', fbInitErr);
+}
 
 // Persistent State File Location
 const STATE_FILE = path.join(process.cwd(), 'app_state_data.json');
@@ -922,10 +945,25 @@ app.get(['/api/state', '/api/bootstrap'], (req: Request, res: Response) => {
   }
 });
 
-// 1. User Registration: /api/auth/register
-app.post('/api/auth/register', (req: Request, res: Response) => {
+// 1. User Registration: /api/auth/register (Atomic Multi-Layer Registration)
+app.post('/api/auth/register', async (req: Request, res: Response) => {
   try {
-    const { userId: requestedUserId, name, phone, email, password, confirmPassword, referralCode, sponsorCode, sponsorId, ref, referredBy, termsAccepted, state: userState } = req.body;
+    const {
+      userId: requestedUserId,
+      name,
+      phone,
+      email,
+      password,
+      confirmPassword,
+      pendingReferralCode,
+      referralCode,
+      sponsorCode,
+      sponsorId,
+      ref,
+      referredBy,
+      termsAccepted,
+      state: userState,
+    } = req.body;
 
     if (!name || !phone || !email || !password) {
       return res.status(400).json({ error: 'Please provide all required fields: Full Name, Phone, Email, and Password.' });
@@ -944,9 +982,11 @@ app.post('/api/auth/register', (req: Request, res: Response) => {
       return res.status(400).json({ error: 'Please enter a valid 10-digit mobile number.' });
     }
 
+    const cleanEmail = email.trim().toLowerCase();
+
     // Check duplicate email or phone
     const existingUser = state.users.find(
-      (u) => u.email.toLowerCase() === email.toLowerCase().trim() || u.phone.replace(/[^0-9]/g, '') === cleanPhone
+      (u) => u.email.toLowerCase() === cleanEmail || u.phone.replace(/[^0-9]/g, '') === cleanPhone
     );
 
     if (existingUser) {
@@ -958,14 +998,14 @@ app.post('/api/auth/register', (req: Request, res: Response) => {
     let verifiedReferredByCode: string | null = null;
     let sponsorName: string | null = null;
 
-    const incomingRef = (referralCode || sponsorCode || sponsorId || ref || referredBy || '').toString().trim();
+    const incomingRef = (pendingReferralCode || referralCode || sponsorCode || sponsorId || ref || referredBy || '').toString().trim();
 
     if (incomingRef) {
       const rawRef = incomingRef;
       const cleanRef = rawRef.toUpperCase();
       const cleanAlpha = cleanRef.replace(/[^A-Z0-9]/g, '');
       const cleanDigits = rawRef.replace(/[^0-9]/g, '');
-      console.log(`[REFERRAL] URL referral code: ${cleanRef}`);
+      console.log(`[REFERRAL] Registration incoming referral code: ${cleanRef}`);
 
       const refUser = state.users.find((u) => {
         if (!u) return false;
@@ -994,7 +1034,7 @@ app.post('/api/auth/register', (req: Request, res: Response) => {
         sponsorName = refUser.name;
         console.log(`[REFERRAL] Successfully resolved referrer ID: ${verifiedReferrerId} (${sponsorName})`);
       } else {
-        console.log(`[REFERRAL] Referral code ${cleanRef} not matched in existing users, recording as code.`);
+        console.log(`[REFERRAL] Referral code ${cleanRef} recording as direct code.`);
         verifiedReferrerId = cleanRef;
         verifiedReferredByCode = cleanRef;
       }
@@ -1020,23 +1060,29 @@ app.post('/api/auth/register', (req: Request, res: Response) => {
       codeExists = state.users.some((u) => (u.referralCode || '').toUpperCase() === newReferralCode || u.id.toUpperCase() === newReferralCode);
     }
 
-    // Prevent self-referral
-    if (verifiedReferrerId === newUserId) {
+    // Strict Anti-Self-Referral Enforcement
+    if (
+      (verifiedReferrerId && verifiedReferrerId.toUpperCase() === newUserId.toUpperCase()) ||
+      (verifiedReferredByCode && verifiedReferredByCode.toUpperCase() === newReferralCode.toUpperCase())
+    ) {
+      console.warn(`[REGISTRATION] Self-referral attempt blocked for User: ${newUserId}`);
       verifiedReferrerId = null;
       verifiedReferredByCode = null;
+      sponsorName = null;
     }
 
-    console.log(`[REGISTRATION] New user ID: ${newUserId}`);
-    console.log(`[REGISTRATION] Saved referrer ID: ${verifiedReferrerId || 'NULL'}`);
+    console.log(`[REGISTRATION] Creating user: ${newUserId}, referredBy: ${verifiedReferrerId || 'DIRECT'}`);
 
     const newUser = {
       id: newUserId,
       name: name.trim(),
       phone: cleanPhone,
-      email: email.trim().toLowerCase(),
+      email: cleanEmail,
       password,
       referralCode: newReferralCode,
       referredBy: verifiedReferrerId,
+      referredByCode: verifiedReferredByCode,
+      sponsorName: sponsorName,
       depositWallet: 0,
       ticketWallet: 0,
       winningWallet: 10, // ₹10 Registration Bonus directly into Withdrawal / Winning Wallet
@@ -1047,12 +1093,53 @@ app.post('/api/auth/register', (req: Request, res: Response) => {
       totalDeposited: 0,
       totalWithdrawn: 0,
       freeTicketsAvailable: 0,
+      directReferralsCount: 0,
       role: 'user' as const,
       createdAt: new Date().toISOString(),
       ageVerified: true,
       stateOfResidence: userState || 'India',
       isKycVerified: false,
     };
+
+    // ⚡ Execute Server-Side Firestore Transaction if available
+    if (serverFirestoreDb) {
+      try {
+        await runFirestoreTransaction(serverFirestoreDb, async (t: any) => {
+          const userDocRef = firestoreDoc(serverFirestoreDb, 'users', newUserId);
+          const existingSnap = await t.get(userDocRef);
+          if (existingSnap.exists()) {
+            throw new Error(`User ID ${newUserId} already exists in Firestore.`);
+          }
+
+          let sponsorDocRef: any = null;
+          if (verifiedReferrerId) {
+            const checkSponsorRef = firestoreDoc(serverFirestoreDb, 'users', verifiedReferrerId);
+            const sponsorSnap = await t.get(checkSponsorRef);
+            if (sponsorSnap.exists()) {
+              sponsorDocRef = checkSponsorRef;
+            }
+          }
+
+          // Atomically write new user
+          t.set(userDocRef, {
+            ...newUser,
+            createdAt: firestoreServerTimestamp(),
+            updatedAt: firestoreServerTimestamp(),
+          });
+
+          // Atomically update sponsor direct referrals count
+          if (sponsorDocRef) {
+            t.update(sponsorDocRef, {
+              directReferralsCount: firestoreIncrement(1),
+              updatedAt: firestoreServerTimestamp(),
+            });
+          }
+        });
+        console.log(`[Server 🔥 Firestore] Transaction committed successfully for User: ${newUserId} (ReferredBy: ${verifiedReferrerId || 'DIRECT'})`);
+      } catch (fsTxErr) {
+        console.warn('[Server 🔥 Firestore] Transaction error (falling back to memory):', fsTxErr);
+      }
+    }
 
     state.users.push(newUser);
     saveStateToDisk();

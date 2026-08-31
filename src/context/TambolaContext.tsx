@@ -5,6 +5,7 @@ import {
   syncGameToFirestore,
   recordTransactionToFirestore,
   recordWinnerToFirestore,
+  registerUserWithFirestoreTransaction,
 } from '../services/firebase';
 import {
   getSupabase,
@@ -63,7 +64,16 @@ import {
 } from '../utils/referralEngine';
 import { createNewTicket, getRandomTicketColor } from '../utils/ticketGenerator';
 import { soundFx } from '../utils/soundEffects';
-import { setUserSession, setAdminSession, getUserSession, getAdminSession, clearUserSession, clearAdminSession } from '../services/authService';
+import {
+  setUserSession,
+  setAdminSession,
+  getUserSession,
+  getAdminSession,
+  clearUserSession,
+  clearAdminSession,
+  getCachedReferralCode,
+  clearCachedReferralCode,
+} from '../services/authService';
 
 export { type DashboardTab, type AdminTab };
 
@@ -946,6 +956,9 @@ export const TambolaProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
     console.log(`[REGISTRATION] New user ID: ${uniqueId}`);
 
+    // Capture pending referral code from input or permanent localStorage/sessionStorage cache
+    const pendingReferral = cleanRefInput || getCachedReferralCode() || undefined;
+
     // Try calling Supabase RPC if configured
     try {
       await registerUserWithReferral({
@@ -953,13 +966,13 @@ export const TambolaProvider: React.FC<{ children: React.ReactNode }> = ({ child
         fullName: name.trim(),
         email: cleanEmail,
         phone: cleanPhone,
-        referralCode: cleanRefInput || undefined,
+        referralCode: pendingReferral,
       });
     } catch (err) {
       console.warn('[SUPABASE] RPC registration note:', err);
     }
 
-    // Try calling Backend Registration first for authoritative multi-device consistency
+    // Try calling Backend Registration first for authoritative multi-device consistency with Firestore transaction
     try {
       const res = await fetch('/api/auth/register', {
         method: 'POST',
@@ -970,7 +983,8 @@ export const TambolaProvider: React.FC<{ children: React.ReactNode }> = ({ child
           phone: cleanPhone,
           email: cleanEmail,
           password: passwordInput || 'Password@123',
-          referralCode: cleanRefInput || undefined,
+          pendingReferralCode: pendingReferral,
+          referralCode: pendingReferral,
           state: stateOfResidence,
         }),
       });
@@ -1003,6 +1017,9 @@ export const TambolaProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
       console.log(`[REGISTRATION] Saved referrer ID: ${serverUser.referredBy || 'NULL'}`);
 
+      // Clear pending referral from cache now that registration is committed
+      clearCachedReferralCode();
+
       setAllUsers((prev) => {
         const map = new Map<string, User>();
         prev.forEach((u) => {
@@ -1033,6 +1050,33 @@ export const TambolaProvider: React.FC<{ children: React.ReactNode }> = ({ child
         user: serverUser,
       };
     } catch {
+      // Direct Firestore Transaction fallback if server endpoint is unreachable
+      try {
+        const fsResult = await registerUserWithFirestoreTransaction({
+          name: name.trim(),
+          phone: cleanPhone,
+          email: cleanEmail,
+          password: passwordInput || 'Password@123',
+          pendingReferralCode: pendingReferral,
+          stateOfResidence,
+          requestedUserId: uniqueId,
+        });
+
+        if (fsResult.success && fsResult.user) {
+          const fsUser = fsResult.user as User;
+          clearCachedReferralCode();
+          setAllUsers((prev) => [...prev.filter((u) => u.id !== fsUser.id), fsUser]);
+          setCurrentUser(fsUser);
+          setUserSession(fsUser, `FS_SESSION_${Date.now()}`);
+          return {
+            success: true,
+            message: `Account registered successfully with Firestore transaction! Welcome, ${fsUser.name}.`,
+            user: fsUser,
+          };
+        }
+      } catch (fsErr) {
+        console.warn('[Firestore Direct Transaction Fallback Error]:', fsErr);
+      }
       // Offline fallback: create local user
       const newUser: User = {
         id: uniqueId,

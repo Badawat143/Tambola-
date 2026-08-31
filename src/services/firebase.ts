@@ -9,9 +9,13 @@ import {
   updateDoc,
   onSnapshot,
   query,
+  where,
   orderBy,
   limit,
   serverTimestamp,
+  runTransaction,
+  increment,
+  Firestore,
 } from 'firebase/firestore';
 import { getAuth, GoogleAuthProvider } from 'firebase/auth';
 import firebaseConfig from '../../firebase-applet-config.json';
@@ -31,7 +35,7 @@ export function getFirebaseApp() {
   return _firebaseApp;
 }
 
-export function getDb() {
+export function getDb(): Firestore | null {
   if (!_db) {
     try {
       const app = getFirebaseApp();
@@ -77,9 +81,12 @@ export {
   updateDoc,
   onSnapshot,
   query,
+  where,
   orderBy,
   limit,
   serverTimestamp,
+  runTransaction,
+  increment,
 };
 
 // Firestore collections references
@@ -93,6 +100,229 @@ export const COLLECTIONS = {
   DEPOSITS: 'deposits',
   WITHDRAWALS: 'withdrawals',
 };
+
+export interface RegisterUserInput {
+  name: string;
+  phone: string;
+  email: string;
+  password?: string;
+  pendingReferralCode?: string | null;
+  stateOfResidence?: string;
+  requestedUserId?: string;
+}
+
+export interface RegisterUserResult {
+  success: boolean;
+  user?: any;
+  referrer?: {
+    id: string;
+    name: string;
+    referralCode?: string;
+  } | null;
+  message?: string;
+  error?: string;
+}
+
+/**
+ * Robust Registration Function using Firestore Transactions (runTransaction)
+ * - Validates input and cleans mobile/email
+ * - Validates pendingReferralCode from localStorage / client cache
+ * - Strictly prevents self-referral across ID, referral code, phone, and email
+ * - Atomically writes the new user document into the 'users' collection with 'referredBy' assigned
+ * - Atomically increments the sponsor's directReferralsCount within the same ACID transaction
+ */
+export async function registerUserWithFirestoreTransaction(
+  input: RegisterUserInput,
+  firestoreInstance?: Firestore | null
+): Promise<RegisterUserResult> {
+  const firestoreDb = firestoreInstance || getDb();
+  if (!firestoreDb) {
+    return {
+      success: false,
+      error: 'Firestore is not initialized. Please ensure Firebase connection is active.',
+    };
+  }
+
+  const name = (input.name || '').trim();
+  const rawPhone = (input.phone || '').toString();
+  const cleanPhone = rawPhone.replace(/[^0-9]/g, '');
+  const cleanEmail = (input.email || '').trim().toLowerCase();
+  const password = input.password || 'Password@123';
+  const stateOfResidence = input.stateOfResidence || 'India';
+
+  if (!name || !cleanPhone || !cleanEmail) {
+    return {
+      success: false,
+      error: 'Full name, valid mobile number, and email address are required.',
+    };
+  }
+
+  if (cleanPhone.length < 10) {
+    return {
+      success: false,
+      error: 'Please enter a valid 10-digit mobile number.',
+    };
+  }
+
+  // Extract pending referral code
+  const rawPendingRef = (input.pendingReferralCode || '').toString().trim();
+  const cleanPendingRef = rawPendingRef.toUpperCase();
+
+  try {
+    const result = await runTransaction(firestoreDb, async (transaction) => {
+      // 1. Generate unique user ID and referral code
+      const generatedId = input.requestedUserId && input.requestedUserId.trim()
+        ? input.requestedUserId.trim().toUpperCase()
+        : `AT${Math.floor(100000 + Math.random() * 900000)}`;
+
+      const newUserDocRef = doc(firestoreDb, COLLECTIONS.USERS, generatedId);
+      const existingNewUserSnap = await transaction.get(newUserDocRef);
+
+      let targetUserId = generatedId;
+      if (existingNewUserSnap.exists()) {
+        targetUserId = `AT${Math.floor(100000 + Math.random() * 900000)}`;
+      }
+      const finalUserDocRef = doc(firestoreDb, COLLECTIONS.USERS, targetUserId);
+
+      // Generate random referral code
+      const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+      let rand = '';
+      for (let i = 0; i < 4; i++) {
+        rand += chars.charAt(Math.floor(Math.random() * chars.length));
+      }
+      const newReferralCode = `APNA${rand}${Math.floor(100 + Math.random() * 900)}`.slice(0, 7);
+
+      // 2. Validate pendingReferralCode & Resolve Referrer (with Transaction Reads First)
+      let verifiedReferrerId: string | null = null;
+      let verifiedReferrerCode: string | null = null;
+      let sponsorName: string | null = null;
+      let sponsorDocRefToUpdate: any = null;
+
+      if (cleanPendingRef && cleanPendingRef.length > 0) {
+        // Try reading potential sponsor document directly by ID
+        const potentialSponsorRef = doc(firestoreDb, COLLECTIONS.USERS, cleanPendingRef);
+        const sponsorSnap = await transaction.get(potentialSponsorRef);
+
+        if (sponsorSnap.exists()) {
+          const sData = sponsorSnap.data() as any;
+          // ANTI-SELF-REFERRAL CHECK
+          const isSelf =
+            sponsorSnap.id.toUpperCase() === targetUserId.toUpperCase() ||
+            (sData.email && sData.email.toLowerCase() === cleanEmail) ||
+            (sData.phone && sData.phone.replace(/[^0-9]/g, '') === cleanPhone) ||
+            (sData.referralCode && sData.referralCode.toUpperCase() === newReferralCode.toUpperCase());
+
+          if (!isSelf) {
+            verifiedReferrerId = sponsorSnap.id;
+            verifiedReferrerCode = sData.referralCode || sponsorSnap.id;
+            sponsorName = sData.name || 'Sponsor';
+            sponsorDocRefToUpdate = potentialSponsorRef;
+          } else {
+            console.warn(`[Firestore Transaction] Self-referral attempt blocked for ID: ${targetUserId}`);
+          }
+        } else {
+          // If not matched by doc ID directly, store cleaned code if not self
+          if (cleanPendingRef !== targetUserId && cleanPendingRef !== newReferralCode) {
+            verifiedReferrerId = cleanPendingRef;
+            verifiedReferrerCode = cleanPendingRef;
+          }
+        }
+      }
+
+      // 3. Construct New User Record with Atomic referredBy Assignment
+      const newUserPayload = {
+        id: targetUserId,
+        name,
+        phone: cleanPhone,
+        email: cleanEmail,
+        password,
+        referralCode: newReferralCode,
+        referredBy: verifiedReferrerId, // ATOMICALLY ASSIGNED
+        referredByCode: verifiedReferrerCode,
+        sponsorName: sponsorName,
+        depositWallet: 0,
+        ticketWallet: 0,
+        winningWallet: 10, // ₹10 Signup Bonus
+        walletBalance: 10,
+        referralEarnings: 0,
+        directIncomeEarnings: 0,
+        gameWinnings: 0,
+        totalDeposited: 0,
+        totalWithdrawn: 0,
+        freeTicketsAvailable: 0,
+        directReferralsCount: 0,
+        role: 'user',
+        stateOfResidence,
+        isKycVerified: false,
+        ageVerified: true,
+        termsAccepted: true,
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+      };
+
+      // 4. Atomic Writes in Transaction
+      transaction.set(finalUserDocRef, newUserPayload);
+
+      // If sponsor document was resolved and read, update direct downline count atomically
+      if (sponsorDocRefToUpdate) {
+        transaction.update(sponsorDocRefToUpdate, {
+          directReferralsCount: increment(1),
+          updatedAt: serverTimestamp(),
+        });
+      }
+
+      return {
+        user: {
+          ...newUserPayload,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        },
+        referrer: verifiedReferrerId
+          ? { id: verifiedReferrerId, name: sponsorName || 'Sponsor', referralCode: verifiedReferrerCode || undefined }
+          : null,
+      };
+    });
+
+    return {
+      success: true,
+      user: result.user,
+      referrer: result.referrer,
+      message: 'User registered successfully with atomic referral assignment.',
+    };
+  } catch (error: any) {
+    console.error('[Firestore Transaction Registration Error]:', error);
+    return {
+      success: false,
+      error: error.message || 'Firestore transaction registration failed.',
+    };
+  }
+}
+
+/**
+ * Query downline users referred by a specific user (utilizes index on referredBy)
+ */
+export async function getDownlineUsersByReferrer(referrerId: string): Promise<any[]> {
+  try {
+    const firestoreDb = getDb();
+    if (!firestoreDb || !referrerId) return [];
+
+    const usersRef = collection(firestoreDb, COLLECTIONS.USERS);
+    const q = query(
+      usersRef,
+      where('referredBy', '==', referrerId),
+      orderBy('createdAt', 'desc'),
+      limit(100)
+    );
+    const snapshot = await getDocs(q);
+    return snapshot.docs.map((docSnap) => ({
+      id: docSnap.id,
+      ...docSnap.data(),
+    }));
+  } catch (error) {
+    console.warn('[Firestore getDownlineUsers error]:', error);
+    return [];
+  }
+}
 
 /**
  * Save / sync user profile to Firestore
