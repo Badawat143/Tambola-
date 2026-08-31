@@ -23,7 +23,22 @@ export const AuthModal: React.FC = () => {
   const [phone, setPhone] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [referralCode, setReferralCode] = useState(() => getCachedReferralCode() || '');
+  const [referralCode, setReferralCode] = useState(() => {
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search);
+      const fromUrl =
+        params.get('ref') ||
+        params.get('referral') ||
+        params.get('r') ||
+        params.get('sponsor') ||
+        params.get('code') ||
+        params.get('refcode') ||
+        params.get('refCode') ||
+        params.get('referralCode');
+      if (fromUrl && fromUrl.trim()) return fromUrl.trim().toUpperCase();
+    }
+    return captureReferralCodeFromUrl() || '';
+  });
   const [stateOfResidence, setStateOfResidence] = useState('Maharashtra');
   const [ageConfirmed, setAgeConfirmed] = useState(true);
   const [loginInput, setLoginInput] = useState('');

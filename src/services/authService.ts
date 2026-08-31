@@ -30,7 +30,18 @@ export function captureReferralCodeFromUrl(): string {
   try {
     if (typeof window === 'undefined') return '';
     const params = new URLSearchParams(window.location.search);
-    const ref = params.get('ref') || params.get('referral') || params.get('r') || params.get('sponsor');
+    const ref =
+      params.get('ref') ||
+      params.get('referral') ||
+      params.get('r') ||
+      params.get('sponsor') ||
+      params.get('code') ||
+      params.get('refcode') ||
+      params.get('refCode') ||
+      params.get('referralCode') ||
+      params.get('referral_code') ||
+      params.get('invite') ||
+      params.get('inviter');
     if (ref && ref.trim().length > 0) {
       const clean = ref.trim().toUpperCase();
       localStorage.setItem(CAPTURED_REF_KEY, clean);

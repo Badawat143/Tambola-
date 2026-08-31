@@ -48,17 +48,59 @@ import {
 const MainAppContent: React.FC = () => {
   const { settings, setActiveModal, setSelectedGameForPurchase, upcomingGames, openUserDashboard, authState, currentUser } = useTambola();
 
-  // URL Path State
+  // URL Path State - Directs to /register if arriving via referral link
   const [currentPath, setCurrentPath] = useState<string>(() => {
     if (typeof window !== 'undefined') {
-      return window.location.pathname || '/';
+      const path = window.location.pathname || '/';
+      const params = new URLSearchParams(window.location.search);
+      const ref =
+        params.get('ref') ||
+        params.get('referral') ||
+        params.get('r') ||
+        params.get('sponsor') ||
+        params.get('code') ||
+        params.get('refcode') ||
+        params.get('refCode') ||
+        params.get('referralCode');
+
+      // If user landed on root with a referral link and is not already logged in, route directly to /register
+      if (ref && (path === '/' || path === '')) {
+        const session = getUserSession();
+        if (!session) {
+          return '/register';
+        }
+      }
+      return path;
     }
     return '/';
   });
 
-  // Capture referral code on initial load
+  // Capture referral code on initial load and keep URL/history in sync
   useEffect(() => {
-    captureReferralCodeFromUrl();
+    const captured = captureReferralCodeFromUrl();
+    if (typeof window !== 'undefined') {
+      const path = window.location.pathname || '/';
+      const params = new URLSearchParams(window.location.search);
+      const hasRefQuery =
+        params.get('ref') ||
+        params.get('referral') ||
+        params.get('r') ||
+        params.get('sponsor') ||
+        params.get('code') ||
+        params.get('refcode') ||
+        params.get('refCode') ||
+        params.get('referralCode');
+
+      if (hasRefQuery && (path === '/' || path === '')) {
+        const session = getUserSession();
+        if (!session) {
+          setCurrentPath('/register');
+          try {
+            window.history.replaceState({}, '', `/register?ref=${encodeURIComponent(hasRefQuery)}`);
+          } catch {}
+        }
+      }
+    }
   }, []);
 
   // Sync with browser history & URL changes
@@ -74,8 +116,19 @@ const MainAppContent: React.FC = () => {
 
   const navigate = (path: string) => {
     if (typeof window !== 'undefined') {
-      window.history.pushState({}, '', path);
-      setCurrentPath(path.split('?')[0]);
+      const targetBase = path.split('?')[0];
+      let finalPath = path;
+
+      // If navigating to /register without explicit query, automatically attach cached referral code
+      if (targetBase.toLowerCase() === '/register' && !path.includes('?')) {
+        const cached = captureReferralCodeFromUrl();
+        if (cached) {
+          finalPath = `/register?ref=${encodeURIComponent(cached)}`;
+        }
+      }
+
+      window.history.pushState({}, '', finalPath);
+      setCurrentPath(targetBase);
       window.scrollTo({ top: 0, behavior: 'smooth' });
     }
   };

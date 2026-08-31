@@ -33,7 +33,24 @@ export const UserRegisterPage: React.FC<UserRegisterPageProps> = ({ onNavigate }
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
-  const [referralId, setReferralId] = useState('');
+  const [referralId, setReferralId] = useState<string>(() => {
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search);
+      const fromUrl =
+        params.get('ref') ||
+        params.get('referral') ||
+        params.get('r') ||
+        params.get('sponsor') ||
+        params.get('code') ||
+        params.get('refcode') ||
+        params.get('refCode') ||
+        params.get('referralCode');
+      if (fromUrl && fromUrl.trim().length > 0) {
+        return fromUrl.trim().toUpperCase();
+      }
+    }
+    return captureReferralCodeFromUrl() || '';
+  });
   const [stateOfResidence, setStateOfResidence] = useState('Maharashtra');
   const [agreeTerms, setAgreeTerms] = useState(true);
   const [showPassword, setShowPassword] = useState(false);
@@ -55,13 +72,13 @@ export const UserRegisterPage: React.FC<UserRegisterPageProps> = ({ onNavigate }
   const [verifiedSponsor, setVerifiedSponsor] = useState<{ name: string; id: string } | null>(null);
   const [copiedLink, setCopiedLink] = useState(false);
 
-  // Automatically capture and prefill referral ID from URL ?ref=AT10001
+  // Automatically capture and prefill referral ID from URL or storage
   useEffect(() => {
     const captured = captureReferralCodeFromUrl();
-    if (captured) {
+    if (captured && !referralId) {
       setReferralId(captured.toUpperCase());
     }
-  }, []);
+  }, [referralId]);
 
   // Check sponsor name dynamically from backend and allUsers
   useEffect(() => {

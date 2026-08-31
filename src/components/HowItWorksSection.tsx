@@ -16,7 +16,10 @@ export const HowItWorksSection: React.FC = () => {
       border: 'border-purple-400/40',
       actionText: 'Register Now',
       action: () => {
-        if (typeof window !== 'undefined') window.location.href = '/register';
+        if (typeof window !== 'undefined') {
+          const cached = localStorage.getItem('tambola_captured_ref_v1');
+          window.location.href = cached ? `/register?ref=${encodeURIComponent(cached)}` : '/register';
+        }
       },
     },
     {
