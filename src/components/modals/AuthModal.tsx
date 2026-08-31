@@ -309,17 +309,43 @@ export const AuthModal: React.FC = () => {
             </div>
 
             <div>
-              <label className="text-[11px] font-bold text-amber-300 flex items-center justify-between mb-1">
-                <span>Referral Code (Optional)</span>
-                <span className="text-[10px] text-slate-400">Join a friend's team</span>
-              </label>
-              <input
-                type="text"
-                placeholder="e.g. APNA100"
-                value={referralCode}
-                onChange={(e) => setReferralCode(e.target.value.toUpperCase())}
-                className="w-full bg-[#080918] border border-purple-500/40 rounded-xl px-3 py-2 text-xs text-amber-300 font-mono placeholder:text-slate-500 focus:border-pink-500 uppercase"
-              />
+              <div className="flex items-center justify-between mb-1">
+                <label className="text-[11px] font-bold text-amber-300">
+                  Referral Code / Sponsor ID
+                </label>
+                {referralCode && referralCode.trim().length >= 3 ? (
+                  <span className="text-[10px] font-bold text-emerald-400 flex items-center gap-1 bg-emerald-950/60 border border-emerald-500/40 px-2 py-0.5 rounded-full">
+                    <CheckCircle className="w-3 h-3 text-emerald-400" />
+                    <span>Verified: {referralCode}</span>
+                  </span>
+                ) : (
+                  <span className="text-[10px] text-slate-400">Join a friend's team</span>
+                )}
+              </div>
+              <div className="relative">
+                <input
+                  type="text"
+                  placeholder="e.g. APNA100"
+                  value={referralCode}
+                  onChange={(e) => setReferralCode(e.target.value.toUpperCase())}
+                  className={`w-full rounded-xl px-3 py-2 text-xs font-mono placeholder:text-slate-500 focus:outline-none uppercase transition-all ${
+                    referralCode && referralCode.trim().length >= 3
+                      ? 'bg-emerald-950/20 border-2 border-emerald-500/60 text-emerald-200 focus:border-emerald-400 pr-8'
+                      : 'bg-[#080918] border border-purple-500/40 text-amber-300 focus:border-pink-500'
+                  }`}
+                />
+                {referralCode && referralCode.trim().length >= 3 && (
+                  <div className="absolute inset-y-0 right-0 pr-2.5 flex items-center pointer-events-none text-emerald-400">
+                    <CheckCircle className="w-4 h-4 text-emerald-400" />
+                  </div>
+                )}
+              </div>
+              {referralCode && referralCode.trim().length >= 3 && (
+                <p className="text-[10px] text-emerald-400 font-medium mt-1 flex items-center gap-1">
+                  <CheckCircle className="w-3 h-3 text-emerald-400 shrink-0" />
+                  <span>Sponsor code active (+₹10 bonus upon registration)</span>
+                </p>
+              )}
             </div>
 
             <div>

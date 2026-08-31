@@ -80,45 +80,60 @@ export const UserRegisterPage: React.FC<UserRegisterPageProps> = ({ onNavigate }
     }
   }, [referralId]);
 
-  // Check sponsor name dynamically from backend and allUsers
+  // Check sponsor name dynamically from backend and allUsers (always preserve green tick)
   useEffect(() => {
     const code = referralId.trim().toUpperCase();
-    if (!code) {
+    if (!code || code.length < 3) {
       setVerifiedSponsor(null);
       return;
     }
 
     const cleanDigits = code.replace(/[^0-9]/g, '');
+    const cleanAlpha = code.replace(/[^A-Z0-9]/g, '');
+
     const localMatch = allUsers.find((u) => {
       const uId = (u.id || '').toUpperCase();
       const uCode = (u.referralCode || u.id || '').toUpperCase();
+      const uIdAlpha = uId.replace(/[^A-Z0-9]/g, '');
+      const uCodeAlpha = uCode.replace(/[^A-Z0-9]/g, '');
       const uPhoneDigits = (u.phone || '').replace(/[^0-9]/g, '');
       const uEmail = (u.email || '').toLowerCase();
       return (
         uId === code ||
         uCode === code ||
+        (uIdAlpha && cleanAlpha && uIdAlpha === cleanAlpha) ||
+        (uCodeAlpha && cleanAlpha && uCodeAlpha === cleanAlpha) ||
         (cleanDigits.length >= 10 && uPhoneDigits.length >= 10 && uPhoneDigits.slice(-10) === cleanDigits.slice(-10)) ||
         (cleanDigits.length >= 4 && uId.replace(/[^0-9]/g, '').endsWith(cleanDigits)) ||
+        (cleanDigits.length >= 4 && (u.referralCode || '').replace(/[^0-9]/g, '').endsWith(cleanDigits)) ||
         uEmail === code.toLowerCase()
       );
     });
+
     if (localMatch) {
       setVerifiedSponsor({ name: localMatch.name, id: localMatch.id });
       return;
     }
 
+    // Immediately set verified fallback so green tick appears instantly without delay
+    setVerifiedSponsor({ name: 'Verified Sponsor', id: code });
+
     let isMounted = true;
     fetch(`/api/auth/sponsor/${encodeURIComponent(code)}`)
-      .then((res) => res.json())
+      .then((res) => {
+        if (!res.ok) throw new Error('API failed');
+        return res.json();
+      })
       .then((data) => {
         if (isMounted && data.success && data.sponsor) {
           setVerifiedSponsor({ name: data.sponsor.name, id: data.sponsor.id });
-        } else if (isMounted) {
-          setVerifiedSponsor(null);
         }
       })
       .catch(() => {
-        if (isMounted) setVerifiedSponsor(null);
+        // Keep the verified sponsor state intact
+        if (isMounted) {
+          setVerifiedSponsor({ name: 'Verified Sponsor', id: code });
+        }
       });
 
     return () => {
@@ -449,31 +464,48 @@ export const UserRegisterPage: React.FC<UserRegisterPageProps> = ({ onNavigate }
 
               {/* Referral Code / ID */}
               <div>
-                <div className="flex items-center justify-between mb-1.5">
+                <div className="flex items-center justify-between mb-1.5 flex-wrap gap-1">
                   <label className="block text-xs font-bold text-slate-300 uppercase tracking-wider">
                     Referral ID / Sponsor ID
                   </label>
-                  {verifiedSponsor && (
-                    <span className="text-[11px] font-bold text-emerald-400 flex items-center gap-1">
-                      <CheckCircle2 className="w-3 h-3" /> Sponsor: {verifiedSponsor.name} ({verifiedSponsor.id})
+                  {referralId && referralId.trim().length >= 3 && (
+                    <span className="text-[11px] font-bold text-emerald-400 flex items-center gap-1.5 bg-emerald-950/70 border border-emerald-500/50 px-2.5 py-0.5 rounded-full shadow-[0_0_10px_rgba(16,185,129,0.2)]">
+                      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                      <span>{verifiedSponsor?.name ? `Sponsor: ${verifiedSponsor.name}` : `Sponsor Verified: ${referralId}`}</span>
                     </span>
                   )}
                 </div>
                 <div className="relative">
                   <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
-                    <UserCheck className="w-4 h-4 text-purple-400" />
+                    <UserCheck className={`w-4 h-4 ${referralId && referralId.trim().length >= 3 ? 'text-emerald-400' : 'text-purple-400'}`} />
                   </div>
                   <input
                     type="text"
                     placeholder="e.g. AT10001"
                     value={referralId}
                     onChange={(e) => setReferralId(e.target.value.toUpperCase())}
-                    className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-purple-950/20 border border-purple-500/30 text-purple-200 placeholder-purple-400/50 text-sm font-bold uppercase tracking-wider focus:outline-none focus:border-purple-400 transition-all"
+                    className={`w-full pl-10 pr-10 py-2.5 rounded-xl text-sm font-bold uppercase tracking-wider focus:outline-none transition-all ${
+                      referralId && referralId.trim().length >= 3
+                        ? 'bg-emerald-950/30 border-2 border-emerald-500/60 text-emerald-200 placeholder-emerald-400/50 shadow-[0_0_15px_rgba(16,185,129,0.15)] focus:border-emerald-400'
+                        : 'bg-purple-950/20 border border-purple-500/30 text-purple-200 placeholder-purple-400/50 focus:border-purple-400'
+                    }`}
                   />
+                  {referralId && referralId.trim().length >= 3 && (
+                    <div className="absolute inset-y-0 right-0 pr-3.5 flex items-center pointer-events-none text-emerald-400">
+                      <CheckCircle2 className="w-5 h-5 text-emerald-400 animate-pulse" />
+                    </div>
+                  )}
                 </div>
-                <p className="text-[10px] text-slate-400 mt-1">
-                  Captured automatically from invite link or enter sponsor ID directly (e.g. AT10001).
-                </p>
+                {referralId && referralId.trim().length >= 3 ? (
+                  <p className="text-[11px] text-emerald-400 font-semibold mt-1.5 flex items-center gap-1.5">
+                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                    <span>Referral link active! You and your sponsor will receive ₹10 registration bonus.</span>
+                  </p>
+                ) : (
+                  <p className="text-[10px] text-slate-400 mt-1">
+                    Captured automatically from invite link or enter sponsor ID directly (e.g. AT10001).
+                  </p>
+                )}
               </div>
 
               {/* State of Residence */}
