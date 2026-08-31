@@ -444,6 +444,33 @@
       "ageVerified": true,
       "stateOfResidence": "India",
       "isKycVerified": false
+    },
+    {
+      "id": "AT811505",
+      "name": "Firebase Test User",
+      "phone": "9871122334",
+      "email": "fbtest@example.com",
+      "password": "Password@123",
+      "referralCode": "APNA6LE",
+      "referredBy": "USR-101",
+      "referredByCode": "APNA100",
+      "sponsorName": "Rajesh Sharma",
+      "depositWallet": 0,
+      "ticketWallet": 0,
+      "winningWallet": 10,
+      "walletBalance": 10,
+      "referralEarnings": 0,
+      "directIncomeEarnings": 0,
+      "gameWinnings": 0,
+      "totalDeposited": 0,
+      "totalWithdrawn": 0,
+      "freeTicketsAvailable": 0,
+      "directReferralsCount": 0,
+      "role": "user",
+      "createdAt": "2026-08-31T23:24:40.241Z",
+      "ageVerified": true,
+      "stateOfResidence": "India",
+      "isKycVerified": false
     }
   ],
   "games": [
@@ -680,7 +707,7 @@
     "calledNumbers": [],
     "currentNumber": null,
     "isCalling": false,
-    "startTime": "2026-08-31T21:19:04.397Z",
+    "startTime": "2026-08-31T23:24:35.854Z",
     "winners": [],
     "prizes": [
       {

@@ -1,4 +1,5 @@
 import { initializeApp, getApps, getApp } from 'firebase/app';
+import { getAnalytics, isSupported as isAnalyticsSupported, logEvent, Analytics } from 'firebase/analytics';
 import {
   getFirestore,
   collection,
@@ -23,6 +24,7 @@ import firebaseConfig from '../../firebase-applet-config.json';
 let _firebaseApp: any = null;
 let _db: any = null;
 let _auth: any = null;
+let _analytics: Analytics | null = null;
 
 export function getFirebaseApp() {
   if (!_firebaseApp && typeof window !== 'undefined') {
@@ -33,6 +35,23 @@ export function getFirebaseApp() {
     }
   }
   return _firebaseApp;
+}
+
+export async function getFirebaseAnalytics(): Promise<Analytics | null> {
+  if (!_analytics && typeof window !== 'undefined') {
+    try {
+      const supported = await isAnalyticsSupported();
+      if (supported) {
+        const app = getFirebaseApp();
+        if (app) {
+          _analytics = getAnalytics(app);
+        }
+      }
+    } catch (err) {
+      console.warn('Firebase Analytics initialization warning:', err);
+    }
+  }
+  return _analytics;
 }
 
 export function getDb(): Firestore | null {
@@ -87,6 +106,8 @@ export {
   serverTimestamp,
   runTransaction,
   increment,
+  getAnalytics,
+  logEvent,
 };
 
 // Firestore collections references
