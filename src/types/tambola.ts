@@ -193,6 +193,7 @@ export interface DepositRecord {
   status: 'completed' | 'pending' | 'approved' | 'rejected';
   paymentScreenshotUrl?: string;
   adminApprovedBy?: string;
+  verifiedBy?: string;
   rejectionReason?: string;
   createdAt: string;
   verifiedAt?: string;

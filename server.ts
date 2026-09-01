@@ -2420,10 +2420,10 @@ app.post('/api/wallet/deposit-to-ticket', (req: Request, res: Response) => {
   }
 });
 
-// 7. Deposit Endpoint: Multiples of ₹100 (Min ₹100, Max ₹2,000)
+// 7. Deposit Endpoint: Multiples of ₹100 (Min ₹100, Max ₹2,000) - Pending Admin Confirmation
 app.post('/api/wallet/deposit', (req: Request, res: Response) => {
   try {
-    const { userId, userName, amount, paymentMethod, utrRef } = req.body;
+    const { userId, userName, amount, paymentMethod, utrRef, paymentScreenshotUrl } = req.body;
     const numAmount = Number(amount);
 
     if (isNaN(numAmount) || numAmount < 100 || numAmount > 2000) {
@@ -2434,6 +2434,11 @@ app.post('/api/wallet/deposit', (req: Request, res: Response) => {
       return res.status(400).json({ error: 'Deposit must be strictly in multiples of ₹100 (e.g. ₹100, ₹200, ₹300).' });
     }
 
+    if (!utrRef || utrRef.toString().trim().length < 4) {
+      return res.status(400).json({ error: 'Valid 12-digit UTR or Transaction reference number is required.' });
+    }
+
+    const cleanUtr = utrRef.toString().trim();
     const newDeposit = {
       id: `DEP-${Date.now().toString().slice(-6)}`,
       userId,
@@ -2441,36 +2446,110 @@ app.post('/api/wallet/deposit', (req: Request, res: Response) => {
       amount: numAmount,
       paymentMethod: paymentMethod || 'UPI',
       transactionId: `TXN-DEP-${Math.floor(1000000 + Math.random() * 9000000)}`,
-      utrRef: utrRef || `UTR-${Math.floor(100000000000 + Math.random() * 900000000000)}`,
-      status: 'completed',
+      utrRef: cleanUtr,
+      paymentScreenshotUrl: paymentScreenshotUrl || null,
+      status: 'pending',
       createdAt: new Date().toISOString(),
-      verifiedAt: new Date().toISOString(),
     };
 
     state.deposits.unshift(newDeposit);
-
-    // Update user balance
-    let user = state.users.find((u) => u.id === userId);
-    if (user) {
-      user.depositWallet = Math.round(((user.depositWallet || 0) + numAmount) * 100) / 100;
-      user.totalDeposited = Math.round(((user.totalDeposited || 0) + numAmount) * 100) / 100;
-      user.walletBalance = Math.round((user.depositWallet + (user.ticketWallet || 0) + (user.winningWallet || 0)) * 100) / 100;
-    }
+    saveStateToDisk();
 
     // Audit log
     state.auditLogs.unshift({
       id: `LOG-${Date.now()}`,
-      adminId: 'SYSTEM',
-      adminName: 'Payment Gateway Auto-Verify',
-      action: 'DEPOSIT_VERIFIED',
-      details: `User ${userName} (${userId}) deposited ₹${numAmount} via ${newDeposit.paymentMethod} (UTR: ${newDeposit.utrRef})`,
+      adminId: 'USER_SUBMITTED',
+      adminName: userName || userId,
+      action: 'DEPOSIT_PENDING_APPROVAL',
+      details: `User ${userName} (${userId}) submitted deposit request for ₹${numAmount} via ${newDeposit.paymentMethod} (UTR: ${newDeposit.utrRef}). Awaiting Admin approval.`,
       category: 'FINANCE',
       createdAt: new Date().toISOString(),
     });
 
-    res.json({ success: true, deposit: newDeposit, message: `₹${numAmount} successfully added to your Deposit Wallet.` });
+    res.json({
+      success: true,
+      deposit: newDeposit,
+      message: `डिपॉजिट अनुरोध (₹${numAmount}) सफलतापूर्वक सबमिट हो गया! एडमिन द्वारा UTR और स्क्रीनशॉट सत्यापन के बाद फंड वॉलेट में आ जाएगा।`,
+    });
   } catch (err: any) {
     res.status(500).json({ error: err.message || 'Internal server error processing deposit.' });
+  }
+});
+
+// 7b. Admin Approve / Reject Deposit
+app.post('/api/admin/deposit/action', (req: Request, res: Response) => {
+  try {
+    const { depositId, action, rejectionReason, adminId, adminName } = req.body;
+    const dep = state.deposits.find((d) => d.id === depositId);
+
+    if (!dep) {
+      return res.status(404).json({ error: 'Deposit record not found.' });
+    }
+
+    if (action === 'approve') {
+      if (dep.status === 'approved' || dep.status === 'completed') {
+        return res.status(400).json({ error: 'This deposit has already been approved.' });
+      }
+
+      dep.status = 'approved';
+      dep.verifiedAt = new Date().toISOString();
+      dep.verifiedBy = adminName || adminId || 'Super Admin';
+
+      // Credit user's depositWallet
+      let user = state.users.find((u) => u.id === dep.userId);
+      if (user) {
+        user.depositWallet = Math.round(((user.depositWallet || 0) + dep.amount) * 100) / 100;
+        user.totalDeposited = Math.round(((user.totalDeposited || 0) + dep.amount) * 100) / 100;
+        user.walletBalance = Math.round(
+          (user.depositWallet + (user.ticketWallet || 0) + (user.winningWallet || 0)) * 100
+        ) / 100;
+      }
+
+      state.auditLogs.unshift({
+        id: `LOG-${Date.now()}`,
+        adminId: adminId || 'ADM-MASTER',
+        adminName: adminName || 'Super Admin',
+        action: 'APPROVE_DEPOSIT',
+        details: `Approved ₹${dep.amount} deposit for ${dep.userName} (${dep.userId}). UTR: ${dep.utrRef}. Credited to Deposit Wallet.`,
+        category: 'FINANCE',
+        createdAt: new Date().toISOString(),
+      });
+
+      saveStateToDisk();
+
+      return res.json({
+        success: true,
+        deposit: dep,
+        message: `₹${dep.amount} deposit approved and credited to ${dep.userName}'s wallet.`,
+      });
+    } else if (action === 'reject') {
+      dep.status = 'rejected';
+      dep.rejectionReason = rejectionReason || 'Invalid UTR / Payment not received.';
+      dep.verifiedAt = new Date().toISOString();
+      dep.verifiedBy = adminName || adminId || 'Super Admin';
+
+      state.auditLogs.unshift({
+        id: `LOG-${Date.now()}`,
+        adminId: adminId || 'ADM-MASTER',
+        adminName: adminName || 'Super Admin',
+        action: 'REJECT_DEPOSIT',
+        details: `Rejected ₹${dep.amount} deposit for ${dep.userName} (${dep.userId}). Reason: ${dep.rejectionReason}`,
+        category: 'FINANCE',
+        createdAt: new Date().toISOString(),
+      });
+
+      saveStateToDisk();
+
+      return res.json({
+        success: true,
+        deposit: dep,
+        message: `Deposit of ₹${dep.amount} has been rejected.`,
+      });
+    }
+
+    return res.status(400).json({ error: 'Invalid action.' });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message || 'Internal server error.' });
   }
 });
 

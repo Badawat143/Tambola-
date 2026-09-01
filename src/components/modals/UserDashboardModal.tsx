@@ -62,6 +62,9 @@ import {
   MessageCircle,
   Mail,
   GitFork,
+  Upload,
+  Eye,
+  Image as ImageIcon,
 } from 'lucide-react';
 import { TAMBOLA_CALLS } from '../../utils/soundEffects';
 import { WinningPatternCode, User as UserType } from '../../types/tambola';
@@ -159,6 +162,10 @@ export const UserDashboardModal: React.FC<UserDashboardModalProps> = ({ isPageMo
   const [depositMethod, setDepositMethod] = useState<'UPI' | 'QR' | 'NetBanking'>('UPI');
   const [depositUtr, setDepositUtr] = useState<string>('');
   const [depositProof, setDepositProof] = useState<string | null>(null);
+  const [depositScreenshotName, setDepositScreenshotName] = useState<string | null>(null);
+  const [depositScreenshotSize, setDepositScreenshotSize] = useState<string | null>(null);
+  const [previewScreenshotUrl, setPreviewScreenshotUrl] = useState<string | null>(null);
+  const [isSubmittingDeposit, setIsSubmittingDeposit] = useState<boolean>(false);
   const [depositMsg, setDepositMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
   // Wallet Transfers State (P2P & Deposit -> Ticket)
@@ -288,23 +295,62 @@ export const UserDashboardModal: React.FC<UserDashboardModalProps> = ({ isPageMo
     setTimeout(() => setCopiedLink(false), 2000);
   };
 
+  const handleDepositScreenshotChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith('image/')) {
+      setDepositMsg({ type: 'error', text: 'कृपया केवल इमेज फ़ाइल (JPG, PNG, WebP) अपलोड करें।' });
+      return;
+    }
+
+    if (file.size > 5 * 1024 * 1024) {
+      setDepositMsg({ type: 'error', text: 'स्क्रीनशॉट फ़ाइल साइज़ 5MB से कम होना चाहिए।' });
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const base64 = event.target?.result as string;
+      setDepositProof(base64);
+      setDepositScreenshotName(file.name);
+      setDepositScreenshotSize(`${(file.size / 1024).toFixed(1)} KB`);
+    };
+    reader.readAsDataURL(file);
+  };
+
   const handleDepositSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     setDepositMsg(null);
+
+    const cleanUtr = depositUtr.trim();
+    if (!cleanUtr || cleanUtr.length < 4) {
+      setDepositMsg({ type: 'error', text: 'कृपया सही 12-अंकों का UPI UTR / Transaction No. दर्ज करें।' });
+      return;
+    }
+
     if (depositAmount < (settings.minDeposit || 100) || depositAmount > (settings.maxDeposit || 2000)) {
-      setDepositMsg({ type: 'error', text: `Deposit must be between ₹${settings.minDeposit || 100} and ₹${settings.maxDeposit || 2000}` });
+      setDepositMsg({ type: 'error', text: `डिपॉजिट राशि ₹${settings.minDeposit || 100} और ₹${settings.maxDeposit || 2000} के बीच होनी चाहिए।` });
       return;
     }
     if (depositAmount % (settings.depositMultiplesOf || 100) !== 0) {
-      setDepositMsg({ type: 'error', text: `Deposit amount must be in multiples of ₹${settings.depositMultiplesOf || 100}` });
+      setDepositMsg({ type: 'error', text: `डिपॉजिट राशि ₹${settings.depositMultiplesOf || 100} के गुणक में होनी चाहिए (उदा. 100, 200, 300...)` });
       return;
     }
-    const res = depositMoney(depositAmount, depositMethod, depositUtr || `UPI-TX-${Date.now().toString().slice(-6)}`);
+
+    setIsSubmittingDeposit(true);
+    const res = depositMoney(depositAmount, depositMethod, cleanUtr, depositProof || undefined);
+    setIsSubmittingDeposit(false);
+
     if (res.success) {
-      setDepositMsg({ type: 'success', text: 'Deposit request submitted successfully! Pending Admin verification.' });
+      setDepositMsg({
+        type: 'success',
+        text: 'डिपॉजिट अनुरोध (₹' + depositAmount + ') सफलतापूर्वक सबमिट हुआ! एडमिन द्वारा UTR और स्क्रीनशॉट सत्यापन के बाद फंड आपके वॉलेट में क्रेडिट होगा। (⏳ Pending Admin Verification)',
+      });
       setDepositUtr('');
       setDepositProof(null);
-      setTimeout(() => setDepositMsg(null), 4000);
+      setDepositScreenshotName(null);
+      setDepositScreenshotSize(null);
     } else {
       setDepositMsg({ type: 'error', text: res.message });
     }
@@ -1674,60 +1720,81 @@ export const UserDashboardModal: React.FC<UserDashboardModalProps> = ({ isPageMo
             )}
 
             {/* ================================================================= */}
-            {/* TAB 6: ➕ DEPOSIT */}
+            {/* TAB 6: ➕ DEPOSIT (Admin Verified Flow) */}
             {/* ================================================================= */}
             {activeTab === 'deposit' && (
               <div className="max-w-3xl mx-auto space-y-6 animate-fade-in">
                 <div className="p-6 sm:p-8 rounded-3xl bg-[#0e112d] border border-emerald-500/40 shadow-2xl space-y-6">
                   <div className="flex items-center justify-between pb-4 border-b border-white/10">
                     <div>
-                      <h3 className="text-xl font-black text-emerald-400">➕ DEPOSIT FUNDS</h3>
-                      <p className="text-xs text-slate-400">
-                        Min: ₹{settings.minDeposit || 100} • Max: ₹{settings.maxDeposit || 2000} (In multiples of ₹100)
+                      <h3 className="text-xl font-black text-emerald-400 flex items-center gap-2">
+                        <ArrowDownToLine className="w-6 h-6 text-emerald-400" />
+                        <span>➕ DEPOSIT FUNDS / फंड जमा करें</span>
+                      </h3>
+                      <p className="text-xs text-slate-400 mt-0.5">
+                        Min: ₹{settings.minDeposit || 100} • Max: ₹{settings.maxDeposit || 2000} (In multiples of ₹{settings.depositMultiplesOf || 100})
                       </p>
                     </div>
-                    <ArrowDownToLine className="w-7 h-7 text-emerald-400" />
+                    <span className="px-3 py-1 rounded-full bg-amber-400/20 text-amber-300 text-xs font-bold font-mono">
+                      Admin Verified
+                    </span>
                   </div>
 
                   {depositMsg && (
                     <div
-                      className={`p-4 rounded-2xl text-xs font-bold flex items-center gap-2 ${
+                      className={`p-4 rounded-2xl text-xs font-bold flex items-start gap-2.5 ${
                         depositMsg.type === 'success'
                           ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40'
                           : 'bg-red-500/20 text-red-300 border border-red-500/40'
                       }`}
                     >
-                      {depositMsg.type === 'success' ? <CheckCircle2 className="w-5 h-5" /> : <AlertCircle className="w-5 h-5" />}
-                      <span>{depositMsg.text}</span>
+                      {depositMsg.type === 'success' ? (
+                        <CheckCircle2 className="w-5 h-5 shrink-0 text-emerald-400 mt-0.5" />
+                      ) : (
+                        <AlertCircle className="w-5 h-5 shrink-0 text-red-400 mt-0.5" />
+                      )}
+                      <span className="leading-relaxed">{depositMsg.text}</span>
                     </div>
                   )}
 
-                  {/* QR & UPI ID Presentation */}
+                  {/* QR & Official UPI Presentation */}
                   <div className="p-5 rounded-2xl bg-black/60 border border-white/10 flex flex-col sm:flex-row items-center gap-6">
-                    <div className="p-2.5 rounded-2xl bg-white text-black shadow-lg">
+                    <div className="p-3 rounded-2xl bg-white text-slate-950 shadow-xl flex flex-col items-center">
                       <QrCode className="w-28 h-28" />
+                      <span className="text-[10px] font-black text-slate-800 uppercase mt-1">Scan & Pay UPI</span>
                     </div>
-                    <div className="space-y-2 text-center sm:text-left">
-                      <span className="text-xs text-slate-400">Official UPI ID for Deposit:</span>
-                      <div className="flex items-center gap-2 bg-white/10 px-3 py-1.5 rounded-xl">
-                        <span className="font-mono font-bold text-amber-300 text-sm">{settings.adminUpiId || 'apnatambola@upi'}</span>
+                    <div className="space-y-2.5 text-center sm:text-left flex-1">
+                      <span className="text-xs font-semibold text-slate-400">Official UPI ID for Deposit:</span>
+                      <div className="flex items-center justify-between sm:justify-start gap-2 bg-white/10 px-3.5 py-2 rounded-xl border border-white/10">
+                        <span className="font-mono font-bold text-amber-300 text-sm break-all">
+                          {settings.adminUpiId || 'apnatambola@upi'}
+                        </span>
                         <button
                           type="button"
-                          onClick={() => navigator.clipboard.writeText(settings.adminUpiId || 'apnatambola@upi')}
-                          className="text-slate-400 hover:text-white p-1"
+                          onClick={() => {
+                            navigator.clipboard.writeText(settings.adminUpiId || 'apnatambola@upi');
+                            setDepositMsg({ type: 'success', text: 'UPI ID क्लिपबोर्ड पर कॉपी हो गया!' });
+                            setTimeout(() => setDepositMsg(null), 2500);
+                          }}
+                          className="text-slate-400 hover:text-white p-1 rounded-lg bg-white/5 hover:bg-white/10 shrink-0"
+                          title="Copy UPI ID"
                         >
-                          <Copy className="w-4 h-4" />
+                          <Copy className="w-4 h-4 text-amber-400" />
                         </button>
                       </div>
-                      <p className="text-[11px] text-slate-400">
-                        Scan QR with PhonePe, Google Pay, or Paytm. Submit the 12-digit UTR below.
+                      <p className="text-[11px] text-slate-300 leading-relaxed">
+                        PhonePe, Google Pay, Paytm या BHIM से पेमेंट करें, फिर नीचे <strong className="text-amber-300">12-अंकों का UTR No.</strong> और <strong className="text-amber-300">स्क्रीनशॉट</strong> अपलोड करें।
                       </p>
                     </div>
                   </div>
 
                   <form onSubmit={handleDepositSubmit} className="space-y-4">
+                    {/* Amount Selector */}
                     <div>
-                      <label className="text-xs font-bold text-slate-300">Select or Enter Amount (₹)</label>
+                      <label className="text-xs font-bold text-slate-300 flex items-center justify-between">
+                        <span>Select or Enter Amount (₹)</span>
+                        <span className="text-[11px] text-slate-400">Multiples of ₹100</span>
+                      </label>
                       <div className="grid grid-cols-5 gap-2 mt-1.5 mb-2">
                         {[100, 200, 500, 1000, 2000].map((amt) => (
                           <button
@@ -1736,7 +1803,7 @@ export const UserDashboardModal: React.FC<UserDashboardModalProps> = ({ isPageMo
                             onClick={() => setDepositAmount(amt)}
                             className={`py-2 rounded-xl text-xs font-mono font-bold border transition-all ${
                               depositAmount === amt
-                                ? 'bg-emerald-500 text-slate-950 border-emerald-400 shadow-md shadow-emerald-500/30'
+                                ? 'bg-emerald-500 text-slate-950 border-emerald-400 shadow-md shadow-emerald-500/30 font-black'
                                 : 'bg-white/5 text-slate-300 border-white/10 hover:bg-white/10'
                             }`}
                           >
@@ -1744,25 +1811,29 @@ export const UserDashboardModal: React.FC<UserDashboardModalProps> = ({ isPageMo
                           </button>
                         ))}
                       </div>
-                      <input
-                        type="number"
-                        min={settings.minDeposit || 100}
-                        max={settings.maxDeposit || 2000}
-                        step={100}
-                        value={depositAmount}
-                        onChange={(e) => setDepositAmount(Number(e.target.value))}
-                        className="w-full px-4 py-2.5 rounded-xl bg-black/50 border border-white/15 text-emerald-400 text-lg font-mono font-black focus:outline-none focus:border-emerald-400"
-                        required
-                      />
+                      <div className="relative">
+                        <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 font-bold text-base">₹</span>
+                        <input
+                          type="number"
+                          min={settings.minDeposit || 100}
+                          max={settings.maxDeposit || 2000}
+                          step={100}
+                          value={depositAmount}
+                          onChange={(e) => setDepositAmount(Number(e.target.value))}
+                          className="w-full pl-8 pr-4 py-2.5 rounded-xl bg-black/50 border border-white/15 text-emerald-400 text-lg font-mono font-black focus:outline-none focus:border-emerald-400"
+                          required
+                        />
+                      </div>
                     </div>
 
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      {/* Payment Method */}
                       <div>
-                        <label className="text-xs font-bold text-slate-300">Payment Method</label>
+                        <label className="text-xs font-bold text-slate-300">Payment Method / माध्यम</label>
                         <select
                           value={depositMethod}
                           onChange={(e: any) => setDepositMethod(e.target.value)}
-                          className="w-full mt-1.5 px-3 py-2.5 rounded-xl bg-black/50 border border-white/15 text-xs text-white focus:outline-none"
+                          className="w-full mt-1.5 px-3 py-2.5 rounded-xl bg-black/50 border border-white/15 text-xs text-white focus:outline-none focus:border-emerald-400"
                         >
                           <option value="UPI">UPI App (PhonePe, GPay, Paytm)</option>
                           <option value="QR">QR Code Scanner</option>
@@ -1770,8 +1841,12 @@ export const UserDashboardModal: React.FC<UserDashboardModalProps> = ({ isPageMo
                         </select>
                       </div>
 
+                      {/* 12-Digit UTR Number */}
                       <div>
-                        <label className="text-xs font-bold text-slate-300">Transaction ID / 12-Digit UTR</label>
+                        <label className="text-xs font-bold text-slate-300 flex items-center justify-between">
+                          <span>12-Digit UTR / Ref No. (अनिवार्य)</span>
+                          <span className="text-[10px] text-amber-400 font-normal">Mandatory</span>
+                        </label>
                         <input
                           type="text"
                           placeholder="e.g. 423871928371"
@@ -1783,40 +1858,194 @@ export const UserDashboardModal: React.FC<UserDashboardModalProps> = ({ isPageMo
                       </div>
                     </div>
 
+                    {/* Payment Screenshot Upload Option */}
+                    <div className="space-y-1.5">
+                      <label className="text-xs font-bold text-slate-300 flex items-center justify-between">
+                        <span className="flex items-center gap-1.5">
+                          <ImageIcon className="w-3.5 h-3.5 text-emerald-400" />
+                          <span>Payment Screenshot Upload / भुगतान स्क्रीनशॉट</span>
+                        </span>
+                        <span className="text-[10px] text-slate-400">PNG, JPG, WebP (Max 5MB)</span>
+                      </label>
+
+                      {depositProof ? (
+                        <div className="p-3.5 rounded-2xl bg-emerald-950/30 border border-emerald-500/40 flex items-center justify-between gap-3">
+                          <div className="flex items-center gap-3 min-w-0">
+                            <img
+                              src={depositProof}
+                              alt="Payment Screenshot Preview"
+                              className="w-14 h-14 object-cover rounded-xl border border-emerald-400/40 shrink-0 cursor-pointer hover:opacity-90"
+                              onClick={() => setPreviewScreenshotUrl(depositProof)}
+                            />
+                            <div className="min-w-0">
+                              <p className="text-xs font-bold text-emerald-300 truncate">
+                                {depositScreenshotName || 'Payment_Receipt.jpg'}
+                              </p>
+                              <p className="text-[10px] text-slate-400 font-mono">
+                                {depositScreenshotSize || 'Uploaded'} • Ready for verification
+                              </p>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-1.5 shrink-0">
+                            <button
+                              type="button"
+                              onClick={() => setPreviewScreenshotUrl(depositProof)}
+                              className="p-2 rounded-xl bg-white/10 hover:bg-white/20 text-slate-200 text-xs font-bold flex items-center gap-1 cursor-pointer"
+                              title="View Full Size"
+                            >
+                              <Eye className="w-3.5 h-3.5" />
+                              <span className="hidden sm:inline text-[11px]">View</span>
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setDepositProof(null);
+                                setDepositScreenshotName(null);
+                                setDepositScreenshotSize(null);
+                              }}
+                              className="p-2 rounded-xl bg-red-500/20 hover:bg-red-500/30 text-red-300 text-xs font-bold flex items-center gap-1 cursor-pointer"
+                              title="Remove"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                              <span className="hidden sm:inline text-[11px]">Remove</span>
+                            </button>
+                          </div>
+                        </div>
+                      ) : (
+                        <label className="border-2 border-dashed border-white/20 hover:border-emerald-400/60 rounded-2xl p-4 flex flex-col items-center justify-center gap-2 cursor-pointer bg-white/[0.02] hover:bg-emerald-500/5 transition-all text-center">
+                          <input
+                            type="file"
+                            accept="image/*"
+                            onChange={handleDepositScreenshotChange}
+                            className="hidden"
+                          />
+                          <div className="w-10 h-10 rounded-full bg-emerald-500/20 text-emerald-400 flex items-center justify-center">
+                            <Upload className="w-5 h-5" />
+                          </div>
+                          <div>
+                            <p className="text-xs font-bold text-white">
+                              स्क्रीनशॉट अपलोड करने के लिए यहाँ क्लिक करें या ड्रैग करें
+                            </p>
+                            <p className="text-[10px] text-slate-400 mt-0.5">
+                              Payment receipt screenshot from PhonePe / Google Pay / Paytm
+                            </p>
+                          </div>
+                        </label>
+                      )}
+                    </div>
+
+                    {/* Security Notice */}
+                    <div className="p-3.5 rounded-2xl bg-amber-500/10 border border-amber-500/20 text-slate-300 text-xs flex items-start gap-2.5">
+                      <ShieldCheck className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
+                      <p className="text-[11px] leading-relaxed">
+                        <strong className="text-amber-300">एडमिन सत्यापन प्रक्रिया:</strong> सबमिट करने के बाद एडमिन द्वारा UTR और स्क्रीनशॉट की जांच की जाएगी। वेरिफिकेशन पूरा होने पर 5-15 मिनट में राशि आपके डिपॉजिट वॉलेट में क्रेडिट कर दी जाएगी।
+                      </p>
+                    </div>
+
                     <button
                       type="submit"
-                      className="w-full py-3.5 rounded-2xl bg-gradient-to-r from-emerald-500 to-teal-500 text-slate-950 font-black text-sm shadow-xl shadow-emerald-500/30 hover:opacity-95 cursor-pointer"
+                      disabled={isSubmittingDeposit}
+                      className="w-full py-3.5 rounded-2xl bg-gradient-to-r from-emerald-500 to-teal-500 text-slate-950 font-black text-sm shadow-xl shadow-emerald-500/30 hover:opacity-95 cursor-pointer disabled:opacity-50 flex items-center justify-center gap-2"
                     >
-                      SUBMIT DEPOSIT REQUEST
+                      {isSubmittingDeposit ? (
+                        <>
+                          <RefreshCw className="w-4 h-4 animate-spin" />
+                          <span>सबमिट हो रहा है...</span>
+                        </>
+                      ) : (
+                        <>
+                          <ArrowDownToLine className="w-4 h-4" />
+                          <span>जमा अनुरोध भेजें / SUBMIT DEPOSIT REQUEST</span>
+                        </>
+                      )}
                     </button>
                   </form>
 
                   {/* My Deposit Records Status */}
                   <div className="space-y-3 pt-4 border-t border-white/10">
-                    <h4 className="text-xs font-black uppercase text-slate-400">Recent Deposit History</h4>
+                    <div className="flex items-center justify-between">
+                      <h4 className="text-xs font-black uppercase text-slate-400">मेरी हालिया जमा हिस्ट्री / My Recent Deposits</h4>
+                      <button
+                        type="button"
+                        onClick={() => navigateToTab('transactions')}
+                        className="text-[11px] font-bold text-emerald-400 hover:underline"
+                      >
+                        View All →
+                      </button>
+                    </div>
                     <div className="space-y-2">
-                      {deposits.slice(0, 3).map((dep) => (
-                        <div
-                          key={dep.id}
-                          className="flex items-center justify-between p-3 rounded-xl bg-black/40 border border-white/5 text-xs"
-                        >
-                          <div>
-                            <p className="font-bold text-white">₹{dep.amount} via {dep.paymentMethod}</p>
-                            <p className="text-[10px] text-slate-500 font-mono">UTR: {dep.utrRef || dep.transactionId}</p>
-                          </div>
-                          <span
-                            className={`px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase ${
-                              dep.status === 'completed' || dep.status === 'approved'
-                                ? 'bg-emerald-500/20 text-emerald-300'
-                                : dep.status === 'pending'
-                                ? 'bg-amber-500/20 text-amber-300 animate-pulse'
-                                : 'bg-red-500/20 text-red-300'
-                            }`}
-                          >
-                            {dep.status}
-                          </span>
+                      {deposits.filter((d) => d.userId === currentUser.id).slice(0, 4).length === 0 ? (
+                        <div className="p-4 rounded-xl bg-black/30 border border-white/5 text-center text-xs text-slate-400">
+                          अभी तक कोई डिपॉजिट अनुरोध नहीं मिला। ऊपर दिए गए फॉर्म से अनुरोध सबमिट करें।
                         </div>
-                      ))}
+                      ) : (
+                        deposits
+                          .filter((d) => d.userId === currentUser.id)
+                          .slice(0, 4)
+                          .map((dep) => (
+                            <div
+                              key={dep.id}
+                              className="flex flex-col sm:flex-row sm:items-center justify-between p-3.5 rounded-xl bg-black/40 border border-white/5 text-xs gap-2.5"
+                            >
+                              <div className="flex items-center gap-3">
+                                {dep.paymentScreenshotUrl ? (
+                                  <img
+                                    src={dep.paymentScreenshotUrl}
+                                    alt="Receipt"
+                                    onClick={() => setPreviewScreenshotUrl(dep.paymentScreenshotUrl || null)}
+                                    className="w-10 h-10 object-cover rounded-lg border border-white/20 shrink-0 cursor-pointer hover:opacity-80"
+                                    title="Click to view full screenshot"
+                                  />
+                                ) : (
+                                  <div className="w-10 h-10 rounded-lg bg-white/5 border border-white/10 flex items-center justify-center text-slate-400 shrink-0">
+                                    <ArrowDownToLine className="w-4 h-4 text-emerald-400" />
+                                  </div>
+                                )}
+                                <div>
+                                  <div className="flex items-center gap-2">
+                                    <p className="font-black text-white text-sm font-mono">₹{dep.amount}</p>
+                                    <span className="text-[10px] text-slate-400">via {dep.paymentMethod}</span>
+                                  </div>
+                                  <p className="text-[10px] text-slate-400 font-mono flex items-center gap-1">
+                                    <span>UTR:</span>
+                                    <strong className="text-amber-300">{dep.utrRef || dep.transactionId}</strong>
+                                    <button
+                                      type="button"
+                                      onClick={() => navigator.clipboard.writeText(dep.utrRef || dep.transactionId)}
+                                      className="p-0.5 text-slate-500 hover:text-white"
+                                      title="Copy UTR"
+                                    >
+                                      <Copy className="w-3 h-3" />
+                                    </button>
+                                  </p>
+                                  {dep.rejectionReason && (
+                                    <p className="text-[10px] text-red-400 font-semibold mt-0.5">
+                                      कारण: {dep.rejectionReason}
+                                    </p>
+                                  )}
+                                </div>
+                              </div>
+
+                              <div className="flex items-center justify-between sm:justify-end gap-2 shrink-0">
+                                <span
+                                  className={`px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wider ${
+                                    dep.status === 'completed' || dep.status === 'approved'
+                                      ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
+                                      : dep.status === 'pending'
+                                      ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30 animate-pulse'
+                                      : 'bg-red-500/20 text-red-300 border border-red-500/30'
+                                  }`}
+                                >
+                                  {dep.status === 'pending'
+                                    ? '⏳ PENDING APPROVAL'
+                                    : dep.status === 'approved' || dep.status === 'completed'
+                                    ? '✅ APPROVED & CREDITED'
+                                    : '❌ REJECTED'}
+                                </span>
+                              </div>
+                            </div>
+                          ))
+                      )}
                     </div>
                   </div>
                 </div>
@@ -3545,6 +3774,58 @@ export const UserDashboardModal: React.FC<UserDashboardModalProps> = ({ isPageMo
             <span>Menu (23)</span>
           </button>
         </div>
+
+        {/* Screenshot Full-screen Lightbox Preview Modal */}
+        {previewScreenshotUrl && (
+          <div
+            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/90 backdrop-blur-md animate-fade-in"
+            onClick={() => setPreviewScreenshotUrl(null)}
+          >
+            <div
+              className="relative max-w-2xl w-full bg-[#0e112d] border border-emerald-500/50 rounded-3xl p-5 shadow-2xl space-y-4"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="flex items-center justify-between pb-3 border-b border-white/10">
+                <div className="flex items-center gap-2">
+                  <ImageIcon className="w-5 h-5 text-emerald-400" />
+                  <h4 className="text-base font-bold text-white">Payment Screenshot Preview / रसीद</h4>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setPreviewScreenshotUrl(null)}
+                  className="p-1.5 rounded-xl bg-white/10 hover:bg-white/20 text-slate-300 hover:text-white"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              <div className="max-h-[70vh] overflow-auto rounded-2xl bg-black/80 p-2 flex items-center justify-center border border-white/10">
+                <img
+                  src={previewScreenshotUrl}
+                  alt="Payment Proof Full"
+                  className="max-h-[65vh] w-auto object-contain rounded-xl"
+                />
+              </div>
+
+              <div className="flex items-center justify-end gap-3 pt-2">
+                <a
+                  href={previewScreenshotUrl}
+                  download="deposit-screenshot.png"
+                  className="px-4 py-2 rounded-xl bg-white/10 hover:bg-white/20 text-xs font-bold text-white flex items-center gap-1.5"
+                >
+                  <span>Download / डाउनलोड</span>
+                </a>
+                <button
+                  type="button"
+                  onClick={() => setPreviewScreenshotUrl(null)}
+                  className="px-5 py-2 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 text-xs font-black"
+                >
+                  Close / बंद करें
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
 
       </div>
   );

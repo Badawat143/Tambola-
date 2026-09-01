@@ -56,6 +56,8 @@ import {
   LayoutDashboard,
   Ticket,
   ArrowRight,
+  Copy,
+  Image as ImageIcon,
 } from 'lucide-react';
 import {
   SiteSettings,
@@ -282,6 +284,13 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({ isPageMode = f
 
   // Save Feedback
   const [saveSuccessMsg, setSaveSuccessMsg] = useState<string | null>(null);
+
+  // Deposit Management State
+  const [adminDepositFilter, setAdminDepositFilter] = useState<'all' | 'pending' | 'approved' | 'rejected'>('all');
+  const [adminDepositScreenshotPreview, setAdminDepositScreenshotPreview] = useState<string | null>(null);
+  const [rejectModalDepositId, setRejectModalDepositId] = useState<string | null>(null);
+  const [customRejectReason, setCustomRejectReason] = useState<string>('Invalid UTR / Payment Not Received in Bank');
+  const [depositActionFeedback, setDepositActionFeedback] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
   // Filtered Users by Search Query & Account Status
   const filteredUsers = allUsers.filter((u) => {
@@ -1911,62 +1920,237 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({ isPageMode = f
             {/* ================================================================= */}
             {activeTab === 'deposits' && (
               <div className="max-w-5xl mx-auto space-y-6 animate-fade-in">
-                <div className="flex items-center justify-between pb-2">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-2 border-b border-white/10">
                   <div>
-                    <h3 className="text-xl font-black text-white">💰 DEPOSIT MANAGEMENT</h3>
-                    <p className="text-xs text-slate-400">Review UPI UTRs, verify payment screenshots and credit Main Wallets</p>
+                    <h3 className="text-xl font-black text-white flex items-center gap-2">
+                      <ArrowDownToLine className="w-6 h-6 text-emerald-400" />
+                      <span>💰 DEPOSIT MANAGEMENT / जमा सत्यापन</span>
+                    </h3>
+                    <p className="text-xs text-slate-400 mt-0.5">
+                      Review UPI UTRs, verify payment screenshots, and approve or reject fund additions to Deposit Wallets
+                    </p>
                   </div>
-                  <span className="px-3 py-1 rounded-full bg-amber-400/20 text-amber-300 text-xs font-bold font-mono">
-                    Pending: {deposits.filter((d) => d.status === 'pending').length}
-                  </span>
+                  <div className="flex items-center gap-2">
+                    <span className="px-3.5 py-1 rounded-full bg-amber-400/20 text-amber-300 text-xs font-bold font-mono border border-amber-400/30">
+                      Pending Approvals: {deposits.filter((d) => d.status === 'pending').length}
+                    </span>
+                  </div>
                 </div>
 
-                <div className="space-y-3">
-                  {deposits.map((dep) => (
-                    <div
-                      key={dep.id}
-                      className="p-5 rounded-2xl bg-[#0e102a] border border-white/10 flex flex-col sm:flex-row items-center justify-between gap-4 shadow-xl"
-                    >
-                      <div className="space-y-1 text-center sm:text-left">
-                        <div className="flex items-center justify-center sm:justify-start gap-2">
-                          <span className="text-base font-black text-white font-mono">₹{dep.amount}</span>
-                          <span className="text-xs text-slate-400 font-bold">from {dep.userName} ({dep.userId})</span>
-                          <span
-                            className={`px-2 py-0.5 rounded-full text-[10px] font-black uppercase ${
-                              dep.status === 'approved' || dep.status === 'completed'
-                                ? 'bg-emerald-500/20 text-emerald-300'
-                                : dep.status === 'pending'
-                                ? 'bg-amber-500/20 text-amber-300 animate-pulse'
-                                : 'bg-red-500/20 text-red-300'
-                            }`}
-                          >
-                            {dep.status}
-                          </span>
-                        </div>
-                        <p className="text-xs text-slate-400 font-mono">
-                          Method: {dep.paymentMethod} • 12-Digit UTR: <strong className="text-amber-300">{dep.utrRef || dep.transactionId}</strong>
-                        </p>
-                        <p className="text-[10px] text-slate-500">{dep.createdAt}</p>
-                      </div>
+                {depositActionFeedback && (
+                  <div
+                    className={`p-4 rounded-2xl text-xs font-bold flex items-center gap-2 ${
+                      depositActionFeedback.type === 'success'
+                        ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40'
+                        : 'bg-red-500/20 text-red-300 border border-red-500/40'
+                    }`}
+                  >
+                    {depositActionFeedback.type === 'success' ? (
+                      <CheckCircle2 className="w-5 h-5 text-emerald-400 shrink-0" />
+                    ) : (
+                      <AlertTriangle className="w-5 h-5 text-red-400 shrink-0" />
+                    )}
+                    <span>{depositActionFeedback.text}</span>
+                  </div>
+                )}
 
-                      {dep.status === 'pending' && (
-                        <div className="flex items-center gap-2">
-                          <button
-                            onClick={() => approveDeposit(dep.id)}
-                            className="px-4 py-2 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black text-xs shadow-lg shadow-emerald-500/20 cursor-pointer"
-                          >
-                            ✓ APPROVE &amp; CREDIT
-                          </button>
-                          <button
-                            onClick={() => rejectDeposit(dep.id, 'Invalid UTR / Payment Not Received')}
-                            className="px-3 py-2 rounded-xl bg-red-500/20 hover:bg-red-500/30 text-red-300 border border-red-500/30 font-bold text-xs cursor-pointer"
-                          >
-                            ✕ REJECT
-                          </button>
+                {/* Filter Tabs */}
+                <div className="flex items-center gap-2 overflow-x-auto pb-1">
+                  {(['all', 'pending', 'approved', 'rejected'] as const).map((filter) => {
+                    const count =
+                      filter === 'all'
+                        ? deposits.length
+                        : filter === 'pending'
+                        ? deposits.filter((d) => d.status === 'pending').length
+                        : filter === 'approved'
+                        ? deposits.filter((d) => d.status === 'approved' || d.status === 'completed').length
+                        : deposits.filter((d) => d.status === 'rejected').length;
+
+                    return (
+                      <button
+                        key={filter}
+                        type="button"
+                        onClick={() => setAdminDepositFilter(filter)}
+                        className={`px-4 py-2 rounded-xl text-xs font-bold capitalize transition-all shrink-0 flex items-center gap-2 ${
+                          adminDepositFilter === filter
+                            ? 'bg-emerald-500 text-slate-950 shadow-md font-black'
+                            : 'bg-white/5 text-slate-300 hover:bg-white/10'
+                        }`}
+                      >
+                        <span>{filter}</span>
+                        <span
+                          className={`px-2 py-0.5 rounded-full text-[10px] font-mono ${
+                            adminDepositFilter === filter ? 'bg-black/30 text-white font-bold' : 'bg-white/10 text-slate-400'
+                          }`}
+                        >
+                          {count}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+
+                {/* Deposits List */}
+                <div className="space-y-3">
+                  {deposits
+                    .filter((d) => {
+                      if (adminDepositFilter === 'all') return true;
+                      if (adminDepositFilter === 'pending') return d.status === 'pending';
+                      if (adminDepositFilter === 'approved') return d.status === 'approved' || d.status === 'completed';
+                      if (adminDepositFilter === 'rejected') return d.status === 'rejected';
+                      return true;
+                    })
+                    .map((dep) => (
+                      <div
+                        key={dep.id}
+                        className={`p-5 rounded-2xl bg-[#0e102a] border transition-all flex flex-col md:flex-row items-start md:items-center justify-between gap-4 shadow-xl ${
+                          dep.status === 'pending'
+                            ? 'border-amber-500/40 bg-amber-950/10'
+                            : dep.status === 'approved' || dep.status === 'completed'
+                            ? 'border-emerald-500/20'
+                            : 'border-red-500/20 opacity-80'
+                        }`}
+                      >
+                        <div className="flex items-start gap-4 min-w-0 flex-1">
+                          {/* Screenshot Thumbnail */}
+                          {dep.paymentScreenshotUrl ? (
+                            <div className="relative group shrink-0">
+                              <img
+                                src={dep.paymentScreenshotUrl}
+                                alt="Payment Proof"
+                                onClick={() => setAdminDepositScreenshotPreview(dep.paymentScreenshotUrl || null)}
+                                className="w-16 h-16 object-cover rounded-xl border border-white/20 cursor-pointer hover:opacity-80 transition-all shadow-md"
+                              />
+                              <button
+                                type="button"
+                                onClick={() => setAdminDepositScreenshotPreview(dep.paymentScreenshotUrl || null)}
+                                className="absolute inset-0 bg-black/60 rounded-xl opacity-0 group-hover:opacity-100 flex items-center justify-center text-white text-[10px] font-bold transition-all"
+                              >
+                                <Eye className="w-4 h-4" />
+                              </button>
+                            </div>
+                          ) : (
+                            <div className="w-16 h-16 rounded-xl bg-white/5 border border-white/10 flex flex-col items-center justify-center text-slate-500 shrink-0">
+                              <ImageIcon className="w-6 h-6" />
+                              <span className="text-[9px] font-bold mt-1">No Proof</span>
+                            </div>
+                          )}
+
+                          {/* Info */}
+                          <div className="space-y-1 min-w-0 flex-1">
+                            <div className="flex flex-wrap items-center gap-2">
+                              <span className="text-lg font-black text-emerald-400 font-mono">₹{dep.amount}</span>
+                              <span className="text-xs text-white font-bold">{dep.userName}</span>
+                              <span className="text-[11px] text-slate-400 font-mono">({dep.userId})</span>
+                              <span
+                                className={`px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase ${
+                                  dep.status === 'approved' || dep.status === 'completed'
+                                    ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
+                                    : dep.status === 'pending'
+                                    ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30 animate-pulse'
+                                    : 'bg-red-500/20 text-red-300 border border-red-500/30'
+                                }`}
+                              >
+                                {dep.status}
+                              </span>
+                            </div>
+
+                            <div className="flex flex-wrap items-center gap-3 text-xs text-slate-300 font-mono">
+                              <span>Method: <strong>{dep.paymentMethod}</strong></span>
+                              <span>•</span>
+                              <span className="flex items-center gap-1.5">
+                                <span>UTR:</span>
+                                <strong className="text-amber-300 select-all">{dep.utrRef || dep.transactionId}</strong>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    navigator.clipboard.writeText(dep.utrRef || dep.transactionId);
+                                    setDepositActionFeedback({ type: 'success', text: `UTR ${dep.utrRef || dep.transactionId} copied to clipboard!` });
+                                    setTimeout(() => setDepositActionFeedback(null), 2500);
+                                  }}
+                                  className="p-1 rounded-lg bg-white/10 hover:bg-white/20 text-slate-300 hover:text-white"
+                                  title="Copy UTR"
+                                >
+                                  <Copy className="w-3 h-3" />
+                                </button>
+                              </span>
+                            </div>
+
+                            <div className="flex flex-wrap items-center gap-3 text-[10px] text-slate-500">
+                              <span>Created: {new Date(dep.createdAt).toLocaleString()}</span>
+                              {dep.verifiedAt && (
+                                <>
+                                  <span>•</span>
+                                  <span>Verified: {new Date(dep.verifiedAt).toLocaleString()} by {dep.verifiedBy || 'Admin'}</span>
+                                </>
+                              )}
+                            </div>
+
+                            {dep.rejectionReason && (
+                              <p className="text-xs text-red-400 font-semibold mt-1">
+                                Rejection Reason: {dep.rejectionReason}
+                              </p>
+                            )}
+                          </div>
                         </div>
-                      )}
+
+                        {/* Action Buttons */}
+                        <div className="flex items-center gap-2 shrink-0 self-end md:self-center">
+                          {dep.paymentScreenshotUrl && (
+                            <button
+                              type="button"
+                              onClick={() => setAdminDepositScreenshotPreview(dep.paymentScreenshotUrl || null)}
+                              className="px-3 py-2 rounded-xl bg-white/10 hover:bg-white/20 text-slate-200 font-bold text-xs flex items-center gap-1.5 cursor-pointer"
+                            >
+                              <Eye className="w-3.5 h-3.5" />
+                              <span>View Receipt</span>
+                            </button>
+                          )}
+
+                          {dep.status === 'pending' ? (
+                            <>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  const res = approveDeposit(dep.id);
+                                  if (res.success) {
+                                    setDepositActionFeedback({ type: 'success', text: `₹${dep.amount} deposit approved and credited to ${dep.userName}!` });
+                                  } else {
+                                    setDepositActionFeedback({ type: 'error', text: res.message });
+                                  }
+                                  setTimeout(() => setDepositActionFeedback(null), 3000);
+                                }}
+                                className="px-4 py-2 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black text-xs shadow-lg shadow-emerald-500/20 cursor-pointer flex items-center gap-1.5"
+                              >
+                                <CheckCircle2 className="w-4 h-4" />
+                                <span>✓ APPROVE & CREDIT</span>
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setRejectModalDepositId(dep.id);
+                                  setCustomRejectReason('Invalid UTR / Payment Not Received in Bank');
+                                }}
+                                className="px-3.5 py-2 rounded-xl bg-red-500/20 hover:bg-red-500/30 text-red-300 border border-red-500/30 font-bold text-xs cursor-pointer flex items-center gap-1.5"
+                              >
+                                <X className="w-4 h-4" />
+                                <span>✕ REJECT</span>
+                              </button>
+                            </>
+                          ) : (
+                            <span className="text-xs text-slate-500 font-mono italic">
+                              {dep.status === 'approved' || dep.status === 'completed' ? 'Credited to User Wallet' : 'Request Rejected'}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+
+                  {deposits.length === 0 && (
+                    <div className="p-8 rounded-2xl bg-[#0e102a] border border-white/10 text-center text-slate-400">
+                      No deposit records found in the system.
                     </div>
-                  ))}
+                  )}
                 </div>
               </div>
             )}
@@ -2885,6 +3069,156 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({ isPageMode = f
 
           </main>
         </div>
+
+        {/* Screenshot Lightbox Modal for Admin Review */}
+        {adminDepositScreenshotPreview && (
+          <div
+            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/90 backdrop-blur-md animate-fade-in"
+            onClick={() => setAdminDepositScreenshotPreview(null)}
+          >
+            <div
+              className="relative max-w-2xl w-full bg-[#0e112d] border border-emerald-500/50 rounded-3xl p-5 shadow-2xl space-y-4"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="flex items-center justify-between pb-3 border-b border-white/10">
+                <div className="flex items-center gap-2">
+                  <ImageIcon className="w-5 h-5 text-emerald-400" />
+                  <h4 className="text-base font-bold text-white">Payment Screenshot Inspection / भुगतान रसीद</h4>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setAdminDepositScreenshotPreview(null)}
+                  className="p-1.5 rounded-xl bg-white/10 hover:bg-white/20 text-slate-300 hover:text-white"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              <div className="max-h-[70vh] overflow-auto rounded-2xl bg-black/80 p-2 flex items-center justify-center border border-white/10">
+                <img
+                  src={adminDepositScreenshotPreview}
+                  alt="Payment Proof Full"
+                  className="max-h-[65vh] w-auto object-contain rounded-xl"
+                />
+              </div>
+
+              <div className="flex items-center justify-between pt-2">
+                <a
+                  href={adminDepositScreenshotPreview}
+                  download="user-deposit-screenshot.png"
+                  className="px-4 py-2 rounded-xl bg-white/10 hover:bg-white/20 text-xs font-bold text-white flex items-center gap-1.5"
+                >
+                  <Download className="w-4 h-4" />
+                  <span>Download / डाउनलोड</span>
+                </a>
+                <button
+                  type="button"
+                  onClick={() => setAdminDepositScreenshotPreview(null)}
+                  className="px-5 py-2 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 text-xs font-black"
+                >
+                  Close / बंद करें
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Reject Deposit Modal */}
+        {rejectModalDepositId && (
+          <div
+            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/90 backdrop-blur-md animate-fade-in"
+            onClick={() => setRejectModalDepositId(null)}
+          >
+            <div
+              className="relative max-w-md w-full bg-[#0e112d] border border-red-500/50 rounded-3xl p-6 shadow-2xl space-y-4"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="flex items-center justify-between pb-3 border-b border-white/10">
+                <div className="flex items-center gap-2 text-red-400">
+                  <AlertTriangle className="w-5 h-5" />
+                  <h4 className="text-base font-black">Reject Deposit Request</h4>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setRejectModalDepositId(null)}
+                  className="p-1.5 rounded-xl bg-white/10 hover:bg-white/20 text-slate-300 hover:text-white"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              <p className="text-xs text-slate-300">
+                Please select or enter the reason for rejecting this deposit. The user will be notified immediately.
+              </p>
+
+              {/* Preset Reason Chips */}
+              <div className="space-y-1.5">
+                <label className="text-[11px] font-bold text-slate-400">Quick Templates:</label>
+                <div className="flex flex-wrap gap-1.5">
+                  {[
+                    'Invalid UTR / Transaction number',
+                    'Payment not received in UPI / Bank',
+                    'Screenshot is blurred or invalid',
+                    'Incorrect amount transferred',
+                    'Duplicate submission / Already processed',
+                  ].map((preset) => (
+                    <button
+                      key={preset}
+                      type="button"
+                      onClick={() => setCustomRejectReason(preset)}
+                      className={`px-2.5 py-1 rounded-lg text-[11px] font-medium border transition-all ${
+                        customRejectReason === preset
+                          ? 'bg-red-500/20 text-red-300 border-red-500/40 font-bold'
+                          : 'bg-white/5 text-slate-400 border-white/10 hover:bg-white/10'
+                      }`}
+                    >
+                      {preset}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div>
+                <label className="text-[11px] font-bold text-slate-400">Custom Rejection Reason:</label>
+                <textarea
+                  value={customRejectReason}
+                  onChange={(e) => setCustomRejectReason(e.target.value)}
+                  rows={3}
+                  className="w-full mt-1.5 px-3.5 py-2.5 rounded-xl bg-black/50 border border-white/15 text-xs text-white focus:outline-none focus:border-red-400"
+                  placeholder="Enter rejection reason..."
+                />
+              </div>
+
+              <div className="flex items-center justify-end gap-2 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setRejectModalDepositId(null)}
+                  className="px-4 py-2 rounded-xl bg-white/10 hover:bg-white/20 text-slate-300 text-xs font-bold"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (rejectModalDepositId) {
+                      const res = rejectDeposit(rejectModalDepositId, customRejectReason);
+                      if (res.success) {
+                        setDepositActionFeedback({ type: 'success', text: `Deposit has been rejected.` });
+                      } else {
+                        setDepositActionFeedback({ type: 'error', text: res.message });
+                      }
+                      setRejectModalDepositId(null);
+                      setTimeout(() => setDepositActionFeedback(null), 3000);
+                    }
+                  }}
+                  className="px-5 py-2 rounded-xl bg-red-500 hover:bg-red-400 text-white text-xs font-black shadow-lg shadow-red-500/20"
+                >
+                  Confirm Rejection
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
 
       </div>
   );

@@ -180,7 +180,8 @@ interface TambolaContextType {
   depositMoney: (
     amount: number,
     method?: 'UPI' | 'QR' | 'NetBanking',
-    utr?: string
+    utr?: string,
+    screenshotUrl?: string
   ) => { success: boolean; message: string; deposit?: DepositRecord };
   submitManualDeposit: (
     amount: number,
@@ -1353,74 +1354,11 @@ export const TambolaProvider: React.FC<{ children: React.ReactNode }> = ({ child
     return { success: true, message: 'Bank details & UPI ID saved securely.' };
   };
 
-  // 2. DEPOSIT SYSTEM: Min ₹100, Multiples of ₹100, Max ₹2,000
-  const depositMoney = (amount: number, method: 'UPI' | 'QR' | 'NetBanking' = 'UPI', utr?: string) => {
-    const num = Number(amount);
-    if (isNaN(num) || num < 100 || num > 2000) {
-      return { success: false, message: 'Deposit amount must be between ₹100 and ₹2,000.' };
-    }
-    if (num % 100 !== 0) {
-      return { success: false, message: 'Deposit must be strictly in multiples of ₹100 (e.g. ₹100, ₹200, ₹300).' };
-    }
-
-    const newDeposit: DepositRecord = {
-      id: `DEP-${Math.floor(1000 + Math.random() * 9000)}`,
-      userId: currentUser.id,
-      userName: currentUser.name,
-      amount: num,
-      paymentMethod: method,
-      transactionId: `TXN-DEP-${Math.floor(1000000 + Math.random() * 9000000)}`,
-      utrRef: utr || `UTR-${Math.floor(100000000000 + Math.random() * 900000000000)}`,
-      status: 'completed',
-      createdAt: new Date().toISOString(),
-      verifiedAt: new Date().toISOString(),
-    };
-
-    const newDepositWallet = Math.round(((currentUser.depositWallet || 0) + num) * 100) / 100;
-    const newTotal = Math.round((newDepositWallet + (currentUser.ticketWallet || 0) + (currentUser.winningWallet || 0)) * 100) / 100;
-
-    const updatedUser: User = {
-      ...currentUser,
-      depositWallet: newDepositWallet,
-      walletBalance: newTotal,
-      totalDeposited: Math.round(((currentUser.totalDeposited || 0) + num) * 100) / 100,
-    };
-
-    setDeposits((prev) => [newDeposit, ...prev]);
-    setCurrentUser(updatedUser);
-    setAllUsers((prev) => prev.map((u) => (u.id === updatedUser.id ? updatedUser : u)));
-
-    // Audit Log
-    setAuditLogs((prev) => [
-      {
-        id: `LOG-${Date.now()}`,
-        adminId: 'SYSTEM_GATEWAY',
-        adminName: 'Instant UPI Webhook',
-        action: 'DEPOSIT_SUCCESS',
-        details: `User ${currentUser.name} (${currentUser.id}) deposited ₹${num} via ${method}. UTR: ${newDeposit.utrRef}`,
-        category: 'FINANCE',
-        createdAt: new Date().toISOString(),
-      },
-      ...prev,
-    ]);
-
-    // Notification
-    addNotification(
-      '💰 Deposit Successful',
-      `₹${num} added to your Main/Deposit wallet. Transaction ID: ${newDeposit.transactionId}`,
-      'deposit',
-      currentUser.id
-    );
-
-    soundFx.playNumberCalled();
-    return { success: true, message: `₹${num} successfully added to your Main/Deposit wallet!`, deposit: newDeposit };
-  };
-
-  // Submit Manual Deposit for Admin Review
-  const submitManualDeposit = (
+  // 2. DEPOSIT SYSTEM: Min ₹100, Multiples of ₹100, Max ₹2,000 (Pending Admin Approval)
+  const depositMoney = (
     amount: number,
     method: 'UPI' | 'QR' | 'NetBanking' = 'UPI',
-    utr: string,
+    utr?: string,
     screenshotUrl?: string
   ) => {
     const num = Number(amount);
@@ -1430,10 +1368,11 @@ export const TambolaProvider: React.FC<{ children: React.ReactNode }> = ({ child
     if (num % 100 !== 0) {
       return { success: false, message: 'Deposit must be strictly in multiples of ₹100 (e.g. ₹100, ₹200, ₹300).' };
     }
-    if (!utr || utr.trim().length < 6) {
+    if (!utr || utr.trim().length < 4) {
       return { success: false, message: 'Please enter a valid 12-digit UTR or Transaction reference number.' };
     }
 
+    const cleanUtr = utr.trim();
     const newDeposit: DepositRecord = {
       id: `DEP-${Math.floor(1000 + Math.random() * 9000)}`,
       userId: currentUser.id,
@@ -1441,35 +1380,65 @@ export const TambolaProvider: React.FC<{ children: React.ReactNode }> = ({ child
       amount: num,
       paymentMethod: method,
       transactionId: `TXN-DEP-${Math.floor(1000000 + Math.random() * 9000000)}`,
-      utrRef: utr.trim(),
-      paymentScreenshotUrl: screenshotUrl || 'https://images.unsplash.com/photo-1554224155-8d04cb21cd6c?w=400&auto=format&fit=crop&q=60',
+      utrRef: cleanUtr,
+      paymentScreenshotUrl: screenshotUrl || undefined,
       status: 'pending',
       createdAt: new Date().toISOString(),
     };
 
     setDeposits((prev) => [newDeposit, ...prev]);
 
+    // Send to backend API
+    fetch('/api/wallet/deposit', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        userId: currentUser.id,
+        userName: currentUser.name,
+        amount: num,
+        paymentMethod: method,
+        utrRef: cleanUtr,
+        paymentScreenshotUrl: screenshotUrl,
+      }),
+    }).catch((err) => console.warn('[Backend Deposit Sync Warn]:', err));
+
+    // Audit Log
     setAuditLogs((prev) => [
       {
         id: `LOG-${Date.now()}`,
         adminId: 'USER_ACTION',
         adminName: currentUser.name,
-        action: 'DEPOSIT_PENDING',
-        details: `User ${currentUser.name} (${currentUser.id}) submitted ₹${num} deposit via ${method}. UTR: ${utr.trim()}. Pending Admin approval.`,
+        action: 'DEPOSIT_PENDING_APPROVAL',
+        details: `User ${currentUser.name} (${currentUser.id}) submitted ₹${num} deposit via ${method}. UTR: ${cleanUtr}. Pending Admin approval.`,
         category: 'FINANCE',
         createdAt: new Date().toISOString(),
       },
       ...prev,
     ]);
 
+    // Notification
     addNotification(
       '⏳ Deposit Submitted for Verification',
-      `Your ₹${num} deposit with UTR ${utr.trim()} has been submitted. Admin will approve within 5-15 minutes.`,
+      `Your ₹${num} deposit with UTR ${cleanUtr} has been submitted. Admin will verify and credit your wallet.`,
       'deposit',
       currentUser.id
     );
 
-    return { success: true, message: 'Deposit submitted successfully! Funds will be credited upon Admin approval.', deposit: newDeposit };
+    return {
+      success: true,
+      message: `डिपॉजिट अनुरोध (₹${num}) सफलतापूर्वक सबमिट हुआ! एडमिन वेरिफिकेशन के बाद फंड वॉलेट में क्रेडिट होगा।`,
+      deposit: newDeposit,
+    };
+  };
+
+  // Submit Manual Deposit for Admin Review
+  const submitManualDeposit = (
+    amount: number,
+    method: 'UPI' | 'QR' | 'NetBanking' = 'UPI',
+    utr: string,
+    screenshotUrl?: string
+  ) => {
+    return depositMoney(amount, method, utr, screenshotUrl);
   };
 
   // Admin Approve Deposit
@@ -1491,6 +1460,18 @@ export const TambolaProvider: React.FC<{ children: React.ReactNode }> = ({ child
         : d
     );
     setDeposits(updatedDeposits);
+
+    // Call server endpoint
+    fetch('/api/admin/deposit/action', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        depositId,
+        action: 'approve',
+        adminId,
+        adminName: 'Super Admin',
+      }),
+    }).catch((err) => console.warn('[Backend Deposit Action Warn]:', err));
 
     // Credit user's depositWallet
     setAllUsers((prev) =>
@@ -1528,7 +1509,7 @@ export const TambolaProvider: React.FC<{ children: React.ReactNode }> = ({ child
         adminId,
         adminName: 'Super Admin',
         action: 'APPROVE_DEPOSIT',
-        details: `Approved ₹${dep.amount} deposit for ${dep.userName} (${dep.userId}). UTR: ${dep.utrRef}`,
+        details: `Approved ₹${dep.amount} deposit for ${dep.userName} (${dep.userId}). UTR: ${dep.utrRef}. Credited to Deposit Wallet.`,
         category: 'FINANCE',
         createdAt: new Date().toISOString(),
       },
@@ -1542,6 +1523,7 @@ export const TambolaProvider: React.FC<{ children: React.ReactNode }> = ({ child
       dep.userId
     );
 
+    soundFx.playNumberCalled();
     return { success: true, message: `Deposit of ₹${dep.amount} approved and credited.` };
   };
 
@@ -1550,12 +1532,13 @@ export const TambolaProvider: React.FC<{ children: React.ReactNode }> = ({ child
     const dep = deposits.find((d) => d.id === depositId);
     if (!dep) return { success: false, message: 'Deposit record not found.' };
 
+    const reason = rejectionReason || 'Invalid UTR or payment not received.';
     const updatedDeposits = deposits.map((d) =>
       d.id === depositId
         ? {
             ...d,
             status: 'rejected' as const,
-            rejectionReason: rejectionReason || 'Invalid UTR or payment not received.',
+            rejectionReason: reason,
             verifiedAt: new Date().toISOString(),
             verifiedBy: 'Super Admin',
           }
@@ -1563,13 +1546,25 @@ export const TambolaProvider: React.FC<{ children: React.ReactNode }> = ({ child
     );
     setDeposits(updatedDeposits);
 
+    fetch('/api/admin/deposit/action', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        depositId,
+        action: 'reject',
+        rejectionReason: reason,
+        adminId,
+        adminName: 'Super Admin',
+      }),
+    }).catch((err) => console.warn('[Backend Deposit Reject Action Warn]:', err));
+
     setAuditLogs((prev) => [
       {
         id: `LOG-${Date.now()}`,
         adminId,
         adminName: 'Super Admin',
         action: 'REJECT_DEPOSIT',
-        details: `Rejected ₹${dep.amount} deposit for ${dep.userName}. Reason: ${rejectionReason}`,
+        details: `Rejected ₹${dep.amount} deposit for ${dep.userName}. Reason: ${reason}`,
         category: 'FINANCE',
         createdAt: new Date().toISOString(),
       },
@@ -1578,7 +1573,7 @@ export const TambolaProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
     addNotification(
       '❌ Deposit Rejected',
-      `Your ₹${dep.amount} deposit was rejected. Reason: ${rejectionReason}`,
+      `Your ₹${dep.amount} deposit was rejected. Reason: ${reason}`,
       'deposit',
       dep.userId
     );
