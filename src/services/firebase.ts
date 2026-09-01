@@ -18,7 +18,7 @@ import {
   increment,
   Firestore,
 } from 'firebase/firestore';
-import { getAuth, GoogleAuthProvider } from 'firebase/auth';
+import { getAuth, GoogleAuthProvider, signInWithPopup } from 'firebase/auth';
 import firebaseConfig from '../../firebase-applet-config.json';
 
 let _firebaseApp: any = null;
@@ -90,6 +90,47 @@ export const getGoogleProvider = () => {
     return null;
   }
 };
+
+/**
+ * Sign in with Google using Firebase Auth popup
+ */
+export async function signInWithFirebaseGoogle(): Promise<{
+  success: boolean;
+  user?: {
+    uid: string;
+    email: string | null;
+    displayName: string | null;
+    photoURL: string | null;
+  };
+  error?: string;
+}> {
+  try {
+    const auth = getFirebaseAuth();
+    if (!auth) {
+      return { success: false, error: 'Firebase Auth is not initialized.' };
+    }
+    const provider = new GoogleAuthProvider();
+    provider.setCustomParameters({ prompt: 'select_account' });
+    const result = await signInWithPopup(auth, provider);
+    const fbUser = result.user;
+
+    return {
+      success: true,
+      user: {
+        uid: fbUser.uid,
+        email: fbUser.email,
+        displayName: fbUser.displayName,
+        photoURL: fbUser.photoURL,
+      },
+    };
+  } catch (err: any) {
+    console.warn('[Firebase Google Sign-In Error]:', err);
+    return {
+      success: false,
+      error: err.message || 'Google Sign-In failed or was cancelled.',
+    };
+  }
+}
 
 export {
   collection,

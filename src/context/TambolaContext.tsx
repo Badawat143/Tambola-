@@ -6,6 +6,7 @@ import {
   recordTransactionToFirestore,
   recordWinnerToFirestore,
   registerUserWithFirestoreTransaction,
+  signInWithFirebaseGoogle,
 } from '../services/firebase';
 import {
   getSupabase,
@@ -167,6 +168,7 @@ interface TambolaContextType {
     phoneOrEmail: string,
     password?: string
   ) => { success: boolean; message: string; user?: User };
+  loginWithGoogle: () => Promise<{ success: boolean; message: string; user?: User }>;
   logoutUser: () => void;
   toggleSound: () => boolean;
   toggleSpeechCaller: () => boolean;
@@ -1205,6 +1207,72 @@ export const TambolaProvider: React.FC<{ children: React.ReactNode }> = ({ child
       success: false,
       message: 'No registered user found with this Mobile/Email. Please register a new account or use a demo account.',
     };
+  };
+
+  // Google Sign-In with Firebase Auth
+  const loginWithGoogle = async (): Promise<{ success: boolean; message: string; user?: User }> => {
+    try {
+      const fbResult = await signInWithFirebaseGoogle();
+      if (!fbResult.success || !fbResult.user) {
+        return {
+          success: false,
+          message: fbResult.error || 'Google Sign-In was cancelled or failed.',
+        };
+      }
+
+      const { email, displayName, uid } = fbResult.user;
+      const cleanEmail = (email || '').toLowerCase().trim();
+      const userName = displayName || cleanEmail.split('@')[0] || 'Google Player';
+
+      // Check if user already exists
+      let existing = allUsers.find(
+        (u) =>
+          (u.email && u.email.toLowerCase() === cleanEmail) ||
+          u.id === uid ||
+          u.id === `FB_${uid}`
+      );
+
+      if (existing) {
+        setCurrentUser(existing);
+        setUserSession(existing);
+        syncUserToFirestore(existing);
+        return {
+          success: true,
+          message: `Welcome back, ${existing.name}! Signed in via Google.`,
+          user: existing,
+        };
+      }
+
+      // If user does not exist yet, register new user with ₹10 welcome bonus and atomic referral
+      const regResult = await registerUser(
+        userName,
+        '987' + Math.floor(1000000 + Math.random() * 9000000).toString(),
+        cleanEmail,
+        getCachedReferralCode() || undefined,
+        'Maharashtra',
+        'GoogleAuth@2026'
+      );
+
+      if (regResult.success && regResult.user) {
+        return {
+          success: true,
+          message: `Welcome, ${userName}! Your account has been created via Google with ₹10 Bonus.`,
+          user: regResult.user,
+        };
+      }
+
+      return {
+        success: true,
+        message: `Signed in with Google as ${userName}.`,
+        user: regResult.user,
+      };
+    } catch (err: any) {
+      console.warn('[Firebase Google Auth Error]:', err);
+      return {
+        success: false,
+        message: err.message || 'Failed to authenticate with Google.',
+      };
+    }
   };
 
   const logoutUser = () => {
@@ -3186,6 +3254,7 @@ export const TambolaProvider: React.FC<{ children: React.ReactNode }> = ({ child
         syncFromBackend,
         registerUser,
         loginUser,
+        loginWithGoogle,
         logoutUser,
         toggleSound,
         toggleSpeechCaller,

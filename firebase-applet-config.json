@@ -1,9 +1,12 @@
 {
-  "apiKey": "AIzaSyB4-Ln7EixKMNSbPutZOxeJCm_PNsEWc8I",
-  "authDomain": "new-t-6fa49.firebaseapp.com",
-  "projectId": "new-t-6fa49",
-  "storageBucket": "new-t-6fa49.firebasestorage.app",
-  "messagingSenderId": "119744558032",
-  "appId": "1:119744558032:web:6ac26ca25c7f706165bfd5",
-  "measurementId": "G-L2YJ9HP67J"
+  "projectId": "decisive-depth-mthgf",
+  "appId": "1:947864648388:web:d49358f03534f8f792e791",
+  "apiKey": "AIzaSyBvbMIwAaDhY1ZYxnNooIJDtCr8dz1TFTE",
+  "authDomain": "decisive-depth-mthgf.firebaseapp.com",
+  "firestoreDatabaseId": "ai-studio-apnatambola-3198ea15-dc72-4289-8867-5f3c4daa3026",
+  "storageBucket": "decisive-depth-mthgf.firebasestorage.app",
+  "messagingSenderId": "947864648388",
+  "measurementId": "",
+  "oAuthClientId": "947864648388-q4kvs1ah82aq7d37656u4gc441d90vog.apps.googleusercontent.com",
+  "recaptchaSiteKey": ""
 }
