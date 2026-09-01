@@ -8,6 +8,7 @@ import {
   getDoc,
   getDocs,
   updateDoc,
+  deleteDoc,
   onSnapshot,
   query,
   where,
@@ -544,3 +545,19 @@ export async function recordWinnerToFirestore(winner: any) {
     console.warn('Firestore record winner error:', error);
   }
 }
+
+/**
+ * Delete ticket from Firestore
+ */
+export async function deleteTicketFromFirestore(ticketId: string) {
+  try {
+    if (!ticketId) return;
+    const firestoreDb = getDb();
+    if (!firestoreDb) return;
+    const ticketRef = doc(firestoreDb, COLLECTIONS.TICKETS, ticketId);
+    await deleteDoc(ticketRef);
+  } catch (error) {
+    console.warn('Firestore delete ticket error:', error);
+  }
+}
+

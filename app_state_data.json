@@ -8,8 +8,6 @@
       "password": "Password@123",
       "referralCode": "APNA100",
       "referredBy": null,
-      "referredByCode": null,
-      "sponsorName": null,
       "depositWallet": 650,
       "ticketWallet": 200,
       "winningWallet": 400,
@@ -20,12 +18,14 @@
       "totalDeposited": 3000,
       "totalWithdrawn": 1500,
       "freeTicketsAvailable": 0,
-      "directReferralsCount": 2,
       "role": "user",
       "createdAt": "2026-08-10T10:00:00.000Z",
       "ageVerified": true,
       "stateOfResidence": "Maharashtra",
-      "isKycVerified": true
+      "isKycVerified": true,
+      "referredByCode": null,
+      "sponsorName": null,
+      "directReferralsCount": 6
     },
     {
       "id": "USR-102",
@@ -35,8 +35,6 @@
       "password": "Password@123",
       "referralCode": "APNA200",
       "referredBy": "USR-101",
-      "referredByCode": "APNA100",
-      "sponsorName": "Rajesh Sharma",
       "depositWallet": 400,
       "ticketWallet": 150,
       "winningWallet": 250,
@@ -47,12 +45,14 @@
       "totalDeposited": 1200,
       "totalWithdrawn": 400,
       "freeTicketsAvailable": 0,
-      "directReferralsCount": 1,
       "role": "user",
       "createdAt": "2026-08-12T11:30:00.000Z",
       "ageVerified": true,
       "stateOfResidence": "Delhi",
-      "isKycVerified": true
+      "isKycVerified": true,
+      "referredByCode": "APNA100",
+      "sponsorName": "Rajesh Sharma",
+      "directReferralsCount": 1
     },
     {
       "id": "USR-103",
@@ -62,8 +62,6 @@
       "password": "Password@123",
       "referralCode": "APNA300",
       "referredBy": "USR-101",
-      "referredByCode": "APNA100",
-      "sponsorName": "Rajesh Sharma",
       "depositWallet": 300,
       "ticketWallet": 100,
       "winningWallet": 250,
@@ -74,12 +72,14 @@
       "totalDeposited": 1500,
       "totalWithdrawn": 600,
       "freeTicketsAvailable": 0,
-      "directReferralsCount": 1,
       "role": "user",
       "createdAt": "2026-08-14T14:15:00.000Z",
       "ageVerified": true,
       "stateOfResidence": "Gujarat",
-      "isKycVerified": true
+      "isKycVerified": true,
+      "referredByCode": "APNA100",
+      "sponsorName": "Rajesh Sharma",
+      "directReferralsCount": 1
     },
     {
       "id": "USR-104",
@@ -89,8 +89,6 @@
       "password": "Password@123",
       "referralCode": "APNA400",
       "referredBy": "USR-102",
-      "referredByCode": "APNA200",
-      "sponsorName": "Pooja Verma",
       "depositWallet": 200,
       "ticketWallet": 100,
       "winningWallet": 100,
@@ -101,12 +99,14 @@
       "totalDeposited": 600,
       "totalWithdrawn": 0,
       "freeTicketsAvailable": 0,
-      "directReferralsCount": 1,
       "role": "user",
       "createdAt": "2026-08-16T09:45:00.000Z",
       "ageVerified": true,
       "stateOfResidence": "Karnataka",
-      "isKycVerified": true
+      "isKycVerified": true,
+      "referredByCode": "APNA200",
+      "sponsorName": "Pooja Verma",
+      "directReferralsCount": 1
     },
     {
       "id": "USR-105",
@@ -116,8 +116,6 @@
       "password": "Password@123",
       "referralCode": "APNA500",
       "referredBy": "USR-103",
-      "referredByCode": "APNA300",
-      "sponsorName": "Amit Patel",
       "depositWallet": 300,
       "ticketWallet": 50,
       "winningWallet": 200,
@@ -128,12 +126,14 @@
       "totalDeposited": 800,
       "totalWithdrawn": 250,
       "freeTicketsAvailable": 0,
-      "directReferralsCount": 0,
       "role": "user",
       "createdAt": "2026-08-18T16:20:00.000Z",
       "ageVerified": true,
       "stateOfResidence": "Uttar Pradesh",
-      "isKycVerified": true
+      "isKycVerified": true,
+      "referredByCode": "APNA300",
+      "sponsorName": "Amit Patel",
+      "directReferralsCount": 0
     },
     {
       "id": "USR-106",
@@ -143,8 +143,6 @@
       "password": "Password@123",
       "referralCode": "APNA600",
       "referredBy": "USR-104",
-      "referredByCode": "APNA400",
-      "sponsorName": "Sneha Roy",
       "depositWallet": 150,
       "ticketWallet": 50,
       "winningWallet": 50,
@@ -155,12 +153,14 @@
       "totalDeposited": 400,
       "totalWithdrawn": 0,
       "freeTicketsAvailable": 0,
-      "directReferralsCount": 0,
       "role": "user",
       "createdAt": "2026-08-20T12:10:00.000Z",
       "ageVerified": true,
       "stateOfResidence": "Rajasthan",
-      "isKycVerified": true
+      "isKycVerified": true,
+      "referredByCode": "APNA400",
+      "sponsorName": "Sneha Roy",
+      "directReferralsCount": 0
     },
     {
       "id": "AT10245",
@@ -184,7 +184,10 @@
       "createdAt": "2026-08-01T10:00:00.000Z",
       "ageVerified": true,
       "stateOfResidence": "Maharashtra",
-      "isKycVerified": true
+      "isKycVerified": true,
+      "referredByCode": "AT10001",
+      "sponsorName": "Super Admin",
+      "directReferralsCount": 0
     },
     {
       "id": "AT10001",
@@ -210,7 +213,8 @@
       "createdAt": "2026-07-01T10:00:00.000Z",
       "ageVerified": true,
       "stateOfResidence": "Delhi",
-      "isKycVerified": true
+      "isKycVerified": true,
+      "directReferralsCount": 2
     },
     {
       "id": "USR-ADMIN",
@@ -233,7 +237,8 @@
       "createdAt": "2026-08-01T00:00:00.000Z",
       "ageVerified": true,
       "stateOfResidence": "Delhi",
-      "isKycVerified": true
+      "isKycVerified": true,
+      "directReferralsCount": 2
     },
     {
       "id": "AT915359",
@@ -257,7 +262,8 @@
       "createdAt": "2026-08-31T20:59:44.313Z",
       "ageVerified": true,
       "stateOfResidence": "India",
-      "isKycVerified": false
+      "isKycVerified": false,
+      "directReferralsCount": 0
     },
     {
       "id": "AT392476",
@@ -281,7 +287,8 @@
       "createdAt": "2026-08-31T20:59:44.328Z",
       "ageVerified": true,
       "stateOfResidence": "India",
-      "isKycVerified": false
+      "isKycVerified": false,
+      "directReferralsCount": 0
     },
     {
       "id": "AT338721",
@@ -305,7 +312,10 @@
       "createdAt": "2026-08-31T21:00:18.385Z",
       "ageVerified": true,
       "stateOfResidence": "India",
-      "isKycVerified": false
+      "isKycVerified": false,
+      "referredByCode": "APNA100",
+      "sponsorName": "Rajesh Sharma",
+      "directReferralsCount": 1
     },
     {
       "id": "AT147878",
@@ -329,7 +339,10 @@
       "createdAt": "2026-08-31T21:00:18.401Z",
       "ageVerified": true,
       "stateOfResidence": "India",
-      "isKycVerified": false
+      "isKycVerified": false,
+      "referredByCode": "APNAUG5",
+      "sponsorName": "Simulated User B",
+      "directReferralsCount": 0
     },
     {
       "id": "AT597167",
@@ -353,7 +366,10 @@
       "createdAt": "2026-08-31T21:04:34.769Z",
       "ageVerified": true,
       "stateOfResidence": "Maharashtra",
-      "isKycVerified": false
+      "isKycVerified": false,
+      "referredByCode": "AT10001",
+      "sponsorName": "Super Admin",
+      "directReferralsCount": 0
     },
     {
       "id": "AT718792",
@@ -489,6 +505,117 @@
       "ageVerified": true,
       "stateOfResidence": "India",
       "isKycVerified": false
+    },
+    {
+      "referralEarnings": 0,
+      "ticketWallet": 0,
+      "freeTicketsAvailable": 0,
+      "sponsorName": null,
+      "totalWithdrawn": 0,
+      "password": "123456",
+      "id": "AT711434",
+      "winningWallet": 10,
+      "updatedAt": {
+        "type": "firestore/timestamp/1.0",
+        "seconds": 1788264210,
+        "nanoseconds": 882000000
+      },
+      "role": "user",
+      "phone": "6532145678",
+      "directIncomeEarnings": 0,
+      "directReferralsCount": 0,
+      "stateOfResidence": "Gujarat",
+      "walletBalance": 10,
+      "termsAccepted": true,
+      "createdAt": {
+        "type": "firestore/timestamp/1.0",
+        "seconds": 1788264210,
+        "nanoseconds": 882000000
+      },
+      "referralCode": "APNA6KX",
+      "email": "ravi1@gmail.com",
+      "totalDeposited": 0,
+      "isKycVerified": false,
+      "gameWinnings": 0,
+      "name": "Ravi",
+      "depositWallet": 0,
+      "referredByCode": "AT578579",
+      "referredBy": "AT578579",
+      "ageVerified": true
+    },
+    {
+      "stateOfResidence": "Maharashtra",
+      "referredBy": "AT578579",
+      "walletBalance": 10,
+      "isKycVerified": false,
+      "termsAccepted": true,
+      "password": "123456",
+      "phone": "8529637410",
+      "createdAt": {
+        "type": "firestore/timestamp/1.0",
+        "seconds": 1788266294,
+        "nanoseconds": 810000000
+      },
+      "depositWallet": 0,
+      "referralCode": "APNAHDV",
+      "name": "Rav",
+      "id": "AT749842",
+      "ageVerified": true,
+      "gameWinnings": 0,
+      "totalWithdrawn": 0,
+      "email": "ravi@gmail.com",
+      "referralEarnings": 0,
+      "sponsorName": null,
+      "freeTicketsAvailable": 0,
+      "referredByCode": "AT578579",
+      "updatedAt": {
+        "type": "firestore/timestamp/1.0",
+        "seconds": 1788266294,
+        "nanoseconds": 810000000
+      },
+      "directReferralsCount": 0,
+      "ticketWallet": 0,
+      "directIncomeEarnings": 0,
+      "role": "user",
+      "winningWallet": 10,
+      "totalDeposited": 0
+    },
+    {
+      "createdAt": {
+        "type": "firestore/timestamp/1.0",
+        "seconds": 1788265142,
+        "nanoseconds": 749000000
+      },
+      "winningWallet": 10,
+      "referredByCode": "AT578579",
+      "name": "Ravik",
+      "referredBy": "AT578579",
+      "email": "ravi3@gmail.com",
+      "ticketWallet": 0,
+      "stateOfResidence": "Maharashtra",
+      "ageVerified": true,
+      "password": "123456",
+      "totalDeposited": 0,
+      "sponsorName": null,
+      "depositWallet": 0,
+      "freeTicketsAvailable": 0,
+      "role": "user",
+      "id": "AT983624",
+      "referralCode": "APNA6X9",
+      "walletBalance": 10,
+      "gameWinnings": 0,
+      "referralEarnings": 0,
+      "updatedAt": {
+        "type": "firestore/timestamp/1.0",
+        "seconds": 1788265142,
+        "nanoseconds": 749000000
+      },
+      "isKycVerified": false,
+      "directIncomeEarnings": 0,
+      "termsAccepted": true,
+      "totalWithdrawn": 0,
+      "phone": "2369857410",
+      "directReferralsCount": 0
     }
   ],
   "games": [
@@ -725,7 +852,7 @@
     "calledNumbers": [],
     "currentNumber": null,
     "isCalling": false,
-    "startTime": "2026-09-01T01:00:08.108Z",
+    "startTime": "2026-09-01T15:22:34.716Z",
     "winners": [],
     "prizes": [
       {

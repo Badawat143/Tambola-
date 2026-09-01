@@ -142,24 +142,43 @@ export const LiveGameModal: React.FC = () => {
             </p>
 
             <div className="my-5 bg-black/60 rounded-2xl p-4 border border-amber-500/30 text-left space-y-2.5 text-sm">
-              <div className="flex justify-between items-center">
-                <span className="text-slate-400">User Name:</span>
-                <span className="font-bold text-white text-base">{activeWinnerFlash.userName}</span>
+              <div className="flex justify-between items-start gap-2">
+                <span className="text-slate-400 shrink-0">Winner(s):</span>
+                <span className="font-bold text-white text-base text-right">{activeWinnerFlash.userName}</span>
               </div>
               <div className="flex justify-between items-center">
                 <span className="text-slate-400">User ID:</span>
                 <span className="font-mono font-bold text-pink-400">{activeWinnerFlash.userId}</span>
               </div>
               <div className="flex justify-between items-center">
-                <span className="text-slate-400">Ticket Number:</span>
-                <span className="font-mono font-bold text-amber-300">#{activeWinnerFlash.ticketNumber}</span>
-              </div>
-              <div className="flex justify-between items-center">
-                <span className="text-slate-400">Prize Name:</span>
+                <span className="text-slate-400">Prize Category:</span>
                 <span className="font-bold text-purple-300">{activeWinnerFlash.prizeName}</span>
               </div>
+
+              {activeWinnerFlash.isShared && activeWinnerFlash.allWinners && activeWinnerFlash.allWinners.length > 1 ? (
+                <div className="p-3 bg-amber-500/15 border border-amber-400/30 rounded-xl space-y-1.5 mt-2">
+                  <div className="flex items-center justify-between text-xs text-amber-300 font-bold">
+                    <span>⚡ Equal Prize Split ({activeWinnerFlash.totalShareCount || activeWinnerFlash.allWinners.length} Winners)</span>
+                    <span className="bg-amber-400/20 px-2 py-0.5 rounded text-[10px]">Auto-Claimed</span>
+                  </div>
+                  {activeWinnerFlash.allWinners.map((w, idx) => (
+                    <div key={idx} className="flex justify-between text-xs text-slate-200">
+                      <span>• {w.userName} (#{w.ticketNumber})</span>
+                      <span className="font-bold text-emerald-400">₹{w.amount}</span>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="flex justify-between items-center">
+                  <span className="text-slate-400">Ticket Number:</span>
+                  <span className="font-mono font-bold text-amber-300">#{activeWinnerFlash.ticketNumber}</span>
+                </div>
+              )}
+
               <div className="flex justify-between items-center pt-2.5 border-t border-white/10">
-                <span className="font-bold text-emerald-400">Prize Amount:</span>
+                <span className="font-bold text-emerald-400">
+                  {activeWinnerFlash.isShared ? 'Prize Per Winner:' : 'Prize Amount:'}
+                </span>
                 <span className="font-mono text-xl font-black text-emerald-400">₹{activeWinnerFlash.prizeAmount}</span>
               </div>
             </div>

@@ -2,6 +2,7 @@ import React, { createContext, useContext, useState, useEffect, useRef } from 'r
 import {
   syncUserToFirestore,
   syncTicketToFirestore,
+  deleteTicketFromFirestore,
   syncGameToFirestore,
   recordTransactionToFirestore,
   recordWinnerToFirestore,
@@ -115,6 +116,10 @@ interface TambolaContextType {
     ticketNumber: number;
     prizeName: string;
     prizeAmount: number;
+    isShared?: boolean;
+    totalShareCount?: number;
+    winnersSummary?: string;
+    allWinners?: { userName: string; userId: string; ticketNumber: number; amount: number }[];
   } | null;
   dismissWinnerFlash: () => void;
   activeReferralFlash: {
@@ -235,6 +240,8 @@ interface TambolaContextType {
     ticketId: string,
     patternCode: WinningPatternCode
   ) => { success: boolean; message: string; prizeAmount?: number; categoryName?: string };
+  deleteTicket: (ticketId: string) => { success: boolean; message: string };
+  deleteCompletedTickets: (gameId?: string) => { success: boolean; count: number; message: string };
 
   // Game Management & Live Caller Actions
   selectLiveGameRoom: (gameId: string) => void;
@@ -549,13 +556,7 @@ export const TambolaProvider: React.FC<{ children: React.ReactNode }> = ({ child
   const [activeModal, setActiveModal] = useState<TambolaContextType['activeModal']>(null);
   const [userDashboardTab, setUserDashboardTab] = useState<DashboardTab>('dashboard');
   const [selectedGameForPurchase, setSelectedGameForPurchase] = useState<GameItem | null>(null);
-  const [activeWinnerFlash, setActiveWinnerFlash] = useState<{
-    userName: string;
-    userId: string;
-    ticketNumber: number;
-    prizeName: string;
-    prizeAmount: number;
-  } | null>(null);
+  const [activeWinnerFlash, setActiveWinnerFlash] = useState<TambolaContextType['activeWinnerFlash']>(null);
 
   const dismissWinnerFlash = () => {
     setActiveWinnerFlash(null);
@@ -2716,14 +2717,48 @@ export const TambolaProvider: React.FC<{ children: React.ReactNode }> = ({ child
           updatedUserObj.id
         );
 
-        // Winner Flash modal trigger for current active viewer
-        if (updatedUserObj.id === currentUser.id) {
+        // Winner Flash modal trigger for ALL active viewers across dashboards
+        if (winnerCount === 1) {
           winnerFlashData = {
             userName: updatedUserObj.name,
             userId: updatedUserObj.id,
             ticketNumber: winTicket.ticketNumber,
-            prizeName: winnerCount > 1 ? `${prize.name} (Split between ${winnerCount} winners)` : prize.name,
+            prizeName: prize.name,
             prizeAmount: splitAmount,
+            isShared: false,
+            totalShareCount: 1,
+            winnersSummary: `${updatedUserObj.name} won ₹${splitAmount} for ${prize.name}!`,
+            allWinners: [
+              {
+                userName: updatedUserObj.name,
+                userId: updatedUserObj.id,
+                ticketNumber: winTicket.ticketNumber,
+                amount: splitAmount,
+              },
+            ],
+          };
+        } else {
+          // Multiple simultaneous winners: equal prize splitting
+          const allWinList = newlyQualifiedTickets.map((t) => {
+            const owner = usersList.find((u) => u.id === t.userId) || currentUser;
+            return {
+              userName: owner.name,
+              userId: owner.id,
+              ticketNumber: t.ticketNumber,
+              amount: splitAmount,
+            };
+          });
+          const allWinnerNames = allWinList.map((w) => w.userName).join(' & ');
+          winnerFlashData = {
+            userName: allWinnerNames,
+            userId: allWinList.map((w) => w.userId).join(', '),
+            ticketNumber: winTicket.ticketNumber,
+            prizeName: `${prize.name} (Equal Split / बराबर बंटवारा)`,
+            prizeAmount: splitAmount,
+            isShared: true,
+            totalShareCount: winnerCount,
+            winnersSummary: `${winnerCount} Winners: ${allWinList.map((w) => `${w.userName} (₹${w.amount})`).join(', ')}`,
+            allWinners: allWinList,
           };
         }
       });
@@ -2762,9 +2797,13 @@ export const TambolaProvider: React.FC<{ children: React.ReactNode }> = ({ child
       setUpcomingGames((prev) =>
         prev.map((g) => (g.id === activeLiveGame.id ? { ...g, status: 'completed' } : g))
       );
+      // Mark tickets for this completed game as completed so users can remove/delete them
+      setMyTickets((prev) =>
+        prev.map((t) => (t.gameId === activeLiveGame.id ? { ...t, status: 'completed' } : t))
+      );
       addNotification(
-        '🎉 TOURNAMENT COMPLETED - ALL PRIZES CLAIMED!',
-        `The game ${activeLiveGame.title} has completed as all prize categories have been claimed. All winning payouts have been distributed to players' wallets.`,
+        '🎉 TOURNAMENT COMPLETED - FULL HOUSE ACHIEVED!',
+        `Game ${activeLiveGame.title} is now complete. All prize pools have been distributed. You can now remove or clear your completed tickets from your dashboard.`,
         'system',
         'all'
       );
@@ -3208,6 +3247,90 @@ export const TambolaProvider: React.FC<{ children: React.ReactNode }> = ({ child
     setPrizeLedger([]);
   };
 
+  const deleteTicket = (ticketId: string): { success: boolean; message: string } => {
+    const ticket = myTickets.find((t) => t.id === ticketId);
+    if (!ticket) {
+      return { success: false, message: 'Ticket not found.' };
+    }
+
+    const targetGame = upcomingGames.find((g) => g.id === ticket.gameId);
+    const gamePrizes = targetGame?.prizeCategories || prizes;
+    const fullHousePrizes = gamePrizes.filter((p) => p.code.startsWith('FULLHOUSE') && p.isEnabled);
+    const fullHouseCompleted =
+      fullHousePrizes.length > 0 &&
+      fullHousePrizes.every((p) => (p.claimedBy?.length || 0) >= (p.winnerCount || 1));
+    const isGameFinished =
+      targetGame?.status === 'completed' || fullHouseCompleted || ticket.status === 'completed';
+
+    if (!isGameFinished && targetGame && (targetGame.status === 'live' || targetGame.status === 'ticket_sale_open')) {
+      return {
+        success: false,
+        message: 'यह टिकट अभी लाइव गेम में सक्रिय है। टिकट फुलहाउस (Full House) पूरा होने तक चलेगा, उसके बाद ही आप इसे रिमूव या डिलीट कर सकते हैं।',
+      };
+    }
+
+    setMyTickets((prev) => prev.filter((t) => t.id !== ticketId));
+    deleteTicketFromFirestore(ticketId);
+
+    addNotification(
+      'टिकट हटाया गया (Ticket Removed)',
+      `Ticket #${ticket.ticketNumber} (${targetGame?.title || 'Game'}) को सफलतापूर्वक डिलीट कर दिया गया है।`,
+      'system',
+      currentUser.id
+    );
+
+    return {
+      success: true,
+      message: `Ticket #${ticket.ticketNumber} को सफलतापूर्वक हटा दिया गया!`,
+    };
+  };
+
+  const deleteCompletedTickets = (
+    gameId?: string
+  ): { success: boolean; count: number; message: string } => {
+    const removableTicketIds: string[] = [];
+
+    myTickets.forEach((ticket) => {
+      if (gameId && ticket.gameId !== gameId) return;
+      const targetGame = upcomingGames.find((g) => g.id === ticket.gameId);
+      const gamePrizes = targetGame?.prizeCategories || prizes;
+      const fullHousePrizes = gamePrizes.filter((p) => p.code.startsWith('FULLHOUSE') && p.isEnabled);
+      const fullHouseCompleted =
+        fullHousePrizes.length > 0 &&
+        fullHousePrizes.every((p) => (p.claimedBy?.length || 0) >= (p.winnerCount || 1));
+      const isGameFinished =
+        targetGame?.status === 'completed' || fullHouseCompleted || ticket.status === 'completed';
+
+      if (isGameFinished) {
+        removableTicketIds.push(ticket.id);
+      }
+    });
+
+    if (removableTicketIds.length === 0) {
+      return {
+        success: false,
+        count: 0,
+        message: 'डिलीट करने के लिए कोई समाप्त टिकट नहीं मिला। सक्रिय टिकट फुलहाउस तक चलेंगे।',
+      };
+    }
+
+    setMyTickets((prev) => prev.filter((t) => !removableTicketIds.includes(t.id)));
+    removableTicketIds.forEach((id) => deleteTicketFromFirestore(id));
+
+    addNotification(
+      'समाप्त टिकट हटाए गए (Expired Tickets Cleared)',
+      `${removableTicketIds.length} समाप्त/फुलहाउस टिकटों को आपके खाते से रिमूव कर दिया गया।`,
+      'system',
+      currentUser.id
+    );
+
+    return {
+      success: true,
+      count: removableTicketIds.length,
+      message: `${removableTicketIds.length} समाप्त टिकट सफलतापूर्वक हटा दिए गए!`,
+    };
+  };
+
   const clearTicketHistory = () => {
     setMyTickets([]);
   };
@@ -3337,6 +3460,8 @@ export const TambolaProvider: React.FC<{ children: React.ReactNode }> = ({ child
         toggleMarkNumberOnTicket,
         claimPrizeWithPattern,
         verifyClaim: claimPrizeWithPattern,
+        deleteTicket,
+        deleteCompletedTickets,
 
         selectLiveGameRoom,
         startLiveCaller,

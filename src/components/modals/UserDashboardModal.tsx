@@ -114,6 +114,11 @@ export const UserDashboardModal: React.FC<UserDashboardModalProps> = ({ isPageMo
     clearTransactionHistory,
     clearTicketHistory,
     clearAllUserHistory,
+    deleteTicket,
+    deleteCompletedTickets,
+    activeWinnerFlash,
+    dismissWinnerFlash,
+    prizes,
     settings,
     verifyClaim,
     buyTicket,
@@ -288,6 +293,8 @@ export const UserDashboardModal: React.FC<UserDashboardModalProps> = ({ isPageMo
   const [liveSelectedTicketId, setLiveSelectedTicketId] = useState<string>(myTickets[0]?.id || '');
   const activeLiveTicket = myTickets.find((t) => t.id === liveSelectedTicketId) || myTickets[0];
   const [claimFeedback, setClaimFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
+  const [ticketFilter, setTicketFilter] = useState<'all' | 'active' | 'completed'>('all');
+  const [ticketFeedback, setTicketFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
 
   const handleCopyRef = () => {
     navigator.clipboard.writeText(downlineStats.referralLink);
@@ -707,6 +714,44 @@ export const UserDashboardModal: React.FC<UserDashboardModalProps> = ({ isPageMo
 
         {/* CONTENT WORKSPACE */}
         <main className="flex-1 overflow-y-auto p-3 sm:p-5 lg:p-6 bg-[#07081c] pb-24 sm:pb-8 custom-scrollbar">
+          {/* Real-time Global Live Winner Flash Banner across all tabs */}
+          {activeWinnerFlash && (
+            <div className="mb-5 p-3.5 sm:p-4 rounded-2xl bg-gradient-to-r from-amber-500/25 via-purple-600/25 to-emerald-500/25 border-2 border-amber-400 shadow-2xl flex items-center justify-between gap-3 animate-fade-in text-slate-100">
+              <div className="flex items-center gap-3 min-w-0">
+                <div className="w-10 h-10 rounded-full bg-gradient-to-tr from-amber-400 to-yellow-200 text-slate-950 flex items-center justify-center font-black text-xl shadow-lg shadow-amber-400/30 shrink-0 animate-bounce">
+                  🏆
+                </div>
+                <div className="min-w-0">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="text-[10px] font-black uppercase px-2 py-0.5 rounded bg-amber-400 text-slate-950 tracking-wider">
+                      {activeWinnerFlash.isShared
+                        ? `⚡ EQUAL SPLIT (${activeWinnerFlash.totalShareCount || 2} WINNERS)`
+                        : '🎉 LIVE WINNER FLASH'}
+                    </span>
+                    <span className="text-xs text-amber-300 font-bold truncate">
+                      {activeWinnerFlash.prizeName}
+                    </span>
+                  </div>
+                  <p className="text-sm font-black text-white mt-0.5 truncate">
+                    {activeWinnerFlash.userName} •{' '}
+                    <span className="text-emerald-400 font-mono">₹{activeWinnerFlash.prizeAmount}</span>
+                    {activeWinnerFlash.isShared && (
+                      <span className="text-xs text-amber-200/80 font-normal ml-1">
+                        (प्रत्येक विजेता को बराबर बंटवारा)
+                      </span>
+                    )}
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={dismissWinnerFlash}
+                className="px-3 py-1.5 rounded-xl bg-white/10 hover:bg-white/20 text-white text-xs font-bold shrink-0 transition-colors cursor-pointer"
+                title="Dismiss"
+              >
+                ✕
+              </button>
+            </div>
+          )}
           {/* ================================================================= */}
           {/* TAB 1: 🏠 DASHBOARD HOME (Matching User Screenshot) */}
           {/* ================================================================= */}
@@ -2510,79 +2555,283 @@ export const UserDashboardModal: React.FC<UserDashboardModalProps> = ({ isPageMo
             )}
 
             {/* ================================================================= */}
-            {/* TAB 10: 🎫 MY TICKETS (Vibrant Themes) */}
+            {/* TAB 10: 🎫 MY TICKETS (Vibrant Themes & Lifecycle Management) */}
             {/* ================================================================= */}
-            {activeTab === 'myTickets' && (
-              <div className="max-w-5xl mx-auto space-y-6 animate-fade-in">
-                <div className="flex items-center justify-between pb-2">
-                  <div>
-                    <h3 className="text-xl font-black text-white">🎫 MY PURCHASED TICKETS ({myTickets.length})</h3>
-                    <p className="text-xs text-slate-400">Multi-coloured tickets with real-time draw verification</p>
-                  </div>
-                  <button
-                    onClick={() => navigateToTab('buyTicket')}
-                    className="px-4 py-2 rounded-xl bg-pink-500 hover:bg-pink-600 text-white text-xs font-black flex items-center gap-1"
-                  >
-                    <Ticket className="w-3.5 h-3.5" /> Buy More
-                  </button>
-                </div>
+            {activeTab === 'myTickets' && (() => {
+              // Helper to determine if a ticket's game is finished / Full House complete
+              const getTicketGameInfo = (ticket: typeof myTickets[0]) => {
+                const targetGame = upcomingGames.find((g) => g.id === ticket.gameId);
+                const gamePrizes = targetGame?.prizeCategories || prizes;
+                const fullHousePrizes = gamePrizes.filter((p) => p.code.startsWith('FULLHOUSE') && p.isEnabled);
+                const fullHouseCompleted =
+                  fullHousePrizes.length > 0 &&
+                  fullHousePrizes.every((p) => (p.claimedBy?.length || 0) >= (p.winnerCount || 1));
+                const isFinished =
+                  targetGame?.status === 'completed' || fullHouseCompleted || ticket.status === 'completed';
+                return { targetGame, isFinished, fullHouseCompleted };
+              };
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  {myTickets.map((ticket) => {
-                    const theme = ticketThemeStyles[ticket.colorTheme || 'rainbow'] || ticketThemeStyles.rainbow;
-                    return (
-                      <div
-                        key={ticket.id}
-                        className={`p-5 rounded-3xl bg-gradient-to-br ${theme.bg} border-2 ${theme.border} shadow-2xl space-y-4`}
-                      >
-                        <div className="flex items-center justify-between border-b border-white/10 pb-3">
-                          <div>
-                            <span className="font-black text-sm tracking-wider text-white">APNA TAMBOLA</span>
-                            <p className="text-[10px] text-slate-300">Ticket #{ticket.ticketNumber} • Game #{ticket.gameId}</p>
-                          </div>
-                          <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase ${theme.badge}`}>
-                            ₹{ticket.ticketPrice} TICKET
-                          </span>
-                        </div>
+              const activeTicketsList = myTickets.filter((t) => !getTicketGameInfo(t).isFinished);
+              const completedTicketsList = myTickets.filter((t) => getTicketGameInfo(t).isFinished);
 
-                        {/* 3x9 Tambola Grid */}
-                        <div className="grid grid-cols-9 gap-1 bg-black/60 p-2 rounded-2xl border border-white/10">
-                          {ticket.grid.map((row, rIdx) =>
-                            row.map((val, cIdx) => {
-                              const isMarked = val && ticket.markedNumbers.includes(val);
-                              return (
-                                <div
-                                  key={`${rIdx}-${cIdx}`}
-                                  className={`h-8 sm:h-9 rounded-lg flex items-center justify-center font-mono font-bold text-xs ${
-                                    val === null
-                                      ? 'bg-transparent'
-                                      : isMarked
-                                      ? 'bg-emerald-500 text-slate-950 font-black scale-105 shadow-md ring-1 ring-emerald-300'
-                                      : 'bg-white/10 text-white border border-white/10'
-                                  }`}
-                                >
-                                  {val || ''}
-                                </div>
-                              );
-                            })
-                          )}
-                        </div>
+              const displayedTickets =
+                ticketFilter === 'active'
+                  ? activeTicketsList
+                  : ticketFilter === 'completed'
+                  ? completedTicketsList
+                  : myTickets;
 
-                        <div className="flex items-center justify-between text-[11px] text-slate-300 pt-2 border-t border-white/10">
-                          <span className="font-mono text-[10px]">Code: {ticket.verificationCode || 'VER-83719'}</span>
-                          <button
-                            onClick={() => navigateToTab('liveGames')}
-                            className="px-3 py-1.5 rounded-xl bg-white/20 hover:bg-white/30 text-white font-bold text-xs flex items-center gap-1"
-                          >
-                            <Play className="w-3 h-3 fill-current" /> Join Live Game
-                          </button>
-                        </div>
+              const handleDeleteSingleTicket = (ticketId: string) => {
+                const res = deleteTicket(ticketId);
+                setTicketFeedback({
+                  type: res.success ? 'success' : 'error',
+                  message: res.message,
+                });
+                setTimeout(() => setTicketFeedback(null), 4000);
+              };
+
+              const handleDeleteAllCompleted = () => {
+                const res = deleteCompletedTickets();
+                setTicketFeedback({
+                  type: res.success ? 'success' : 'error',
+                  message: res.message,
+                });
+                setTimeout(() => setTicketFeedback(null), 4000);
+              };
+
+              return (
+                <div className="max-w-5xl mx-auto space-y-6 animate-fade-in">
+                  {/* Feedback Banner */}
+                  {ticketFeedback && (
+                    <div
+                      className={`p-4 rounded-2xl text-xs font-bold flex items-center justify-between gap-2 shadow-lg animate-fade-in ${
+                        ticketFeedback.type === 'success'
+                          ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40'
+                          : 'bg-amber-500/20 text-amber-300 border border-amber-500/40'
+                      }`}
+                    >
+                      <div className="flex items-center gap-2">
+                        {ticketFeedback.type === 'success' ? (
+                          <CheckCircle2 className="w-5 h-5 text-emerald-400 shrink-0" />
+                        ) : (
+                          <AlertCircle className="w-5 h-5 text-amber-400 shrink-0" />
+                        )}
+                        <span>{ticketFeedback.message}</span>
                       </div>
-                    );
-                  })}
+                      <button
+                        onClick={() => setTicketFeedback(null)}
+                        className="text-slate-400 hover:text-white text-xs px-2 py-1"
+                      >
+                        ✕
+                      </button>
+                    </div>
+                  )}
+
+                  {/* Header & Actions */}
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-2">
+                    <div>
+                      <h3 className="text-xl font-black text-white flex items-center gap-2">
+                        <span>🎫 MY PURCHASED TICKETS</span>
+                        <span className="px-2.5 py-0.5 rounded-full bg-purple-500/30 text-purple-300 border border-purple-500/40 text-xs">
+                          {myTickets.length}
+                        </span>
+                      </h3>
+                      <p className="text-xs text-slate-400">
+                        गेम टिकट रियल-टाइम ड्रॉ व ऑटो-क्लेम वेरिफिकेशन के साथ
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-2 flex-wrap">
+                      {completedTicketsList.length > 0 && (
+                        <button
+                          onClick={handleDeleteAllCompleted}
+                          className="px-3.5 py-2 rounded-xl bg-red-500/20 hover:bg-red-500/30 text-red-300 border border-red-500/40 text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer"
+                          title="फुलहाउस हो चुके सभी टिकटों को हटाएं"
+                        >
+                          <Trash2 className="w-3.5 h-3.5 text-red-400" />
+                          समाप्त टिकट हटाएं ({completedTicketsList.length})
+                        </button>
+                      )}
+                      <button
+                        onClick={() => navigateToTab('buyTicket')}
+                        className="px-4 py-2 rounded-xl bg-gradient-to-r from-pink-500 to-rose-600 hover:brightness-110 text-white text-xs font-black flex items-center gap-1.5 shadow-lg shadow-pink-500/30 cursor-pointer"
+                      >
+                        <Ticket className="w-3.5 h-3.5" /> Buy More
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Official Game Rules Note */}
+                  <div className="p-4 rounded-2xl bg-gradient-to-r from-indigo-950/70 via-purple-950/50 to-slate-900 border border-indigo-500/30 text-xs space-y-1.5 shadow-lg">
+                    <div className="flex items-center gap-2 text-amber-300 font-bold">
+                      <Sparkles className="w-4 h-4 text-amber-400 shrink-0" />
+                      <span>गेम एवं टिकट नियम (Ticket Lifecycle Rules):</span>
+                    </div>
+                    <ul className="text-slate-300 space-y-1 pl-6 list-disc text-[11px] leading-relaxed">
+                      <li>
+                        <strong className="text-white">फुलहाउस तक सक्रिय:</strong> कोई भी टिकट फुलहाउस (Full House) समाप्त होने तक सक्रिय रहेगा और गेम के सभी ईनामों में भाग लेगा।
+                      </li>
+                      <li>
+                        <strong className="text-white">गेम विशेष:</strong> जो गेम का टिकट है वह उसी संबंधित गेम में मान्य होगा।
+                      </li>
+                      <li>
+                        <strong className="text-white">फुलहाउस के बाद डिलीट:</strong> फुलहाउस पूर्ण होने या गेम समाप्त होने के बाद आप उन टिकटों को यहाँ से रिमूव/डिलीट कर सकते हैं।
+                      </li>
+                    </ul>
+                  </div>
+
+                  {/* Filter Tabs */}
+                  <div className="flex items-center gap-2 border-b border-white/10 pb-3">
+                    <button
+                      onClick={() => setTicketFilter('all')}
+                      className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                        ticketFilter === 'all'
+                          ? 'bg-purple-600 text-white shadow-md'
+                          : 'bg-white/5 text-slate-400 hover:text-white'
+                      }`}
+                    >
+                      सभी टिकट ({myTickets.length})
+                    </button>
+                    <button
+                      onClick={() => setTicketFilter('active')}
+                      className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
+                        ticketFilter === 'active'
+                          ? 'bg-emerald-600 text-white shadow-md'
+                          : 'bg-white/5 text-slate-400 hover:text-white'
+                      }`}
+                    >
+                      <Radio className="w-3 h-3 animate-pulse text-emerald-300" />
+                      सक्रिय / लाइव ({activeTicketsList.length})
+                    </button>
+                    <button
+                      onClick={() => setTicketFilter('completed')}
+                      className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
+                        ticketFilter === 'completed'
+                          ? 'bg-amber-600 text-white shadow-md'
+                          : 'bg-white/5 text-slate-400 hover:text-white'
+                      }`}
+                    >
+                      <CheckCircle2 className="w-3 h-3 text-amber-300" />
+                      फुलहाउस समाप्त ({completedTicketsList.length})
+                    </button>
+                  </div>
+
+                  {/* Tickets Grid */}
+                  {displayedTickets.length === 0 ? (
+                    <div className="p-12 text-center rounded-3xl bg-white/5 border border-white/10 space-y-3">
+                      <Ticket className="w-12 h-12 text-slate-500 mx-auto" />
+                      <p className="text-sm font-bold text-slate-300">
+                        {ticketFilter === 'active'
+                          ? 'वर्तमान में कोई सक्रिय लाइव टिकट नहीं है।'
+                          : ticketFilter === 'completed'
+                          ? 'डिलीट करने के लिए कोई समाप्त टिकट नहीं है।'
+                          : 'आपके पास अभी कोई टिकट नहीं है।'}
+                      </p>
+                      <button
+                        onClick={() => navigateToTab('buyTicket')}
+                        className="px-4 py-2 rounded-xl bg-pink-500 text-white text-xs font-black inline-flex items-center gap-1.5 cursor-pointer"
+                      >
+                        <Plus className="w-4 h-4" /> नया टिकट खरीदें
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      {displayedTickets.map((ticket) => {
+                        const theme = ticketThemeStyles[ticket.colorTheme || 'rainbow'] || ticketThemeStyles.rainbow;
+                        const { targetGame, isFinished } = getTicketGameInfo(ticket);
+
+                        return (
+                          <div
+                            key={ticket.id}
+                            className={`p-5 rounded-3xl bg-gradient-to-br ${theme.bg} border-2 ${
+                              isFinished ? 'border-slate-600/60 opacity-90' : theme.border
+                            } shadow-2xl space-y-4 relative overflow-hidden`}
+                          >
+                            {/* Top Badge Row */}
+                            <div className="flex items-start justify-between border-b border-white/10 pb-3 gap-2">
+                              <div>
+                                <div className="flex items-center gap-2">
+                                  <span className="font-black text-sm tracking-wider text-white">APNA TAMBOLA</span>
+                                  {isFinished ? (
+                                    <span className="px-2 py-0.5 rounded-full text-[9px] font-black uppercase bg-slate-700 text-slate-300 border border-slate-500">
+                                      🏁 समाप्त (Finished)
+                                    </span>
+                                  ) : (
+                                    <span className="px-2 py-0.5 rounded-full text-[9px] font-black uppercase bg-emerald-500/20 text-emerald-300 border border-emerald-400/40 flex items-center gap-1">
+                                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping"></span>
+                                      सक्रिय (Active)
+                                    </span>
+                                  )}
+                                </div>
+                                <p className="text-[10px] text-slate-300 mt-0.5">
+                                  Ticket #{ticket.ticketNumber} • {targetGame?.title || `Game #${ticket.gameId}`}
+                                </p>
+                              </div>
+                              <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase ${theme.badge} shrink-0`}>
+                                ₹{ticket.ticketPrice} TICKET
+                              </span>
+                            </div>
+
+                            {/* 3x9 Tambola Grid */}
+                            <div className="grid grid-cols-9 gap-1 bg-black/60 p-2 rounded-2xl border border-white/10">
+                              {ticket.grid.map((row, rIdx) =>
+                                row.map((val, cIdx) => {
+                                  const isMarked = val && ticket.markedNumbers.includes(val);
+                                  return (
+                                    <div
+                                      key={`${rIdx}-${cIdx}`}
+                                      className={`h-8 sm:h-9 rounded-lg flex items-center justify-center font-mono font-bold text-xs ${
+                                        val === null
+                                          ? 'bg-transparent'
+                                          : isMarked
+                                          ? 'bg-emerald-500 text-slate-950 font-black scale-105 shadow-md ring-1 ring-emerald-300'
+                                          : 'bg-white/10 text-white border border-white/10'
+                                      }`}
+                                    >
+                                      {val || ''}
+                                    </div>
+                                  );
+                                })
+                              )}
+                            </div>
+
+                            {/* Ticket Footer with Status & Delete Action */}
+                            <div className="flex items-center justify-between text-[11px] text-slate-300 pt-2 border-t border-white/10 gap-2">
+                              <span className="font-mono text-[10px] text-slate-400">
+                                Code: {ticket.verificationCode || 'VER-83719'}
+                              </span>
+
+                              <div className="flex items-center gap-2">
+                                {isFinished ? (
+                                  <button
+                                    onClick={() => handleDeleteSingleTicket(ticket.id)}
+                                    className="px-3 py-1.5 rounded-xl bg-red-500/20 hover:bg-red-500/40 text-red-300 border border-red-500/40 font-bold text-xs flex items-center gap-1 transition-all cursor-pointer"
+                                    title="फुलहाउस पूर्ण होने के बाद टिकट हटाएं"
+                                  >
+                                    <Trash2 className="w-3.5 h-3.5 text-red-400" />
+                                    <span>डिलीट करें</span>
+                                  </button>
+                                ) : (
+                                  <button
+                                    onClick={() => {
+                                      setLiveSelectedTicketId(ticket.id);
+                                      navigateToTab('liveGames');
+                                    }}
+                                    className="px-3 py-1.5 rounded-xl bg-gradient-to-r from-purple-600 to-indigo-600 hover:brightness-110 text-white font-bold text-xs flex items-center gap-1 shadow-md cursor-pointer"
+                                  >
+                                    <Play className="w-3 h-3 fill-current" />
+                                    <span>लाइव गेम खेलें</span>
+                                  </button>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
                 </div>
-              </div>
-            )}
+              );
+            })()}
 
             {/* ================================================================= */}
             {/* TAB 11: 🔴 LIVE GAMES */}
