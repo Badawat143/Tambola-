@@ -29,7 +29,7 @@ export const MlmIncomeSummary: React.FC<MlmIncomeSummaryProps> = ({
   onViewDirectMembers,
   onViewCommission,
 }) => {
-  const { setActiveModal } = useTambola();
+  const { setActiveModal, commissionLedger } = useTambola();
   const [copiedLink, setCopiedLink] = useState(false);
 
   const directIncome = currentUser.directIncomeEarnings || 0;
@@ -37,6 +37,33 @@ export const MlmIncomeSummary: React.FC<MlmIncomeSummaryProps> = ({
   const winningIncome = currentUser.gameWinnings || 0;
   const rewardIncome = 0;
   const totalIncome = directIncome + levelIncome + winningIncome + rewardIncome;
+
+  // Calculate real periodic earnings from commission ledger & winnings for this specific user
+  const userCommissions = (commissionLedger || []).filter(
+    (c) => c.targetUserId === currentUser.id
+  );
+
+  const now = new Date();
+  const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+  const startOfWeek = new Date(now.getFullYear(), now.getMonth(), now.getDate() - now.getDay()).getTime();
+  const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1).getTime();
+
+  const todayIncome = userCommissions
+    .filter((c) => new Date(c.createdAt).getTime() >= startOfToday)
+    .reduce((sum, c) => sum + (c.amount || 0), 0);
+
+  const thisWeekIncome = userCommissions
+    .filter((c) => new Date(c.createdAt).getTime() >= startOfWeek)
+    .reduce((sum, c) => sum + (c.amount || 0), 0);
+
+  const thisMonthIncome = userCommissions
+    .filter((c) => new Date(c.createdAt).getTime() >= startOfMonth)
+    .reduce((sum, c) => sum + (c.amount || 0), 0);
+
+  const directPercent = totalIncome > 0 ? Math.min(100, Math.round((directIncome / totalIncome) * 100)) : 0;
+  const levelPercent = totalIncome > 0 ? Math.min(100, Math.round((levelIncome / totalIncome) * 100)) : 0;
+  const winningPercent = totalIncome > 0 ? Math.min(100, Math.round((winningIncome / totalIncome) * 100)) : 0;
+  const rewardPercent = totalIncome > 0 ? Math.min(100, Math.round((rewardIncome / totalIncome) * 100)) : 0;
 
   const origin = typeof window !== 'undefined' ? window.location.origin : '';
   const referralLink =
@@ -89,19 +116,25 @@ export const MlmIncomeSummary: React.FC<MlmIncomeSummaryProps> = ({
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
           <div className="p-3 rounded-2xl bg-black/40 border border-white/5 text-center">
             <span className="text-[9px] text-slate-400 font-bold uppercase">Today</span>
-            <p className="text-base font-black text-emerald-400 font-mono mt-0.5">₹250.00</p>
+            <p className="text-base font-black text-emerald-400 font-mono mt-0.5">
+              ₹{todayIncome.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+            </p>
           </div>
           <div className="p-3 rounded-2xl bg-black/40 border border-white/5 text-center">
             <span className="text-[9px] text-slate-400 font-bold uppercase">This Week</span>
-            <p className="text-base font-black text-cyan-400 font-mono mt-0.5">₹1,250.00</p>
+            <p className="text-base font-black text-cyan-400 font-mono mt-0.5">
+              ₹{thisWeekIncome.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+            </p>
           </div>
           <div className="p-3 rounded-2xl bg-black/40 border border-white/5 text-center">
             <span className="text-[9px] text-slate-400 font-bold uppercase">This Month</span>
-            <p className="text-base font-black text-pink-400 font-mono mt-0.5">₹4,850.00</p>
+            <p className="text-base font-black text-pink-400 font-mono mt-0.5">
+              ₹{thisMonthIncome.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+            </p>
           </div>
           <div className="p-3 rounded-2xl bg-black/40 border border-purple-500/40 bg-purple-950/20 text-center">
             <span className="text-[9px] text-purple-300 font-bold uppercase">Total Income</span>
-            <p className="text-base font-black text-amber-300 font-mono mt-0.5">₹{totalIncome.toLocaleString('en-IN')}</p>
+            <p className="text-base font-black text-amber-300 font-mono mt-0.5">₹{totalIncome.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
           </div>
         </div>
 
@@ -113,10 +146,10 @@ export const MlmIncomeSummary: React.FC<MlmIncomeSummaryProps> = ({
                 <span className="w-2 h-2 rounded-full bg-pink-400"></span>
                 <span>🎯 Direct Income (1.0%)</span>
               </span>
-              <span className="font-mono font-bold text-pink-300">₹{directIncome.toLocaleString('en-IN')}</span>
+              <span className="font-mono font-bold text-pink-300">₹{directIncome.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
             </div>
             <div className="h-1.5 rounded-full bg-black/60 overflow-hidden">
-              <div className="h-full bg-pink-500 rounded-full" style={{ width: '25%' }}></div>
+              <div className="h-full bg-pink-500 rounded-full transition-all duration-500" style={{ width: `${directPercent}%` }}></div>
             </div>
           </div>
 
@@ -126,10 +159,10 @@ export const MlmIncomeSummary: React.FC<MlmIncomeSummaryProps> = ({
                 <span className="w-2 h-2 rounded-full bg-purple-400"></span>
                 <span>💎 8-Level Team Income (4.6% on Ticket Sales)</span>
               </span>
-              <span className="font-mono font-bold text-purple-300">₹{levelIncome.toLocaleString('en-IN')}</span>
+              <span className="font-mono font-bold text-purple-300">₹{levelIncome.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
             </div>
             <div className="h-1.5 rounded-full bg-black/60 overflow-hidden">
-              <div className="h-full bg-purple-500 rounded-full" style={{ width: '55%' }}></div>
+              <div className="h-full bg-purple-500 rounded-full transition-all duration-500" style={{ width: `${levelPercent}%` }}></div>
             </div>
           </div>
 
@@ -139,10 +172,10 @@ export const MlmIncomeSummary: React.FC<MlmIncomeSummaryProps> = ({
                 <span className="w-2 h-2 rounded-full bg-amber-400"></span>
                 <span>🏆 Winning Game Claims</span>
               </span>
-              <span className="font-mono font-bold text-amber-300">₹{winningIncome.toLocaleString('en-IN')}</span>
+              <span className="font-mono font-bold text-amber-300">₹{winningIncome.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
             </div>
             <div className="h-1.5 rounded-full bg-black/60 overflow-hidden">
-              <div className="h-full bg-amber-500 rounded-full" style={{ width: '20%' }}></div>
+              <div className="h-full bg-amber-500 rounded-full transition-all duration-500" style={{ width: `${winningPercent}%` }}></div>
             </div>
           </div>
 
@@ -152,10 +185,10 @@ export const MlmIncomeSummary: React.FC<MlmIncomeSummaryProps> = ({
                 <span className="w-2 h-2 rounded-full bg-emerald-400"></span>
                 <span>🎁 Other Rewards</span>
               </span>
-              <span className="font-mono font-bold text-emerald-300">₹{rewardIncome.toLocaleString('en-IN')}</span>
+              <span className="font-mono font-bold text-emerald-300">₹{rewardIncome.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
             </div>
             <div className="h-1.5 rounded-full bg-black/60 overflow-hidden">
-              <div className="h-full bg-emerald-500 rounded-full" style={{ width: '15%' }}></div>
+              <div className="h-full bg-emerald-500 rounded-full transition-all duration-500" style={{ width: `${rewardPercent}%` }}></div>
             </div>
           </div>
         </div>

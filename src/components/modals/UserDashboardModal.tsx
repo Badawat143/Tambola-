@@ -623,7 +623,7 @@ export const UserDashboardModal: React.FC<UserDashboardModalProps> = ({ isPageMo
                         }`}
                       >
                         <span>Main Wallet</span>
-                        <span className="text-[10px] font-mono">₹{(currentUser.depositWallet || 2540).toLocaleString('en-IN')}</span>
+                        <span className="text-[10px] font-mono">₹{(currentUser.depositWallet || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
                       </button>
                       <button
                         onClick={() => navigateToTab('ticketWallet')}
@@ -632,7 +632,7 @@ export const UserDashboardModal: React.FC<UserDashboardModalProps> = ({ isPageMo
                         }`}
                       >
                         <span>Ticket Wallet</span>
-                        <span className="text-[10px] font-mono">₹{(currentUser.ticketWallet || 1250).toLocaleString('en-IN')}</span>
+                        <span className="text-[10px] font-mono">₹{(currentUser.ticketWallet || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
                       </button>
                       <button
                         onClick={() => navigateToTab('winningWallet')}
@@ -641,7 +641,7 @@ export const UserDashboardModal: React.FC<UserDashboardModalProps> = ({ isPageMo
                         }`}
                       >
                         <span>Winning Wallet</span>
-                        <span className="text-[10px] font-mono">₹{(currentUser.winningWallet || 3780).toLocaleString('en-IN')}</span>
+                        <span className="text-[10px] font-mono">₹{(currentUser.winningWallet || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
                       </button>
                     </div>
                   )}
@@ -778,7 +778,7 @@ export const UserDashboardModal: React.FC<UserDashboardModalProps> = ({ isPageMo
                   </div>
                   <div className="mt-3">
                     <p className="text-2xl sm:text-3xl font-black text-white font-mono tracking-tight">
-                      ₹{(currentUser.depositWallet || 2540).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                      ₹{(currentUser.depositWallet || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
                     </p>
                     <p className="text-[11px] text-blue-200/80 font-medium mt-0.5">Available Balance</p>
                   </div>
@@ -816,7 +816,7 @@ export const UserDashboardModal: React.FC<UserDashboardModalProps> = ({ isPageMo
                   </div>
                   <div className="mt-3">
                     <p className="text-2xl sm:text-3xl font-black text-white font-mono tracking-tight">
-                      ₹{(currentUser.ticketWallet || 1250).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                      ₹{(currentUser.ticketWallet || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
                     </p>
                     <p className="text-[11px] text-emerald-200/80 font-medium mt-0.5">Available Balance</p>
                   </div>
@@ -854,7 +854,7 @@ export const UserDashboardModal: React.FC<UserDashboardModalProps> = ({ isPageMo
                   </div>
                   <div className="mt-3">
                     <p className="text-2xl sm:text-3xl font-black text-white font-mono tracking-tight">
-                      ₹{(currentUser.winningWallet || 3780).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                      ₹{(currentUser.winningWallet || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
                     </p>
                     <p className="text-[11px] text-amber-200/80 font-medium mt-0.5">Available Balance</p>
                   </div>
@@ -892,7 +892,7 @@ export const UserDashboardModal: React.FC<UserDashboardModalProps> = ({ isPageMo
                   </div>
                   <div className="mt-3">
                     <p className="text-2xl sm:text-3xl font-black text-white font-mono tracking-tight">
-                      ₹{(((currentUser.referralEarnings || 0) + (currentUser.gameWinnings || 0)) || 12680).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                      ₹{((currentUser.directIncomeEarnings || 0) + (currentUser.referralEarnings || 0) + (currentUser.gameWinnings || 0)).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
                     </p>
                     <p className="text-[11px] text-purple-200/80 font-medium mt-0.5">Total Earning</p>
                   </div>
