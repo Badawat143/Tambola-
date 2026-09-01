@@ -1,20 +1,14 @@
 -- ============================================================================
--- APNA TAMBOLA: COMPLETE SUPABASE REFERRAL SYSTEM ROOT FIX (SQL MIGRATION)
--- ============================================================================
--- This script safely updates Supabase database with:
--- 1. Table structure: public.profiles (and public.users compatibility)
--- 2. Foreign key relationship: referred_by -> profiles(id)
--- 3. Collision-resistant referral code generator: generate_unique_referral_code()
--- 4. Atomic registration RPC: register_profile_with_referral()
--- 5. Direct referrals RPC: get_direct_referrals() & get_direct_referral_count()
--- 6. Recursive downline tree RPC: get_downline_tree()
--- 7. Realtime publications & Row Level Security (RLS) policies
+-- APNA TAMBOLA: SUPABASE SQL MIGRATION SCRIPT
+-- Profiles Table Extension, Collision-Resistant Referral Code Generator,
+-- Atomic Registration RPC, Self-Referral Protection, and Secure RLS Policies
 -- ============================================================================
 
+-- Ensure pgcrypto extension is enabled for UUID and cryptographic functions
 CREATE EXTENSION IF NOT EXISTS pgcrypto;
 
 -- ----------------------------------------------------------------------------
--- 1. PROFILES TABLE SETUP & ALTER
+-- 1. PROFILES TABLE & COLUMNS
 -- ----------------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS public.profiles (
   id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
@@ -32,22 +26,18 @@ CREATE TABLE IF NOT EXISTS public.profiles (
   updated_at TIMESTAMPTZ DEFAULT now()
 );
 
+-- Add required columns if profiles already exists
 ALTER TABLE public.profiles
-  ADD COLUMN IF NOT EXISTS full_name TEXT,
-  ADD COLUMN IF NOT EXISTS name TEXT,
-  ADD COLUMN IF NOT EXISTS phone TEXT,
-  ADD COLUMN IF NOT EXISTS email TEXT,
   ADD COLUMN IF NOT EXISTS referral_code TEXT,
   ADD COLUMN IF NOT EXISTS referred_by UUID,
   ADD COLUMN IF NOT EXISTS referred_by_code TEXT,
   ADD COLUMN IF NOT EXISTS sponsor_name TEXT,
-  ADD COLUMN IF NOT EXISTS role TEXT DEFAULT 'user',
   ADD COLUMN IF NOT EXISTS status TEXT DEFAULT 'active',
   ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ DEFAULT now(),
   ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ DEFAULT now();
 
 -- ----------------------------------------------------------------------------
--- 2. FOREIGN KEY CONSTRAINT
+-- 2. SELF-REFERENCING FOREIGN KEY CONSTRAINT (referred_by -> profiles.id)
 -- ----------------------------------------------------------------------------
 DO $$
 BEGIN
@@ -65,36 +55,25 @@ BEGIN
 END $$;
 
 -- ----------------------------------------------------------------------------
--- 3. INDEXES FOR PERFORMANCE & UNIQUENESS
+-- 3. UNIQUE & PERFORMANCE INDEXES
 -- ----------------------------------------------------------------------------
+-- Unique referral code index (enforces distinct non-null referral codes)
 CREATE UNIQUE INDEX IF NOT EXISTS profiles_referral_code_unique
   ON public.profiles(referral_code)
   WHERE referral_code IS NOT NULL;
 
+-- Index for direct referral queries
 CREATE INDEX IF NOT EXISTS profiles_referred_by_idx
   ON public.profiles(referred_by);
 
+-- Index for registration timestamp
 CREATE INDEX IF NOT EXISTS profiles_created_at_idx
   ON public.profiles(created_at);
 
 -- ----------------------------------------------------------------------------
--- 4. NOTIFICATIONS TABLE
--- ----------------------------------------------------------------------------
-CREATE TABLE IF NOT EXISTS public.notifications (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id UUID NOT NULL,
-  type TEXT NOT NULL,
-  title TEXT NOT NULL,
-  message TEXT NOT NULL,
-  related_user_id UUID,
-  read BOOLEAN DEFAULT false,
-  created_at TIMESTAMPTZ DEFAULT now()
-);
-
-CREATE INDEX IF NOT EXISTS notifications_user_id_idx ON public.notifications(user_id);
-
--- ----------------------------------------------------------------------------
--- 5. FUNCTION: generate_unique_referral_code()
+-- 4. FUNCTION: generate_unique_referral_code()
+-- Collision-resistant generator with loop validation against existing records
+-- Format: APNA + 4 alphanumeric uppercase characters (e.g., APNA831K, APNA928X)
 -- ----------------------------------------------------------------------------
 CREATE OR REPLACE FUNCTION public.generate_unique_referral_code()
 RETURNS TEXT
@@ -116,6 +95,7 @@ BEGIN
     
     v_code := 'APNA' || v_random;
     
+    -- Verify collision against database
     SELECT EXISTS(
       SELECT 1 FROM public.profiles WHERE upper(referral_code) = upper(v_code)
     ) INTO v_exists;
@@ -128,7 +108,25 @@ END;
 $$;
 
 -- ----------------------------------------------------------------------------
+-- 5. NOTIFICATIONS TABLE (for real-time team alerts)
+-- ----------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS public.notifications (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID NOT NULL,
+  type TEXT NOT NULL,
+  title TEXT NOT NULL,
+  message TEXT NOT NULL,
+  related_user_id UUID,
+  read BOOLEAN DEFAULT false,
+  created_at TIMESTAMPTZ DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS notifications_user_id_idx ON public.notifications(user_id);
+
+-- ----------------------------------------------------------------------------
 -- 6. RPC: register_profile_with_referral()
+-- Atomic execution, sponsor resolution by referral code, anti-self-referral
+-- enforcement, and automatic sponsor notification creation.
 -- ----------------------------------------------------------------------------
 CREATE OR REPLACE FUNCTION public.register_profile_with_referral(
   p_user_id UUID,
@@ -151,12 +149,12 @@ DECLARE
   v_new_code TEXT;
   v_profile RECORD;
 BEGIN
-  -- Validate user id
+  -- 1. Validate user ID
   IF p_user_id IS NULL THEN
     RAISE EXCEPTION 'USER_ID_REQUIRED';
   END IF;
 
-  -- Check existing profile
+  -- 2. Prevent duplicate profile creation
   SELECT * INTO v_existing FROM public.profiles WHERE id = p_user_id;
   IF FOUND THEN
     RETURN jsonb_build_object(
@@ -171,7 +169,7 @@ BEGIN
     );
   END IF;
 
-  -- Resolve sponsor
+  -- 3. Resolve Sponsor by referral_code (if provided)
   IF p_referral_code IS NOT NULL AND length(trim(p_referral_code)) > 0 THEN
     v_clean_ref := upper(trim(p_referral_code));
     
@@ -182,20 +180,21 @@ BEGIN
        OR id::text = v_clean_ref
     LIMIT 1;
 
+    -- Return error if an invalid referral code was supplied (do not silently unlink)
     IF v_sponsor_id IS NULL THEN
       RAISE EXCEPTION 'INVALID_REFERRAL_CODE';
     END IF;
 
-    -- Anti-self referral protection
+    -- Anti-Self-Referral Protection
     IF v_sponsor_id = p_user_id THEN
       RAISE EXCEPTION 'SELF_REFERRAL_NOT_ALLOWED';
     END IF;
   END IF;
 
-  -- Generate referral code
+  -- 4. Generate guaranteed unique referral code
   v_new_code := public.generate_unique_referral_code();
 
-  -- Insert profile
+  -- 5. Atomic profile insertion with sponsor UUID in referred_by
   INSERT INTO public.profiles (
     id,
     full_name,
@@ -225,7 +224,7 @@ BEGIN
   )
   RETURNING * INTO v_profile;
 
-  -- Trigger notification for sponsor
+  -- 6. Automatically insert in-app notification for the sponsor
   IF v_sponsor_id IS NOT NULL THEN
     INSERT INTO public.notifications (
       user_id,
@@ -261,8 +260,10 @@ END;
 $$;
 
 -- ----------------------------------------------------------------------------
--- 7. RPC: get_direct_referrals() & get_direct_referral_count()
+-- 7. QUERY RPCS: DIRECT REFERRALS & 8-LEVEL RECURSIVE DOWNLINE
 -- ----------------------------------------------------------------------------
+
+-- Direct referrals query
 CREATE OR REPLACE FUNCTION public.get_direct_referrals(p_user_id UUID)
 RETURNS TABLE (
   id UUID,
@@ -277,6 +278,7 @@ SECURITY DEFINER
 SET search_path = public, auth
 AS $$
 BEGIN
+  -- Security check: callers can only query their own direct referrals
   IF auth.uid() IS NOT NULL AND auth.uid() != p_user_id THEN
     RAISE EXCEPTION 'UNAUTHORIZED_ACCESS';
   END IF;
@@ -295,6 +297,7 @@ BEGIN
 END;
 $$;
 
+-- Direct referrals count query
 CREATE OR REPLACE FUNCTION public.get_direct_referral_count(p_user_id UUID)
 RETURNS INTEGER
 LANGUAGE plpgsql
@@ -313,9 +316,7 @@ BEGIN
 END;
 $$;
 
--- ----------------------------------------------------------------------------
--- 8. RPC: get_downline_tree() (Recursive CTE for 8 Levels)
--- ----------------------------------------------------------------------------
+-- 8-Level Downline Recursive Tree CTE
 CREATE OR REPLACE FUNCTION public.get_downline_tree(p_user_id UUID)
 RETURNS TABLE (
   id UUID,
@@ -347,7 +348,7 @@ BEGIN
 
     UNION ALL
 
-    -- Level 2 to Level 8: Indirect Network
+    -- Levels 2-8: Recursive Downline
     SELECT
       c.id,
       COALESCE(c.full_name, c.name) AS name,
@@ -365,7 +366,7 @@ END;
 $$;
 
 -- ----------------------------------------------------------------------------
--- 9. ROW LEVEL SECURITY (RLS) POLICIES
+-- 8. ROW LEVEL SECURITY (RLS) & RESTRICTIVE POLICIES
 -- ----------------------------------------------------------------------------
 ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.notifications ENABLE ROW LEVEL SECURITY;
@@ -374,12 +375,14 @@ DROP POLICY IF EXISTS "Users can read own profile" ON public.profiles;
 DROP POLICY IF EXISTS "Users can update own profile safe fields" ON public.profiles;
 DROP POLICY IF EXISTS "Users can read own notifications" ON public.notifications;
 
+-- Authenticated users can only read their own profile
 CREATE POLICY "Users can read own profile"
   ON public.profiles
   FOR SELECT
   TO authenticated
   USING (id = auth.uid());
 
+-- Prevent users from modifying referred_by, referral_code, or ID
 CREATE POLICY "Users can update own profile safe fields"
   ON public.profiles
   FOR UPDATE
@@ -387,6 +390,7 @@ CREATE POLICY "Users can update own profile safe fields"
   USING (id = auth.uid())
   WITH CHECK (id = auth.uid());
 
+-- Users can only access their own notifications
 CREATE POLICY "Users can read own notifications"
   ON public.notifications
   FOR SELECT
@@ -394,7 +398,7 @@ CREATE POLICY "Users can read own notifications"
   USING (user_id = auth.uid());
 
 -- ----------------------------------------------------------------------------
--- 10. REALTIME PUBLICATION SETUP
+-- 9. SUPABASE REALTIME CONFIGURATION
 -- ----------------------------------------------------------------------------
 DO $$
 BEGIN
@@ -404,7 +408,7 @@ BEGIN
   ) THEN
     ALTER PUBLICATION supabase_realtime ADD TABLE public.profiles;
   END IF;
-  
+
   IF NOT EXISTS (
     SELECT 1 FROM pg_publication_tables 
     WHERE pubname = 'supabase_realtime' AND schemaname = 'public' AND tablename = 'notifications'
