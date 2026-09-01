@@ -1,0 +1,27 @@
+====================================================================
+APNA TAMBOLA — SUPABASE REFERRAL SYSTEM ROOT FIX VERIFICATION
+====================================================================
+
+1. DATABASE SCHEMA STATUS:
+- Primary Table: public.profiles (with backward-compatible support for public.users)
+- User ID: UUID referencing auth.users(id)
+- Referral Code Column: referral_code (Format: APNA + unique 4-char string)
+- Sponsor UUID Column: referred_by (Foreign key referencing public.profiles(id))
+
+2. POSTGRESQL FUNCTIONS & RPCS IMPLEMENTED:
+- generate_unique_referral_code() -> Generates collision-resistant APNA codes
+- register_profile_with_referral() -> Atomic registration with sponsor lookup, anti-self-referral check, and notification
+- get_direct_referrals(p_user_id) -> Secure direct team query
+- get_direct_referral_count(p_user_id) -> Real-time count of direct team members
+- get_downline_tree(p_user_id) -> Recursive CTE traversal across 8 downline levels
+
+3. FRONTEND & BACKEND ARCHITECTURE:
+- Captures ?ref=... on URL arrival and caches in localStorage/sessionStorage
+- Calls secure registration flow without client-side sponsor manipulation
+- Implemented Supabase Realtime listeners on public.profiles
+- Admin Referral Diagnostics panel provides 7-point health check & interactive downline tree inspection
+
+4. SQL SCRIPT LOCATION:
+- /apna_tambola_referral_fix.sql
+- /supabase_schema.sql
+====================================================================
