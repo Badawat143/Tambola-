@@ -29,6 +29,23 @@ export const BuyTicketModal: React.FC = () => {
   const [selectedPrice, setSelectedPrice] = useState<number>(game?.ticketPrice || 20);
   const [feedback, setFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
 
+  // Check if ticket sales are closed (Admin toggle or 5-minute pre-game cutoff)
+  const isSaleClosedByAdmin = game?.isTicketSaleOpen === false || game?.status === 'completed' || game?.status === 'cancelled';
+  let isWithin5MinCutoff = false;
+  let minutesLeft = 999;
+  if (game?.startTime) {
+    const startMs = new Date(game.startTime).getTime();
+    if (!isNaN(startMs)) {
+      const diffMs = startMs - Date.now();
+      minutesLeft = Math.ceil(diffMs / (1000 * 60));
+      if (diffMs <= 5 * 60 * 1000 && game.status !== 'completed') {
+        isWithin5MinCutoff = true;
+      }
+    }
+  }
+
+  const isBookingDisabled = isSaleClosedByAdmin || isWithin5MinCutoff;
+
   const pricePerTicket = selectedPrice;
   const totalCost = pricePerTicket * quantity;
   const totalAvailableFunds = (currentUser.ticketWallet || 0) + (currentUser.depositWallet || 0) + (currentUser.winningWallet || 0);
@@ -36,6 +53,15 @@ export const BuyTicketModal: React.FC = () => {
 
   const handlePurchase = () => {
     if (!game) return;
+    if (isBookingDisabled) {
+      setFeedback({
+        type: 'error',
+        message: isWithin5MinCutoff
+          ? '🔴 गेम शुरू होने के 5 मिनट पहले टिकट बुकिंग स्वतः बंद हो जाती है।'
+          : '🔴 इस गेम के लिए टिकट बुकिंग बंद है।',
+      });
+      return;
+    }
     if (!hasSufficientBalance) {
       setFeedback({ type: 'error', message: `वॉलेट में पर्याप्त राशि नहीं है! आवश्यक: ₹${totalCost}, उपलब्ध: ₹${totalAvailableFunds}। कृपया पहले वॉलेट रिचार्ज करें।` });
       return;
@@ -197,6 +223,23 @@ export const BuyTicketModal: React.FC = () => {
             )}
           </div>
 
+          {/* Offline Auto-Claim & Counting System Guarantee Banner */}
+          <div className="p-3 rounded-2xl bg-indigo-950/60 border border-indigo-500/30 text-[11px] text-indigo-200 space-y-1">
+            <div className="flex items-center gap-2 font-bold text-amber-300">
+              <span>🤖 100% सिस्टम ऑटो-चेक सुविधा</span>
+            </div>
+            <p className="text-[10px] text-slate-300 leading-relaxed">
+              यदि आप खेल के समय <strong>ऑनलाइन नहीं भी होंगे</strong>, तो भी सिस्टम आपके टिकट के सभी नंबर स्वतः चेक व काउंट करेगा और जीती हुई राशि आपके विनिंग वॉलेट में तुरंत क्रेडिट कर देगा।
+            </p>
+          </div>
+
+          {/* 5-Min Cutoff Notice if applicable */}
+          {isWithin5MinCutoff && (
+            <div className="p-3 rounded-2xl bg-red-950/60 border border-red-500/40 text-[11px] text-red-200 text-center font-bold">
+              ⛔ खेल शुरू होने के 5 मिनट पहले टिकट बुकिंग बंद हो चुकी है।
+            </div>
+          )}
+
           {/* Referral Commission Notice */}
           <div className="p-2.5 rounded-xl bg-blue-500/10 border border-blue-500/20 text-[10px] text-blue-300 flex items-center gap-1.5">
             <Percent className="w-3.5 h-3.5 shrink-0" />
@@ -206,10 +249,16 @@ export const BuyTicketModal: React.FC = () => {
           {/* CTA Button */}
           <button
             onClick={handlePurchase}
-            disabled={!hasSufficientBalance}
+            disabled={!hasSufficientBalance || isBookingDisabled}
             className="w-full py-4 rounded-2xl bg-gradient-to-r from-amber-400 via-pink-500 to-purple-600 text-white font-black text-sm tracking-wide shadow-xl shadow-pink-500/30 hover:scale-[1.02] transition-transform cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed uppercase"
           >
-            {hasSufficientBalance ? `Confirm & Pay ₹${totalCost}` : 'Insufficient Balance — Deposit First'}
+            {isWithin5MinCutoff
+              ? 'TICKET CLOSED (5 Min Pre-Game Cutoff)'
+              : isSaleClosedByAdmin
+              ? 'TICKET SALES CLOSED'
+              : hasSufficientBalance
+              ? `Confirm & Pay ₹${totalCost}`
+              : 'Insufficient Balance — Deposit First'}
           </button>
         </div>
       </div>

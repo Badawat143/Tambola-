@@ -2026,6 +2026,21 @@ export const TambolaProvider: React.FC<{ children: React.ReactNode }> = ({ child
       };
     }
 
+    // 🔒 5-Minute Pre-Game Cutoff Rule: Ticket sales close automatically 5 minutes before game starts
+    if (targetGame.startTime) {
+      const startTimeMs = new Date(targetGame.startTime).getTime();
+      if (!isNaN(startTimeMs)) {
+        const remainingMs = startTimeMs - Date.now();
+        const fiveMinutesMs = 5 * 60 * 1000;
+        if (remainingMs <= fiveMinutesMs) {
+          return {
+            success: false,
+            message: `🔴 टिकट बिक्री बंद है! गेम शुरू होने से 5 मिनट पहले टिकट बुकिंग स्वतः बंद हो जाती है। (Ticket booking closed 5 minutes before tournament start).`,
+          };
+        }
+      }
+    }
+
     if (currentUser.isBlocked) {
       return {
         success: false,

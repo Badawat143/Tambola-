@@ -1745,23 +1745,48 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({ isPageMode = f
                       </div>
                     </div>
 
-                    {/* Direct Number Picker */}
-                    <div className="flex items-center gap-2 bg-white/5 p-2 rounded-2xl border border-white/10">
-                      <input
-                        type="number"
-                        min="1"
-                        max="90"
-                        value={customCallNum}
-                        onChange={(e) => setCustomCallNum(Number(e.target.value))}
-                        className="w-16 px-2 py-1.5 rounded-xl bg-black/60 border border-white/20 text-center font-mono font-bold text-sm text-amber-400"
-                      />
+                    {/* Direct Number Picker (एडमिन कोई भी नंबर डाल सकता है) */}
+                    <form
+                      onSubmit={(e) => {
+                        e.preventDefault();
+                        if (customCallNum >= 1 && customCallNum <= 90) {
+                          callSpecificNumber(customCallNum);
+                        }
+                      }}
+                      className="flex flex-col sm:flex-row items-center gap-2 bg-white/5 p-2.5 rounded-2xl border border-white/10"
+                    >
+                      <div className="flex items-center gap-2">
+                        <label className="text-[10px] text-slate-300 font-bold uppercase whitespace-nowrap">
+                          Manual Number (1-90):
+                        </label>
+                        <input
+                          type="number"
+                          min="1"
+                          max="90"
+                          placeholder="Num"
+                          value={customCallNum || ''}
+                          onChange={(e) => setCustomCallNum(Number(e.target.value))}
+                          className="w-16 px-2.5 py-1.5 rounded-xl bg-black/70 border border-amber-400/40 text-center font-mono font-black text-base text-amber-400 focus:outline-none focus:border-amber-300"
+                        />
+                      </div>
                       <button
-                        onClick={() => callSpecificNumber(customCallNum)}
-                        className="px-3 py-1.5 rounded-xl bg-amber-400 text-slate-950 text-xs font-black hover:bg-amber-300 cursor-pointer"
+                        type="submit"
+                        disabled={!customCallNum || customCallNum < 1 || customCallNum > 90 || liveCalledNumbers.includes(customCallNum)}
+                        className="px-4 py-2 rounded-xl bg-gradient-to-r from-amber-400 to-yellow-500 text-slate-950 text-xs font-black hover:brightness-110 cursor-pointer shadow disabled:opacity-40 disabled:cursor-not-allowed whitespace-nowrap"
                       >
-                        CALL SPECIFIC
+                        🎯 CALL NUMBER
                       </button>
-                    </div>
+                    </form>
+                  </div>
+
+                  {/* Offline Ticket Auto-Check Assurance Info for Admin */}
+                  <div className="p-3 rounded-xl bg-indigo-950/40 border border-indigo-500/30 flex items-center justify-between text-xs text-indigo-200">
+                    <span className="flex items-center gap-1.5 font-medium">
+                      <span>🤖 <strong>Auto-Check & Count Active:</strong> नंबर कॉल होते ही सभी ऑनलाइन व ऑफलाइन यूज़र्स के टिकट स्वतः चेक होंगे और पुरस्कार सीधे विनर वॉलेट में जाएंगे।</span>
+                    </span>
+                    <span className="text-[11px] font-mono bg-indigo-500/20 px-2 py-0.5 rounded text-indigo-300">
+                      Total Tickets: {myTickets.length}
+                    </span>
                   </div>
 
                   {/* 1-90 Interactive Grid */}

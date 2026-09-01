@@ -65,6 +65,9 @@ export const UpcomingGamesSection: React.FC = () => {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {upcomingGames.map((game, idx) => {
           const timeLeftSec = timers[game.id] || (idx + 1) * 20 * 60;
+          const isUnder5Min = timeLeftSec <= 300;
+          const isSaleClosed = game.isTicketSaleOpen === false || isUnder5Min;
+
           return (
             <div
               key={game.id}
@@ -76,9 +79,15 @@ export const UpcomingGamesSection: React.FC = () => {
                   <span className="text-xs font-black px-2.5 py-1 bg-white/10 text-amber-300 rounded-lg border border-white/15 font-mono">
                     Game ID: {game.id}
                   </span>
-                  <span className="text-xs font-bold px-2.5 py-1 bg-emerald-500/20 text-emerald-300 rounded-full border border-emerald-500/40 uppercase tracking-wider">
-                    UPCOMING
-                  </span>
+                  {isUnder5Min ? (
+                    <span className="text-[10px] font-black px-2.5 py-1 bg-red-500/20 text-red-300 rounded-full border border-red-500/40 uppercase tracking-wider animate-pulse">
+                      ⛔ TICKET CLOSED (5m Cutoff)
+                    </span>
+                  ) : (
+                    <span className="text-xs font-bold px-2.5 py-1 bg-emerald-500/20 text-emerald-300 rounded-full border border-emerald-500/40 uppercase tracking-wider">
+                      UPCOMING
+                    </span>
+                  )}
                 </div>
 
                 <h3 className="text-xl font-black text-white tracking-tight group-hover:text-pink-300 transition-colors">
@@ -132,6 +141,11 @@ export const UpcomingGamesSection: React.FC = () => {
                     </p>
                   </div>
                 </div>
+
+                {/* System Auto-Check Note */}
+                <div className="text-[10px] text-indigo-300/80 bg-indigo-950/40 p-2 rounded-xl border border-indigo-500/20 mb-2 text-center">
+                  🤖 ऑफलाइन यूज़र्स के टिकट भी सिस्टम स्वतः चेक व काउंट करेगा
+                </div>
               </div>
 
               {/* VIEW GAME / JOIN BUTTON */}
@@ -139,10 +153,14 @@ export const UpcomingGamesSection: React.FC = () => {
                 <button
                   id={`btn-buy-ticket-${game.id}`}
                   onClick={() => handleBuyTicket(game)}
-                  className="w-full py-3.5 px-5 rounded-2xl bg-gradient-to-r from-pink-500 via-purple-600 to-indigo-600 hover:from-pink-600 hover:to-indigo-700 text-white font-extrabold text-sm sm:text-base shadow-lg shadow-pink-500/25 hover:shadow-pink-500/40 hover:scale-[1.02] active:scale-[0.98] transition-all duration-200 cursor-pointer flex items-center justify-center gap-2"
+                  className={`w-full py-3.5 px-5 rounded-2xl text-white font-extrabold text-sm sm:text-base shadow-lg transition-all duration-200 cursor-pointer flex items-center justify-center gap-2 ${
+                    isSaleClosed
+                      ? 'bg-slate-700 hover:bg-slate-600 text-slate-300 shadow-none'
+                      : 'bg-gradient-to-r from-pink-500 via-purple-600 to-indigo-600 hover:from-pink-600 hover:to-indigo-700 shadow-pink-500/25 hover:shadow-pink-500/40 hover:scale-[1.02] active:scale-[0.98]'
+                  }`}
                 >
                   <Ticket className="w-5 h-5" />
-                  <span>VIEW GAME</span>
+                  <span>{isUnder5Min ? 'BOOKING CLOSED (5m)' : 'BOOK TICKET / VIEW'}</span>
                 </button>
               </div>
             </div>
