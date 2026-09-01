@@ -2579,37 +2579,6 @@ export const UserDashboardModal: React.FC<UserDashboardModalProps> = ({ isPageMo
             {/* TAB 14: 👥 MY REFERRALS (LEVEL 1 & LEVEL 2 DOWNLINE NETWORK) */}
             {/* ================================================================= */}
             {activeTab === 'referral' && (() => {
-              // Helper for lenient, multi-attribute sponsor verification
-              const isDirectlyReferredBy = (targetUser: UserType, sponsor: UserType) => {
-                if (!targetUser || !sponsor || !targetUser.referredBy || targetUser.id === sponsor.id) return false;
-                const ref = (targetUser.referredBy || '').trim().toUpperCase();
-                const sponsorId = (sponsor.id || '').trim().toUpperCase();
-                const sponsorCode = (sponsor.referralCode || sponsor.id || '').trim().toUpperCase();
-                const refAlpha = ref.replace(/[^A-Z0-9]/g, '');
-                const sponsorIdAlpha = sponsorId.replace(/[^A-Z0-9]/g, '');
-                const sponsorCodeAlpha = sponsorCode.replace(/[^A-Z0-9]/g, '');
-                const refDigits = (targetUser.referredBy || '').replace(/[^0-9]/g, '');
-                const sponsorDigits = (sponsor.id || '').replace(/[^0-9]/g, '');
-                const sponsorCodeDigits = (sponsor.referralCode || '').replace(/[^0-9]/g, '');
-                const sponsorPhone = (sponsor.phone || '').replace(/[^0-9]/g, '');
-                const sponsorEmail = (sponsor.email || '').trim().toLowerCase();
-
-                // 1. Direct string comparison
-                if (ref === sponsorId || ref === sponsorCode) return true;
-                // 2. Alphanumeric comparison
-                if (sponsorIdAlpha && refAlpha === sponsorIdAlpha) return true;
-                if (sponsorCodeAlpha && refAlpha === sponsorCodeAlpha) return true;
-                // 3. Digits match (e.g. 102458 matches AT102458)
-                if (sponsorDigits.length >= 4 && refDigits.length >= 4 && (sponsorDigits.endsWith(refDigits) || refDigits.endsWith(sponsorDigits))) return true;
-                if (sponsorCodeDigits.length >= 4 && refDigits.length >= 4 && (sponsorCodeDigits.endsWith(refDigits) || refDigits.endsWith(sponsorCodeDigits))) return true;
-                // 4. Phone number 10-digit match
-                if (sponsorPhone.length >= 10 && refDigits.length >= 10 && (sponsorPhone.slice(-10) === refDigits.slice(-10))) return true;
-                // 5. Email match
-                if (sponsorEmail && targetUser.referredBy.trim().toLowerCase() === sponsorEmail) return true;
-
-                return false;
-              };
-
               // Level 1: Direct Referrals (Sponsor = currentUser)
               const level1Users = allUsers.filter((u) => isDirectlyReferredBy(u, currentUser));
               const level1Ids = new Set(level1Users.map((u) => u.id.toUpperCase()));
@@ -2617,7 +2586,7 @@ export const UserDashboardModal: React.FC<UserDashboardModalProps> = ({ isPageMo
 
               // Level 2: Indirect Referrals (Referred by Level 1 users)
               const level2Users = allUsers.filter((u) => {
-                if (!u || u.id === currentUser.id || level1Ids.has(u.id.toUpperCase()) || !u.referredBy) return false;
+                if (!u || u.id === currentUser.id || level1Ids.has(u.id.toUpperCase())) return false;
                 return level1Users.some((l1) => isDirectlyReferredBy(u, l1));
               });
 
@@ -2628,6 +2597,7 @@ export const UserDashboardModal: React.FC<UserDashboardModalProps> = ({ isPageMo
                   !q ||
                   u.name.toLowerCase().includes(q) ||
                   u.id.toLowerCase().includes(q) ||
+                  (u.referralCode && u.referralCode.toLowerCase().includes(q)) ||
                   (u.phone && u.phone.includes(q))
                 );
               });
@@ -2862,8 +2832,8 @@ export const UserDashboardModal: React.FC<UserDashboardModalProps> = ({ isPageMo
                                   <tr key={refUser.id} className="hover:bg-amber-400/5 transition-colors">
                                     <td className="py-3 px-2 text-slate-500 font-sans">{idx + 1}</td>
                                     <td className="py-3 px-2">
-                                      <span className="px-2 py-0.5 rounded-md bg-amber-400/20 text-amber-300 font-black border border-amber-400/40 text-[11px]">
-                                        {refUser.id}
+                                      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-amber-400/25 text-amber-300 font-black border border-amber-400/60 text-[11px] shadow-sm font-mono">
+                                        <span>{refUser.id}</span>
                                       </span>
                                     </td>
                                     <td className="py-3 px-2 font-sans font-bold text-white">

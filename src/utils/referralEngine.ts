@@ -215,33 +215,89 @@ export function verifyWinningClaim(
  * canonical User ID matching with backward-compatible fallback for legacy codes.
  */
 export function isDirectlyReferredBy(targetUser: User, sponsor: User): boolean {
-  if (!targetUser || !sponsor || !targetUser.referredBy || targetUser.id === sponsor.id) return false;
-  const ref = (targetUser.referredBy || '').trim().toUpperCase();
+  if (!targetUser || !sponsor || !targetUser.id || !sponsor.id || targetUser.id.toUpperCase() === sponsor.id.toUpperCase()) {
+    return false;
+  }
+
+  // Sponsor identifiers
   const sponsorId = (sponsor.id || '').trim().toUpperCase();
   const sponsorCode = (sponsor.referralCode || sponsor.id || '').trim().toUpperCase();
-  const refAlpha = ref.replace(/[^A-Z0-9]/g, '');
-  const sponsorIdAlpha = sponsorId.replace(/[^A-Z0-9]/g, '');
-  const sponsorCodeAlpha = sponsorCode.replace(/[^A-Z0-9]/g, '');
-  const refDigits = (targetUser.referredBy || '').replace(/[^0-9]/g, '');
-  const sponsorDigits = (sponsor.id || '').replace(/[^0-9]/g, '');
-  const sponsorCodeDigits = (sponsor.referralCode || '').replace(/[^0-9]/g, '');
   const sponsorPhone = (sponsor.phone || '').replace(/[^0-9]/g, '');
   const sponsorEmail = (sponsor.email || '').trim().toLowerCase();
+  const sponsorName = (sponsor.name || '').trim().toLowerCase();
+
+  // Target user referral fields (handling both camelCase and snake_case properties)
+  const rawRefBy = (
+    targetUser.referredBy ||
+    (targetUser as any).referred_by ||
+    (targetUser as any).sponsorId ||
+    (targetUser as any).sponsor_id ||
+    ''
+  ).toString().trim();
+
+  const rawRefCode = (
+    targetUser.referredByCode ||
+    (targetUser as any).referred_by_code ||
+    ''
+  ).toString().trim();
+
+  const rawSponsorName = (
+    targetUser.sponsorName ||
+    (targetUser as any).sponsor_name ||
+    ''
+  ).toString().trim().toLowerCase();
+
+  const refUpper = rawRefBy.toUpperCase();
+  const refCodeUpper = rawRefCode.toUpperCase();
+
+  // If no referral linkage exists on the target user
+  if (!rawRefBy && !rawRefCode && !rawSponsorName) {
+    return false;
+  }
 
   // 1. Exact canonical Sponsor User ID match (Primary Source of Truth)
-  if (ref === sponsorId) return true;
-  // 2. Exact Referral Code match (Lookup code fallback)
-  if (ref === sponsorCode) return true;
-  // 3. Alphanumeric comparison
-  if (sponsorIdAlpha && refAlpha === sponsorIdAlpha) return true;
-  if (sponsorCodeAlpha && refAlpha === sponsorCodeAlpha) return true;
-  // 4. Digits match (e.g. 102458 matches AT102458)
-  if (sponsorDigits.length >= 4 && refDigits.length >= 4 && (sponsorDigits.endsWith(refDigits) || refDigits.endsWith(sponsorDigits))) return true;
-  if (sponsorCodeDigits.length >= 4 && refDigits.length >= 4 && (sponsorCodeDigits.endsWith(refDigits) || refDigits.endsWith(sponsorCodeDigits))) return true;
+  if (sponsorId && (refUpper === sponsorId || refCodeUpper === sponsorId)) return true;
+
+  // 2. Exact Referral Code match
+  if (sponsorCode && (refUpper === sponsorCode || refCodeUpper === sponsorCode)) return true;
+
+  // 3. Alphanumeric comparison (ignoring dashes, prefixes, special chars)
+  const sponsorIdAlpha = sponsorId.replace(/[^A-Z0-9]/g, '');
+  const sponsorCodeAlpha = sponsorCode.replace(/[^A-Z0-9]/g, '');
+  const refAlpha = refUpper.replace(/[^A-Z0-9]/g, '');
+  const refCodeAlpha = refCodeUpper.replace(/[^A-Z0-9]/g, '');
+
+  if (sponsorIdAlpha && (refAlpha === sponsorIdAlpha || refCodeAlpha === sponsorIdAlpha)) return true;
+  if (sponsorCodeAlpha && (refAlpha === sponsorCodeAlpha || refCodeAlpha === sponsorCodeAlpha)) return true;
+
+  // 4. Digits match (e.g. 101 matches USR-101 or AT101)
+  const sponsorDigits = sponsorId.replace(/[^0-9]/g, '');
+  const sponsorCodeDigits = sponsorCode.replace(/[^0-9]/g, '');
+  const refDigits = rawRefBy.replace(/[^0-9]/g, '');
+  const refCodeDigits = rawRefCode.replace(/[^0-9]/g, '');
+
+  if (sponsorDigits.length >= 3) {
+    if (refDigits.length >= 3 && (sponsorDigits === refDigits || sponsorDigits.endsWith(refDigits) || refDigits.endsWith(sponsorDigits))) return true;
+    if (refCodeDigits.length >= 3 && (sponsorDigits === refCodeDigits || sponsorDigits.endsWith(refCodeDigits) || refCodeDigits.endsWith(sponsorDigits))) return true;
+  }
+  if (sponsorCodeDigits.length >= 3) {
+    if (refDigits.length >= 3 && (sponsorCodeDigits === refDigits || sponsorCodeDigits.endsWith(refDigits) || refDigits.endsWith(sponsorCodeDigits))) return true;
+    if (refCodeDigits.length >= 3 && (sponsorCodeDigits === refCodeDigits || sponsorCodeDigits.endsWith(refCodeDigits) || refCodeDigits.endsWith(sponsorCodeDigits))) return true;
+  }
+
   // 5. Phone number 10-digit match
-  if (sponsorPhone.length >= 10 && refDigits.length >= 10 && (sponsorPhone.slice(-10) === refDigits.slice(-10))) return true;
+  if (sponsorPhone.length >= 10) {
+    if (refDigits.length >= 10 && sponsorPhone.slice(-10) === refDigits.slice(-10)) return true;
+    if (refCodeDigits.length >= 10 && sponsorPhone.slice(-10) === refCodeDigits.slice(-10)) return true;
+  }
+
   // 6. Email match
-  if (sponsorEmail && targetUser.referredBy.trim().toLowerCase() === sponsorEmail) return true;
+  if (sponsorEmail) {
+    if (rawRefBy.toLowerCase() === sponsorEmail || rawRefCode.toLowerCase() === sponsorEmail) return true;
+  }
+
+  // 7. Sponsor name exact match fallback
+  if (sponsorName && rawSponsorName && sponsorName === rawSponsorName) return true;
 
   return false;
 }

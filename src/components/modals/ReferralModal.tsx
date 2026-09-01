@@ -131,7 +131,7 @@ export const ReferralModal: React.FC = () => {
                     </div>
                     <p className="text-xs text-slate-400 mt-0.5">
                       {lvl.members.length > 0
-                        ? `Members: ${lvl.members.map((m) => m.user.name).join(', ')}`
+                        ? `Members: ${lvl.members.map((m) => `${m.user.name} (${m.user.id})`).join(', ')}`
                         : 'No downline members joined at this level yet.'}
                     </p>
                   </div>
