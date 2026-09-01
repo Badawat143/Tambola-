@@ -361,6 +361,75 @@ export async function registerUserWithFirestoreTransaction(
 }
 
 /**
+ * Real-time listener for Firestore Users collection across devices
+ */
+export function subscribeToFirestoreUsers(callback: (users: any[]) => void): () => void {
+  try {
+    const firestoreDb = getDb();
+    if (!firestoreDb) return () => {};
+    const usersRef = collection(firestoreDb, COLLECTIONS.USERS);
+    const unsubscribe = onSnapshot(
+      usersRef,
+      (snapshot) => {
+        const users = snapshot.docs.map((docSnap) => ({
+          id: docSnap.id,
+          ...docSnap.data(),
+        }));
+        callback(users);
+      },
+      (error) => {
+        console.warn('[Firestore Real-time Users Listener Error]:', error);
+      }
+    );
+    return unsubscribe;
+  } catch (err) {
+    console.warn('[Firestore subscribeToFirestoreUsers failed]:', err);
+    return () => {};
+  }
+}
+
+/**
+ * Robust Referrer Lookup across Firestore documents by ID, referralCode, phone, or email
+ */
+export async function lookupReferrerInFirestore(code: string): Promise<{ id: string; name: string; referralCode?: string } | null> {
+  try {
+    const firestoreDb = getDb();
+    if (!firestoreDb || !code) return null;
+    const cleanCode = code.trim().toUpperCase();
+
+    // 1. Check direct doc ID
+    const directDocRef = doc(firestoreDb, COLLECTIONS.USERS, cleanCode);
+    const directSnap = await getDoc(directDocRef);
+    if (directSnap.exists()) {
+      const data = directSnap.data();
+      return {
+        id: directSnap.id,
+        name: data.name || 'Sponsor',
+        referralCode: data.referralCode || directSnap.id,
+      };
+    }
+
+    // 2. Query by referralCode
+    const usersRef = collection(firestoreDb, COLLECTIONS.USERS);
+    const qCode = query(usersRef, where('referralCode', '==', cleanCode), limit(1));
+    const snapCode = await getDocs(qCode);
+    if (!snapCode.empty) {
+      const docData = snapCode.docs[0].data();
+      return {
+        id: snapCode.docs[0].id,
+        name: docData.name || 'Sponsor',
+        referralCode: docData.referralCode || snapCode.docs[0].id,
+      };
+    }
+
+    return null;
+  } catch (err) {
+    console.warn('[Firestore Referrer Lookup Error]:', err);
+    return null;
+  }
+}
+
+/**
  * Query downline users referred by a specific user (utilizes index on referredBy)
  */
 export async function getDownlineUsersByReferrer(referrerId: string): Promise<any[]> {

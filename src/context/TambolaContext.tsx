@@ -7,6 +7,7 @@ import {
   recordWinnerToFirestore,
   registerUserWithFirestoreTransaction,
   signInWithFirebaseGoogle,
+  subscribeToFirestoreUsers,
 } from '../services/firebase';
 import {
   getSupabase,
@@ -784,6 +785,64 @@ export const TambolaProvider: React.FC<{ children: React.ReactNode }> = ({ child
     syncFromBackend();
     const interval = setInterval(syncFromBackend, 1000);
 
+    // ⚡ Real-time Multi-Device Firestore Listener
+    const unsubscribeFirestore = subscribeToFirestoreUsers((firestoreUsers) => {
+      if (!firestoreUsers || !Array.isArray(firestoreUsers) || firestoreUsers.length === 0) return;
+      console.log(`[TambolaContext 🔥 Real-time Firestore] Received ${firestoreUsers.length} users snapshot.`);
+      setAllUsers((prev) => {
+        const userMap = new Map<string, User>();
+        prev.forEach((u) => {
+          if (u && u.id) userMap.set(u.id.toUpperCase(), u);
+        });
+
+        let hasNewOrUpdated = false;
+        firestoreUsers.forEach((fu: any) => {
+          if (!fu || !fu.id) return;
+          const key = fu.id.toUpperCase();
+          const existing = userMap.get(key);
+          const cleanRef = fu.referredBy ? fu.referredBy.toString().trim().toUpperCase() : existing?.referredBy || null;
+
+          const mergedUser: User = {
+            id: key,
+            name: fu.name || existing?.name || 'Player',
+            phone: fu.phone || existing?.phone || '',
+            email: fu.email || existing?.email || '',
+            password: fu.password || existing?.password || 'Password@123',
+            referralCode: (fu.referralCode || existing?.referralCode || key).toUpperCase(),
+            referredBy: cleanRef,
+            depositWallet: Number(fu.depositWallet ?? existing?.depositWallet ?? 0),
+            ticketWallet: Number(fu.ticketWallet ?? existing?.ticketWallet ?? 0),
+            winningWallet: Number(fu.winningWallet ?? existing?.winningWallet ?? 0),
+            walletBalance: Number(
+              fu.walletBalance ??
+              ((fu.depositWallet ?? existing?.depositWallet ?? 0) +
+               (fu.ticketWallet ?? existing?.ticketWallet ?? 0) +
+               (fu.winningWallet ?? existing?.winningWallet ?? 0))
+            ),
+            referralEarnings: Number(fu.referralEarnings ?? existing?.referralEarnings ?? 0),
+            directIncomeEarnings: Number(fu.directIncomeEarnings ?? existing?.directIncomeEarnings ?? 0),
+            gameWinnings: Number(fu.gameWinnings ?? existing?.gameWinnings ?? 0),
+            totalDeposited: Number(fu.totalDeposited ?? existing?.totalDeposited ?? 0),
+            totalWithdrawn: Number(fu.totalWithdrawn ?? existing?.totalWithdrawn ?? 0),
+            freeTicketsAvailable: Number(fu.freeTicketsAvailable ?? existing?.freeTicketsAvailable ?? 0),
+            directReferralsCount: Number(fu.directReferralsCount ?? existing?.directReferralsCount ?? 0),
+            role: (fu.role || existing?.role || 'user') as any,
+            createdAt: fu.createdAt?.toDate ? fu.createdAt.toDate().toISOString() : (fu.createdAt || existing?.createdAt || new Date().toISOString()),
+            ageVerified: Boolean(fu.ageVerified ?? existing?.ageVerified ?? true),
+            stateOfResidence: fu.stateOfResidence || existing?.stateOfResidence || 'India',
+            isKycVerified: Boolean(fu.isKycVerified ?? existing?.isKycVerified ?? false),
+            isBlocked: Boolean(fu.isBlocked ?? existing?.isBlocked ?? false),
+            isDeleted: Boolean(fu.isDeleted ?? existing?.isDeleted ?? false),
+          };
+
+          userMap.set(key, mergedUser);
+          hasNewOrUpdated = true;
+        });
+
+        return Array.from(userMap.values());
+      });
+    });
+
     const handleFocus = () => {
       syncFromBackend();
     };
@@ -801,6 +860,7 @@ export const TambolaProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
     return () => {
       clearInterval(interval);
+      unsubscribeFirestore();
       if (typeof window !== 'undefined') {
         window.removeEventListener('focus', handleFocus);
         document.removeEventListener('visibilitychange', handleVisibilityChange);
