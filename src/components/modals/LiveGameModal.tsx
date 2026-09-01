@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useTambola } from '../../context/TambolaContext';
+import { ApnaTambolaLogo } from '../ApnaTambolaLogo';
 import {
   X,
   Play,
@@ -197,9 +198,7 @@ export const LiveGameModal: React.FC = () => {
         {/* Modal Header */}
         <div className="flex items-center justify-between pb-4 border-b border-indigo-500/20">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-pink-500 to-purple-600 flex items-center justify-center text-white font-black shadow-lg shadow-pink-500/30">
-              <Trophy className="w-5 h-5" />
-            </div>
+            <ApnaTambolaLogo size="sm" showText={false} />
             <div>
               <div className="flex items-center gap-2">
                 <h2 className="text-lg sm:text-xl font-black text-white tracking-tight">

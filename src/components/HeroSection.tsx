@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useTambola } from '../context/TambolaContext';
+import { ApnaTambolaLogo } from './ApnaTambolaLogo';
 import { Sparkles, Trophy, Flame, Play, Ticket, Zap, ShieldCheck, Clock, ArrowRight, Users, HelpCircle, Crown } from 'lucide-react';
 
 export const HeroSection: React.FC = () => {
@@ -28,11 +29,23 @@ export const HeroSection: React.FC = () => {
           
           {/* Left Column: Headings & Big Pill Action Buttons */}
           <div className="lg:col-span-6 text-center lg:text-left space-y-6">
-            {/* Top Pill Badge */}
-            <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-gradient-to-r from-amber-500/20 via-pink-500/20 to-purple-500/20 border border-amber-400/40 text-amber-300 text-xs sm:text-sm font-black shadow-md">
-              <Crown className="w-4 h-4 text-yellow-400 fill-yellow-400" />
-              <span>INDIA'S #1 PREMIER LIVE TAMBOLA</span>
-              <Sparkles className="w-4 h-4 text-amber-300 animate-spin" style={{ animationDuration: '4s' }} />
+            {/* Top Pill Badge & Official Logo */}
+            <div className="flex flex-col sm:flex-row items-center justify-center lg:justify-start gap-4">
+              <ApnaTambolaLogo size="xl" showText={false} className="hover:scale-105 transition-transform" />
+              <div className="space-y-2">
+                <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-gradient-to-r from-amber-500/20 via-pink-500/20 to-purple-500/20 border border-amber-400/40 text-amber-300 text-xs sm:text-sm font-black shadow-md">
+                  <Crown className="w-4 h-4 text-yellow-400 fill-yellow-400" />
+                  <span>INDIA'S #1 PREMIER LIVE TAMBOLA</span>
+                  <Sparkles className="w-4 h-4 text-amber-300 animate-spin" style={{ animationDuration: '4s' }} />
+                </div>
+                <div className="text-xs font-bold text-amber-400 tracking-widest uppercase flex items-center justify-center lg:justify-start gap-1">
+                  <span>PLAY</span>
+                  <span>•</span>
+                  <span>ENJOY</span>
+                  <span>•</span>
+                  <span>WIN</span>
+                </div>
+              </div>
             </div>
 
             {/* Main Heading: WELCOME TO APNA TAMBOLA */}

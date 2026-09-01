@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useTambola } from '../context/TambolaContext';
+import { ApnaTambolaLogo } from './ApnaTambolaLogo';
 import {
   Ticket,
   Sparkles,
@@ -133,9 +134,7 @@ export const TambolaTicketSection: React.FC = () => {
             {/* Ticket Header Bar */}
             <div className="flex flex-wrap items-center justify-between gap-4 pb-4 mb-4 border-b border-white/10">
               <div className="flex items-center gap-3">
-                <div className={`w-12 h-12 rounded-2xl bg-gradient-to-tr ${currentThemeObj.activeClass} flex items-center justify-center text-white font-black text-lg shadow-lg`}>
-                  AT
-                </div>
+                <ApnaTambolaLogo size="md" showText={false} />
                 <div>
                   <div className="flex items-center gap-2">
                     <h3 className="text-lg font-black text-white tracking-tight">

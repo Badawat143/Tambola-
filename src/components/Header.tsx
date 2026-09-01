@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useTambola } from '../context/TambolaContext';
+import { ApnaTambolaLogo } from './ApnaTambolaLogo';
 import {
   Sparkles,
   Menu,
@@ -69,34 +70,12 @@ export const Header: React.FC<HeaderProps> = ({ onNavigate }) => {
     <header className="sticky top-0 z-40 w-full border-b border-sky-400/20 bg-[#041d38]/90 backdrop-blur-xl transition-all duration-300 shadow-lg shadow-sky-950/20">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-20">
-          {/* Logo Left: 🎱 APNA TAMBOLA with Crown */}
+          {/* Logo Left: 👑 APNA TAMBOLA with Official Emblem */}
           <div
             className="flex items-center gap-3 cursor-pointer group"
             onClick={() => handleRoute('/')}
           >
-            {/* 3D 8-Ball Icon */}
-            <div className="relative flex items-center justify-center w-12 h-12 rounded-full bg-gradient-to-br from-indigo-900 via-black to-slate-900 p-[2px] shadow-lg shadow-purple-500/30 group-hover:scale-105 transition-transform">
-              <div className="w-full h-full rounded-full bg-gradient-to-br from-slate-900 to-black flex items-center justify-center relative overflow-hidden border border-white/20">
-                <div className="absolute top-1 left-2 w-3 h-2 bg-white/50 rounded-full rotate-[-30deg]"></div>
-                {/* 8 Ball Center White Circle */}
-                <div className="w-6 h-6 rounded-full bg-white flex items-center justify-center shadow-inner">
-                  <span className="font-black text-xs text-black font-['Space_Grotesk']">8</span>
-                </div>
-              </div>
-            </div>
-
-            {/* Brand Text with Crown */}
-            <div className="relative">
-              <div className="flex items-center gap-1">
-                <div className="relative flex flex-col">
-                  {/* Golden Crown */}
-                  <Crown className="w-4 h-4 text-amber-400 fill-amber-400 absolute -top-3.5 left-1/2 -translate-x-1/2 filter drop-shadow-[0_0_8px_rgba(251,191,36,0.6)]" />
-                  <span className="text-xl sm:text-2xl font-black tracking-tight text-white font-['Outfit'] drop-shadow-[0_2px_10px_rgba(234,179,8,0.3)]">
-                    APNA <span className="bg-gradient-to-r from-amber-300 via-amber-400 to-yellow-500 bg-clip-text text-transparent">TAMBOLA</span>
-                  </span>
-                </div>
-              </div>
-            </div>
+            <ApnaTambolaLogo size="md" showText={true} />
           </div>
 
           {/* Center Navigation Links: HOME | LIVE GAMES | HOW TO PLAY | WINNERS */}

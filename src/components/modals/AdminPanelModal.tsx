@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useTambola } from '../../context/TambolaContext';
+import { ApnaTambolaLogo } from '../ApnaTambolaLogo';
 import {
   X,
   Settings,
@@ -689,14 +690,12 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({ isPageMode = f
           <div className="p-3.5 space-y-1">
             {/* Sidebar Logo */}
             <div className="flex items-center gap-2.5 px-3 py-3 mb-2 border-b border-slate-800/80">
-              <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-amber-400 via-orange-500 to-purple-600 p-0.5 flex items-center justify-center shadow-md shadow-orange-500/20">
-                <Crown className="w-4 h-4 text-white" />
-              </div>
+              <ApnaTambolaLogo size="sm" showText={false} />
               <div>
                 <div className="font-black text-sm text-white tracking-wider font-['Outfit']">
                   APNA TAMBOLA
                 </div>
-                <div className="text-[9px] font-bold text-slate-400 uppercase tracking-widest -mt-0.5">
+                <div className="text-[9px] font-bold text-amber-400 uppercase tracking-widest -mt-0.5">
                   ADMIN PANEL
                 </div>
               </div>

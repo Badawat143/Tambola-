@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useTambola } from '../../context/TambolaContext';
+import { ApnaTambolaLogo } from '../ApnaTambolaLogo';
 import {
   Sparkles,
   Lock,
@@ -68,8 +69,12 @@ export const UserLoginPage: React.FC<UserLoginPageProps> = ({ onNavigate }) => {
   return (
     <div className="min-h-[calc(100vh-80px)] py-12 px-4 sm:px-6 lg:px-8 flex items-center justify-center bg-gradient-to-b from-[#070817] via-[#0d0f2b] to-[#070817]">
       <div className="w-full max-w-md">
-        {/* Header Branding */}
+        {/* Header Branding with Official Logo */}
         <div className="text-center mb-8">
+          <div className="flex justify-center mb-3">
+            <ApnaTambolaLogo size="lg" showText={false} />
+          </div>
+
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-blue-500/10 border border-blue-500/30 text-blue-400 text-xs font-bold mb-3 shadow-sm">
             <Sparkles className="w-3.5 h-3.5" />
             <span>PLAYER ACCESS PORTAL</span>
@@ -79,7 +84,7 @@ export const UserLoginPage: React.FC<UserLoginPageProps> = ({ onNavigate }) => {
             WELCOME BACK TO APNA TAMBOLA
           </h1>
           <p className="text-xs sm:text-sm text-slate-400 mt-1">
-            Enter your mobile/email and password to access your game tickets & wallet.
+            Enter your mobile/email and password to access your game tickets &amp; wallet.
           </p>
         </div>
 

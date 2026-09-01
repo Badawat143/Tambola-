@@ -1,5 +1,6 @@
 import React from 'react';
 import { useTambola } from '../context/TambolaContext';
+import { ApnaTambolaLogo } from './ApnaTambolaLogo';
 import {
   ShieldCheck,
   Award,
@@ -47,21 +48,9 @@ export const Footer: React.FC = () => {
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 lg:py-16">
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-10">
-          {/* Col 1 & 2: Brand Info */}
+          {/* Col 1 & 2: Brand Info with Official Logo */}
           <div className="lg:col-span-2 space-y-4">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-pink-500 to-purple-600 flex items-center justify-center text-white font-black text-base shadow-lg shadow-pink-500/30">
-                AT
-              </div>
-              <div>
-                <span className="text-2xl font-black bg-gradient-to-r from-amber-300 via-pink-400 to-purple-300 bg-clip-text text-transparent">
-                  {settings.websiteName || 'APNA TAMBOLA'}
-                </span>
-                <p className="text-[10px] tracking-widest font-bold text-slate-400 uppercase">
-                  {settings.tagline || 'PLAY MORE • WIN MORE • SMILE MORE'}
-                </p>
-              </div>
-            </div>
+            <ApnaTambolaLogo size="xl" showText={true} />
 
             <p className="text-xs sm:text-sm text-slate-400 leading-relaxed max-w-sm">
               India's premier digital Tambola &amp; Housie gaming platform. Providing certified random number calling, transparent multi-level referral commissions, and instant prize settlements.
