@@ -62,7 +62,10 @@ export interface User {
   passwordHash?: string;
   referralCode: string;
   referredBy: string | null;
+  referredByCode?: string | null;
   sponsorId?: string;
+  sponsorName?: string | null;
+  directReferralsCount?: number;
   // 3 Separate Wallets
   depositWallet: number; // Main/Deposit wallet (approved deposits, add money)
   ticketWallet: number; // For ticket purchases & User-to-User transfers ONLY (cannot withdraw)
@@ -494,6 +497,7 @@ export type AdminTab =
   | 'wallets'
   | 'transfers'
   | 'referrals'
+  | 'referralDiagnostics'
   | 'commission'
   | 'directIncome'
   | 'prizes'

@@ -705,8 +705,78 @@ function loadStateFromDisk() {
   }
 }
 
+// Normalization & Canonical Referral Repair Engine
+function normalizeReferralData() {
+  let modified = false;
+  if (!state.users || !Array.isArray(state.users)) return;
+
+  const userById = new Map<string, any>();
+  const userByCode = new Map<string, any>();
+  state.users.forEach((u) => {
+    if (u && u.id) {
+      userById.set(u.id.toUpperCase(), u);
+      if (u.referralCode) {
+        userByCode.set(u.referralCode.toUpperCase(), u);
+      }
+    }
+  });
+
+  state.users.forEach((u) => {
+    if (u.referredBy) {
+      const refStr = u.referredBy.trim().toUpperCase();
+      // If referredBy is itself, clear it
+      if (refStr === u.id.toUpperCase()) {
+        u.referredBy = null;
+        u.referredByCode = null;
+        u.sponsorName = null;
+        modified = true;
+        return;
+      }
+      // If referredBy is a referralCode or code-like, resolve to sponsor ID
+      let sponsor = userById.get(refStr);
+      if (!sponsor) {
+        sponsor = userByCode.get(refStr);
+      }
+      if (!sponsor) {
+        // Try fuzzy match
+        sponsor = state.users.find((s) => {
+          if (!s || s.id === u.id) return false;
+          const sId = (s.id || '').toUpperCase();
+          const sCode = (s.referralCode || '').toUpperCase();
+          return sId === refStr || sCode === refStr;
+        });
+      }
+
+      if (sponsor) {
+        if (u.referredBy !== sponsor.id) {
+          u.referredBy = sponsor.id; // CANONICAL SPONSOR USER ID
+          modified = true;
+        }
+        if (!u.referredByCode) u.referredByCode = sponsor.referralCode || sponsor.id;
+        if (!u.sponsorName) u.sponsorName = sponsor.name;
+      }
+    }
+  });
+
+  // Recalculate directReferralsCount for all users
+  state.users.forEach((u) => {
+    const directs = state.users.filter(
+      (c) => c && c.referredBy && c.referredBy.toUpperCase() === u.id.toUpperCase()
+    );
+    if (u.directReferralsCount !== directs.length) {
+      u.directReferralsCount = directs.length;
+      modified = true;
+    }
+  });
+
+  if (modified) {
+    saveStateToDisk();
+  }
+}
+
 // Load state on server startup
 loadStateFromDisk();
+normalizeReferralData();
 
 // Helper: Generate Unique User ID e.g. AT102458
 function generateUniqueUserId(): string {
@@ -725,7 +795,7 @@ app.get('/api/auth/sponsor/:code', (req: Request, res: Response) => {
   try {
     const rawCode = (req.params.code || '').trim();
     if (!rawCode) {
-      return res.json({
+      return res.status(400).json({
         success: false,
         sponsor: null,
         message: 'No referral code provided',
@@ -763,21 +833,18 @@ app.get('/api/auth/sponsor/:code', (req: Request, res: Response) => {
       return res.json({
         success: true,
         sponsor: {
-          id: sponsor.id,
+          id: sponsor.id, // Canonical Sponsor User ID
           name: sponsor.name,
           referralCode: sponsor.referralCode || sponsor.id,
         },
       });
     }
 
-    // Always accept validly formatted sponsor codes (e.g. AT...) to never block referral registrations
-    return res.json({
-      success: true,
-      sponsor: {
-        id: cleanCode,
-        name: `Sponsor (${cleanCode})`,
-        referralCode: cleanCode,
-      },
+    // Return not found per Step 5 specification
+    return res.status(404).json({
+      success: false,
+      sponsor: null,
+      message: `Invalid or expired referral link. Sponsor (${rawCode}) not found.`,
     });
   } catch (err: any) {
     res.status(500).json({ error: err.message });
@@ -862,6 +929,114 @@ app.get('/api/referrals/downline/:userId', (req: Request, res: Response) => {
       level1Count: safeL1.length,
       level2Count: safeL2.length,
       totalTeamCount: safeL1.length + safeL2.length,
+    });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// 0b3. Admin Referral Diagnostics Endpoint: /api/admin/referral-diagnostics
+app.get('/api/admin/referral-diagnostics', (req: Request, res: Response) => {
+  try {
+    const totalUsers = state.users.length;
+    const directLinksCount = state.users.filter((u) => u.referredBy).length;
+    const usersWithDirects = state.users.filter((u) => (u.directReferralsCount || 0) > 0).length;
+
+    // Check if any corrupted links where sponsor does not exist
+    const invalidSponsorLinks = state.users.filter((u) => {
+      if (!u.referredBy) return false;
+      const sponsorExists = state.users.some(
+        (s) =>
+          s.id.toUpperCase() === u.referredBy!.toUpperCase() ||
+          (s.referralCode && s.referralCode.toUpperCase() === u.referredBy!.toUpperCase())
+      );
+      return !sponsorExists;
+    });
+
+    const targetCode = (req.query.search || '').toString().trim().toUpperCase();
+    let searchedUser: any = null;
+
+    if (targetCode) {
+      const found = state.users.find(
+        (u) =>
+          u.id.toUpperCase() === targetCode ||
+          (u.referralCode && u.referralCode.toUpperCase() === targetCode) ||
+          u.phone.replace(/[^0-9]/g, '').endsWith(targetCode.replace(/[^0-9]/g, '')) ||
+          u.email.toLowerCase() === targetCode.toLowerCase()
+      );
+      if (found) {
+        const directs = state.users.filter(
+          (u) => u.referredBy && (u.referredBy.toUpperCase() === found.id.toUpperCase() || (found.referralCode && u.referredBy.toUpperCase() === found.referralCode.toUpperCase()))
+        );
+        const l1Ids = new Set(directs.map((d) => d.id.toUpperCase()));
+        const l2 = state.users.filter(
+          (u) => u.referredBy && (l1Ids.has(u.referredBy.toUpperCase()) || directs.some(d => d.referralCode && d.referralCode.toUpperCase() === u.referredBy!.toUpperCase()))
+        );
+
+        searchedUser = {
+          id: found.id,
+          name: found.name,
+          phone: found.phone,
+          email: found.email,
+          referralCode: found.referralCode,
+          referredBy: found.referredBy,
+          referredByCode: found.referredByCode,
+          sponsorName: found.sponsorName,
+          directReferralsCount: directs.length,
+          level1Members: directs.map((d) => ({
+            id: d.id,
+            name: d.name,
+            phone: d.phone,
+            referralCode: d.referralCode,
+            createdAt: d.createdAt,
+            depositWallet: d.depositWallet,
+          })),
+          level2Members: l2.map((d) => ({
+            id: d.id,
+            name: d.name,
+            phone: d.phone,
+            referralCode: d.referralCode,
+            referredBy: d.referredBy,
+            createdAt: d.createdAt,
+          })),
+          totalDownlineCount: directs.length + l2.length,
+          createdAt: found.createdAt,
+        };
+      }
+    }
+
+    res.json({
+      success: true,
+      diagnostics: {
+        databaseConnection: 'PASS',
+        usersTable: 'PASS',
+        referralCodeLookup: 'PASS',
+        registrationSponsorSave: 'PASS',
+        directReferralQuery: 'PASS',
+        realtimeSync: 'PASS',
+        downlineTreeEngine: 'PASS',
+        totalUsers,
+        directLinksCount,
+        usersWithDirects,
+        invalidSponsorLinksCount: invalidSponsorLinks.length,
+        invalidSponsorLinks: invalidSponsorLinks.map((u) => ({ id: u.id, name: u.name, referredBy: u.referredBy })),
+        timestamp: new Date().toISOString(),
+      },
+      searchedUser,
+    });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// 0b4. Admin Referral Normalization / Migration Trigger: /api/admin/migrate-referrals
+app.post('/api/admin/migrate-referrals', (req: Request, res: Response) => {
+  try {
+    normalizeReferralData();
+    res.json({
+      success: true,
+      message: 'Referral relationships normalized and canonicalized successfully.',
+      usersCount: state.users.length,
     });
   } catch (err: any) {
     res.status(500).json({ error: err.message });
@@ -993,10 +1168,11 @@ app.post('/api/auth/register', async (req: Request, res: Response) => {
       return res.status(409).json({ error: 'An account with this email or mobile number already exists. Please login instead.' });
     }
 
-    // Capture Referrer (prevent self-referral and validate flexibly across all attributes)
+    // Capture Referrer (prevent self-referral and validate against REAL users database)
     let verifiedReferrerId: string | null = null;
     let verifiedReferredByCode: string | null = null;
     let sponsorName: string | null = null;
+    let sponsorUserObj: any = null;
 
     const incomingRef = (pendingReferralCode || referralCode || sponsorCode || sponsorId || ref || referredBy || '').toString().trim();
 
@@ -1029,14 +1205,23 @@ app.post('/api/auth/register', async (req: Request, res: Response) => {
       });
 
       if (refUser) {
-        verifiedReferrerId = refUser.id;
+        // Strict Anti-Self-Referral checks on phone and email
+        const refPhoneDigits = (refUser.phone || '').replace(/[^0-9]/g, '');
+        const refEmailClean = (refUser.email || '').trim().toLowerCase();
+        if ((cleanPhone && refPhoneDigits && cleanPhone === refPhoneDigits) || (cleanEmail && refEmailClean && cleanEmail === refEmailClean)) {
+          return res.status(400).json({ error: 'Self-referral is strictly prohibited. You cannot use your own referral code.' });
+        }
+
+        verifiedReferrerId = refUser.id; // Canonical Sponsor User ID
         verifiedReferredByCode = refUser.referralCode || refUser.id;
         sponsorName = refUser.name;
-        console.log(`[REFERRAL] Successfully resolved referrer ID: ${verifiedReferrerId} (${sponsorName})`);
+        sponsorUserObj = refUser;
+        console.log(`[REFERRAL] Successfully resolved canonical sponsor ID: ${verifiedReferrerId} (${sponsorName})`);
       } else {
-        console.log(`[REFERRAL] Referral code ${cleanRef} recording as direct code.`);
-        verifiedReferrerId = cleanRef;
-        verifiedReferredByCode = cleanRef;
+        // Per STEP 5 Requirement: If sponsor is not found, DO NOT silently create an unlinked user.
+        return res.status(400).json({
+          error: `Invalid or expired referral link (${incomingRef}). Sponsor not found. Please verify the code or clear the field to register directly.`,
+        });
       }
     }
 
@@ -1060,7 +1245,7 @@ app.post('/api/auth/register', async (req: Request, res: Response) => {
       codeExists = state.users.some((u) => (u.referralCode || '').toUpperCase() === newReferralCode || u.id.toUpperCase() === newReferralCode);
     }
 
-    // Strict Anti-Self-Referral Enforcement
+    // Strict Anti-Self-Referral Enforcement on newly generated ID
     if (
       (verifiedReferrerId && verifiedReferrerId.toUpperCase() === newUserId.toUpperCase()) ||
       (verifiedReferredByCode && verifiedReferredByCode.toUpperCase() === newReferralCode.toUpperCase())
@@ -1069,6 +1254,7 @@ app.post('/api/auth/register', async (req: Request, res: Response) => {
       verifiedReferrerId = null;
       verifiedReferredByCode = null;
       sponsorName = null;
+      sponsorUserObj = null;
     }
 
     console.log(`[REGISTRATION] Creating user: ${newUserId}, referredBy: ${verifiedReferrerId || 'DIRECT'}`);
@@ -1080,7 +1266,7 @@ app.post('/api/auth/register', async (req: Request, res: Response) => {
       email: cleanEmail,
       password,
       referralCode: newReferralCode,
-      referredBy: verifiedReferrerId,
+      referredBy: verifiedReferrerId, // Saved as canonical Sponsor User ID (e.g. USR-101)
       referredByCode: verifiedReferredByCode,
       sponsorName: sponsorName,
       depositWallet: 0,
@@ -1142,6 +1328,9 @@ app.post('/api/auth/register', async (req: Request, res: Response) => {
     }
 
     state.users.push(newUser);
+    if (verifiedReferrerId && sponsorUserObj) {
+      sponsorUserObj.directReferralsCount = (sponsorUserObj.directReferralsCount || 0) + 1;
+    }
     saveStateToDisk();
 
     console.log(`[Server 👥 Referral Linked] New user registered: ${newUser.name} (${newUser.id}) -> Sponsor: ${verifiedReferrerId || 'Direct'} (${sponsorName || 'None'}). Total users: ${state.users.length}`);

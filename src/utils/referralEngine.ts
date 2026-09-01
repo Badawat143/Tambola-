@@ -212,7 +212,7 @@ export function verifyWinningClaim(
 
 /**
  * Helper to determine if a target user is directly referred by a sponsor using
- * robust multi-attribute matching (ID, Referral Code, Alphanumeric, Digits, Phone Suffix, Email).
+ * canonical User ID matching with backward-compatible fallback for legacy codes.
  */
 export function isDirectlyReferredBy(targetUser: User, sponsor: User): boolean {
   if (!targetUser || !sponsor || !targetUser.referredBy || targetUser.id === sponsor.id) return false;
@@ -228,17 +228,19 @@ export function isDirectlyReferredBy(targetUser: User, sponsor: User): boolean {
   const sponsorPhone = (sponsor.phone || '').replace(/[^0-9]/g, '');
   const sponsorEmail = (sponsor.email || '').trim().toLowerCase();
 
-  // 1. Direct string comparison
-  if (ref === sponsorId || ref === sponsorCode) return true;
-  // 2. Alphanumeric comparison
+  // 1. Exact canonical Sponsor User ID match (Primary Source of Truth)
+  if (ref === sponsorId) return true;
+  // 2. Exact Referral Code match (Lookup code fallback)
+  if (ref === sponsorCode) return true;
+  // 3. Alphanumeric comparison
   if (sponsorIdAlpha && refAlpha === sponsorIdAlpha) return true;
   if (sponsorCodeAlpha && refAlpha === sponsorCodeAlpha) return true;
-  // 3. Digits match (e.g. 102458 matches AT102458)
+  // 4. Digits match (e.g. 102458 matches AT102458)
   if (sponsorDigits.length >= 4 && refDigits.length >= 4 && (sponsorDigits.endsWith(refDigits) || refDigits.endsWith(sponsorDigits))) return true;
   if (sponsorCodeDigits.length >= 4 && refDigits.length >= 4 && (sponsorCodeDigits.endsWith(refDigits) || refDigits.endsWith(sponsorCodeDigits))) return true;
-  // 4. Phone number 10-digit match
+  // 5. Phone number 10-digit match
   if (sponsorPhone.length >= 10 && refDigits.length >= 10 && (sponsorPhone.slice(-10) === refDigits.slice(-10))) return true;
-  // 5. Email match
+  // 6. Email match
   if (sponsorEmail && targetUser.referredBy.trim().toLowerCase() === sponsorEmail) return true;
 
   return false;
@@ -287,8 +289,8 @@ export function calculateReferralDownline(
       const refEmail = u.referredBy.trim().toLowerCase();
 
       const isMatch =
-        parentCodes.has(ref) ||
         parentIds.has(ref) ||
+        parentCodes.has(ref) ||
         (refAlpha && parentAlphas.has(refAlpha)) ||
         (refDigits.length >= 10 && parentPhone10s.has(refDigits.slice(-10))) ||
         (refDigits.length >= 4 && (parentIdDigits.has(refDigits) || parentCodeDigits.has(refDigits))) ||
@@ -356,10 +358,11 @@ export function calculateReferralDownline(
 }
 
 /**
- * Initial Seed Users database that ensures exact verification test:
- * - Rajesh Sharma (APNA100) has 2 direct referrals (Pooja and Amit) -> Direct Referrals = 2, Level 1 = 2
- * - Pooja refers Sneha, Amit refers Vikas -> Level 2 = 2!
- * - Sneha refers Kiran -> Level 3 = 1
+ * Initial Seed Users database with canonical sponsor User IDs (referredBy = Sponsor User ID):
+ * - Rajesh Sharma (USR-101, APNA100) has 2 direct referrals: Pooja (USR-102) and Amit (USR-103) -> referredBy = 'USR-101'
+ * - Pooja (USR-102) refers Sneha (USR-104) -> referredBy = 'USR-102' (Level 2 of Rajesh)
+ * - Amit (USR-103) refers Vikas (USR-105) -> referredBy = 'USR-103' (Level 2 of Rajesh)
+ * - Sneha (USR-104) refers Kiran (USR-106) -> referredBy = 'USR-104' (Level 3 of Rajesh)
  */
 export const INITIAL_SEED_USERS: User[] = [
   {
@@ -369,6 +372,8 @@ export const INITIAL_SEED_USERS: User[] = [
     email: 'rajesh.sharma@example.com',
     referralCode: 'APNA100',
     referredBy: null,
+    referredByCode: null,
+    sponsorName: null,
     depositWallet: 650,
     ticketWallet: 200,
     winningWallet: 400,
@@ -379,6 +384,7 @@ export const INITIAL_SEED_USERS: User[] = [
     totalDeposited: 3000,
     totalWithdrawn: 1500,
     freeTicketsAvailable: 0,
+    directReferralsCount: 2,
     role: 'user',
     createdAt: '2026-08-10T10:00:00.000Z',
     ageVerified: true,
@@ -398,7 +404,9 @@ export const INITIAL_SEED_USERS: User[] = [
     phone: '+91 98765 43211',
     email: 'pooja.verma@example.com',
     referralCode: 'APNA200',
-    referredBy: 'APNA100', // Referred by Rajesh (Level 1 of Rajesh)
+    referredBy: 'USR-101', // Canonical Sponsor ID of Rajesh Sharma
+    referredByCode: 'APNA100',
+    sponsorName: 'Rajesh Sharma',
     depositWallet: 400,
     ticketWallet: 150,
     winningWallet: 250,
@@ -409,6 +417,7 @@ export const INITIAL_SEED_USERS: User[] = [
     totalDeposited: 1200,
     totalWithdrawn: 400,
     freeTicketsAvailable: 0,
+    directReferralsCount: 1,
     role: 'user',
     createdAt: '2026-08-12T11:30:00.000Z',
     ageVerified: true,
@@ -428,7 +437,9 @@ export const INITIAL_SEED_USERS: User[] = [
     phone: '+91 98765 43212',
     email: 'amit.patel@example.com',
     referralCode: 'APNA300',
-    referredBy: 'APNA100', // Referred by Rajesh (Level 1 of Rajesh)
+    referredBy: 'USR-101', // Canonical Sponsor ID of Rajesh Sharma
+    referredByCode: 'APNA100',
+    sponsorName: 'Rajesh Sharma',
     depositWallet: 300,
     ticketWallet: 100,
     winningWallet: 250,
@@ -439,6 +450,7 @@ export const INITIAL_SEED_USERS: User[] = [
     totalDeposited: 1500,
     totalWithdrawn: 600,
     freeTicketsAvailable: 0,
+    directReferralsCount: 1,
     role: 'user',
     createdAt: '2026-08-14T14:15:00.000Z',
     ageVerified: true,
@@ -448,7 +460,7 @@ export const INITIAL_SEED_USERS: User[] = [
       accountNumber: '918820192841',
       ifscCode: 'SBIN0004921',
       bankName: 'State Bank of India',
-      upiId: 'amit@okicici',
+      upiId: 'amit@oksbi',
     },
     isKycVerified: true,
   },
@@ -458,17 +470,20 @@ export const INITIAL_SEED_USERS: User[] = [
     phone: '+91 98765 43213',
     email: 'sneha.roy@example.com',
     referralCode: 'APNA400',
-    referredBy: 'APNA200', // Referred by Pooja (Level 2 of Rajesh)
+    referredBy: 'USR-102', // Canonical Sponsor ID of Pooja Verma
+    referredByCode: 'APNA200',
+    sponsorName: 'Pooja Verma',
     depositWallet: 200,
     ticketWallet: 100,
     winningWallet: 100,
     walletBalance: 400,
-    referralEarnings: 30,
+    referralEarnings: 40,
     directIncomeEarnings: 10,
-    gameWinnings: 0,
-    totalDeposited: 600,
+    gameWinnings: 800,
+    totalDeposited: 500,
     totalWithdrawn: 0,
     freeTicketsAvailable: 0,
+    directReferralsCount: 1,
     role: 'user',
     createdAt: '2026-08-16T09:45:00.000Z',
     ageVerified: true,
@@ -480,7 +495,9 @@ export const INITIAL_SEED_USERS: User[] = [
     phone: '+91 98765 43214',
     email: 'vikas.kumar@example.com',
     referralCode: 'APNA500',
-    referredBy: 'APNA300', // Referred by Amit (Level 2 of Rajesh)
+    referredBy: 'USR-103', // Canonical Sponsor ID of Amit Patel
+    referredByCode: 'APNA300',
+    sponsorName: 'Amit Patel',
     depositWallet: 300,
     ticketWallet: 50,
     winningWallet: 200,
@@ -491,6 +508,7 @@ export const INITIAL_SEED_USERS: User[] = [
     totalDeposited: 800,
     totalWithdrawn: 250,
     freeTicketsAvailable: 0,
+    directReferralsCount: 0,
     role: 'user',
     createdAt: '2026-08-18T16:20:00.000Z',
     ageVerified: true,
@@ -510,7 +528,9 @@ export const INITIAL_SEED_USERS: User[] = [
     phone: '+91 98765 43215',
     email: 'kiran.gupta@example.com',
     referralCode: 'APNA600',
-    referredBy: 'APNA400', // Referred by Sneha (Level 3 of Rajesh)
+    referredBy: 'USR-104', // Canonical Sponsor ID of Sneha Roy
+    referredByCode: 'APNA400',
+    sponsorName: 'Sneha Roy',
     depositWallet: 150,
     ticketWallet: 50,
     winningWallet: 100,
@@ -521,6 +541,7 @@ export const INITIAL_SEED_USERS: User[] = [
     totalDeposited: 400,
     totalWithdrawn: 0,
     freeTicketsAvailable: 0,
+    directReferralsCount: 0,
     role: 'user',
     createdAt: '2026-08-20T12:10:00.000Z',
     ageVerified: true,
@@ -533,6 +554,8 @@ export const INITIAL_SEED_USERS: User[] = [
     email: 'admin@apnatambola.com',
     referralCode: 'APNA999',
     referredBy: null,
+    referredByCode: null,
+    sponsorName: null,
     depositWallet: 40000,
     ticketWallet: 5000,
     winningWallet: 5000,
@@ -543,6 +566,7 @@ export const INITIAL_SEED_USERS: User[] = [
     totalDeposited: 0,
     totalWithdrawn: 0,
     freeTicketsAvailable: 0,
+    directReferralsCount: 0,
     role: 'admin',
     createdAt: '2026-08-01T00:00:00.000Z',
     ageVerified: true,

@@ -68,6 +68,7 @@ import {
 import { validatePrizePool } from '../../utils/referralEngine';
 import { TAMBOLA_CALLS } from '../../utils/soundEffects';
 import { AdminOverviewDashboard } from '../admin/AdminOverviewDashboard';
+import { ReferralDiagnostics } from '../admin/ReferralDiagnostics';
 
 interface ExtendedReferralLevel {
   level: number;
@@ -536,6 +537,7 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({ isPageMode = f
     { tab: 'withdrawals', label: 'Withdrawal Management', icon: ArrowUpFromLine, badge: withdrawals.filter((w) => w.status === 'pending').length || undefined, hasChevron: true },
     { tab: 'commission', label: 'Commission Management', icon: Percent, hasChevron: true },
     { tab: 'referrals', label: 'Referral Management', icon: Users, hasChevron: true },
+    { tab: 'referralDiagnostics', label: 'Referral Diagnostics', icon: ShieldCheck, badge: 'HEALTH', hasChevron: true },
     { tab: 'transfers', label: 'Transaction Management', icon: CreditCard, hasChevron: true },
     { tab: 'notifications', label: 'Notification Management', icon: Bell, hasChevron: true },
     { tab: 'reports', label: 'Support & Ticket', icon: LifeBuoy, hasChevron: true },
@@ -2251,6 +2253,13 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({ isPageMode = f
                   </div>
                 </div>
               </div>
+            )}
+
+            {/* ================================================================= */}
+            {/* TAB 13b: 🛡️ REFERRAL SYSTEM DIAGNOSTICS & AUDIT */}
+            {/* ================================================================= */}
+            {activeTab === 'referralDiagnostics' && (
+              <ReferralDiagnostics />
             )}
 
             {/* ================================================================= */}
