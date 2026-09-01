@@ -140,6 +140,7 @@ interface TambolaContextType {
     | 'buyTicket'
     | 'myTickets'
     | 'referral'
+    | 'shareReferral'
     | 'admin'
     | 'prizes'
     | 'winners'

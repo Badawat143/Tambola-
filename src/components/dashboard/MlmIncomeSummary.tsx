@@ -1,5 +1,7 @@
 import React, { useState } from 'react';
 import { User, ReferralDownlineStats } from '../../types/tambola';
+import { useTambola } from '../../context/TambolaContext';
+import { ApnaTambolaLogo } from '../ApnaTambolaLogo';
 import {
   Sparkles,
   TrendingUp,
@@ -27,6 +29,7 @@ export const MlmIncomeSummary: React.FC<MlmIncomeSummaryProps> = ({
   onViewDirectMembers,
   onViewCommission,
 }) => {
+  const { setActiveModal } = useTambola();
   const [copiedLink, setCopiedLink] = useState(false);
 
   const directIncome = currentUser.directIncomeEarnings || 0;
@@ -48,14 +51,14 @@ export const MlmIncomeSummary: React.FC<MlmIncomeSummaryProps> = ({
 
   const handleShareWhatsApp = () => {
     const text = encodeURIComponent(
-      `🎉 Play APNA TAMBOLA with me! Win up to 70% prize pool and earn 8-level lifetime team income! Use referral code: ${currentUser.referralCode || 'AT10245'}\n\nJoin now: ${referralLink}`
+      `🎱 *APNA TAMBOLA* 👑\n\nनमस्ते! मेरे साथ अपना तंबोला खेलें और 8-लेवल टीम कमीशन पाएं!\n\n👉 *ज्वाइन लिंक:* ${referralLink}\n🔑 *रेफरल कोड:* ${currentUser.referralCode || currentUser.id || 'AT10245'}\n\n(डिपॉजिट पर नहीं, बल्कि जब भी टीम टिकट खरीदेगी, आपको 8 लेवल तक लाइफटाइम कमीशन मिलेगा!)`
     );
     window.open(`https://api.whatsapp.com/send?text=${text}`, '_blank');
   };
 
   const handleShareTelegram = () => {
     const text = encodeURIComponent(
-      `🎉 Play APNA TAMBOLA with me! Win up to 70% prize pool and earn 8-level team commissions! Use code: ${currentUser.referralCode || 'AT10245'}`
+      `🎉 Play APNA TAMBOLA with me! Win up to 70% prize pool and earn 8-level ticket gameplay commissions! Use code: ${currentUser.referralCode || currentUser.id || 'AT10245'}`
     );
     window.open(`https://t.me/share/url?url=${encodeURIComponent(referralLink)}&text=${text}`, '_blank');
   };
@@ -73,7 +76,7 @@ export const MlmIncomeSummary: React.FC<MlmIncomeSummaryProps> = ({
               <h4 className="text-sm font-black text-white uppercase tracking-wider">
                 💎 MLM INCOME SUMMARY
               </h4>
-              <p className="text-[10px] text-slate-400">Periodic breakdown & total credited</p>
+              <p className="text-[10px] text-slate-400">Periodic breakdown &amp; total credited</p>
             </div>
           </div>
 
@@ -121,7 +124,7 @@ export const MlmIncomeSummary: React.FC<MlmIncomeSummaryProps> = ({
             <div className="flex justify-between text-slate-300 mb-1">
               <span className="flex items-center gap-1.5">
                 <span className="w-2 h-2 rounded-full bg-purple-400"></span>
-                <span>💎 8-Level Team Income (4.6%)</span>
+                <span>💎 8-Level Team Income (4.6% on Ticket Sales)</span>
               </span>
               <span className="font-mono font-bold text-purple-300">₹{levelIncome.toLocaleString('en-IN')}</span>
             </div>
@@ -147,7 +150,7 @@ export const MlmIncomeSummary: React.FC<MlmIncomeSummaryProps> = ({
             <div className="flex justify-between text-slate-300 mb-1">
               <span className="flex items-center gap-1.5">
                 <span className="w-2 h-2 rounded-full bg-emerald-400"></span>
-                <span>🎁 Other Free Ticket & Lucky Rewards</span>
+                <span>🎁 Other Rewards</span>
               </span>
               <span className="font-mono font-bold text-emerald-300">₹{rewardIncome.toLocaleString('en-IN')}</span>
             </div>
@@ -168,16 +171,15 @@ export const MlmIncomeSummary: React.FC<MlmIncomeSummaryProps> = ({
             </div>
             <div>
               <span className="text-[10px] font-black uppercase tracking-wider text-blue-300">
-                👥 DIRECT REFERRALS
+                👥 DIRECT REFERRALS (LEVEL 1)
               </span>
               <div className="flex items-baseline gap-2 mt-0.5">
-                <span className="text-3xl font-black text-white font-mono">25</span>
+                <span className="text-3xl font-black text-white font-mono">{downlineStats?.directMembersCount || 0}</span>
                 <span className="text-xs text-slate-400">Members</span>
               </div>
-              <div className="flex items-center gap-3 text-xs mt-1">
-                <span className="text-emerald-400 font-bold">🟢 Active: 18</span>
-                <span className="text-slate-500 font-bold">⚪ Inactive: 7</span>
-              </div>
+              <p className="text-[11px] text-emerald-400 mt-1 font-semibold">
+                Earn 2% on all their game ticket purchases!
+              </p>
             </div>
           </div>
 
@@ -189,13 +191,19 @@ export const MlmIncomeSummary: React.FC<MlmIncomeSummaryProps> = ({
           </button>
         </div>
 
-        {/* 🔗 MY REFERRAL LINK CARD */}
+        {/* 🔗 MY REFERRAL LINK CARD WITH LOGO ACTION */}
         <div className="rounded-3xl bg-gradient-to-br from-[#1b1438] via-[#241a4d] to-[#100b26] border border-amber-500/40 p-5 shadow-2xl space-y-3">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-black uppercase tracking-wider text-amber-300">
-              🔗 MY REFERRAL LINK
+            <span className="text-xs font-black uppercase tracking-wider text-amber-300 flex items-center gap-1.5">
+              <span>🔗 MY REFERRAL LINK &amp; CARD</span>
             </span>
-            <span className="text-[10px] text-slate-400 font-mono">Code: <strong className="text-white">{currentUser.referralCode || 'AT10245'}</strong></span>
+            <button
+              onClick={() => setActiveModal('shareReferral')}
+              className="px-2.5 py-1 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/40 text-[10px] font-bold flex items-center gap-1 cursor-pointer"
+            >
+              <Sparkles className="w-3 h-3 text-amber-400" />
+              <span>लोगो पोस्टर कार्ड देखें</span>
+            </button>
           </div>
 
           {/* Link Box */}
@@ -210,14 +218,14 @@ export const MlmIncomeSummary: React.FC<MlmIncomeSummaryProps> = ({
             </button>
           </div>
 
-          {/* 3 Share Buttons: Share, WhatsApp, Telegram */}
+          {/* 3 Share Buttons: Share Poster, WhatsApp, Telegram */}
           <div className="grid grid-cols-3 gap-2 pt-1">
             <button
-              onClick={handleCopyLink}
-              className="py-2 rounded-xl bg-white/10 hover:bg-white/15 text-white text-xs font-bold flex items-center justify-center gap-1.5 border border-white/10 cursor-pointer"
+              onClick={() => setActiveModal('shareReferral')}
+              className="py-2 rounded-xl bg-gradient-to-r from-amber-500 to-yellow-600 hover:brightness-110 text-slate-950 text-xs font-black flex items-center justify-center gap-1.5 shadow-md cursor-pointer"
             >
-              <Share2 className="w-3.5 h-3.5 text-amber-400" />
-              <span>SHARE</span>
+              <Share2 className="w-3.5 h-3.5" />
+              <span>पोस्टर शेयर</span>
             </button>
 
             <button
@@ -237,8 +245,8 @@ export const MlmIncomeSummary: React.FC<MlmIncomeSummaryProps> = ({
             </button>
           </div>
 
-          <p className="text-[10px] text-slate-400 text-center">
-            *Referral relationship is persisted server-side. You earn lifetime 8-level commissions from all ticket purchases!
+          <p className="text-[10px] text-amber-300/90 text-center font-medium">
+            *डिपॉजिट पर नहीं, केवल टिकट खरीद पर 8 लेवल तक लाइफटाइम कमीशन मिलता है!
           </p>
         </div>
       </div>

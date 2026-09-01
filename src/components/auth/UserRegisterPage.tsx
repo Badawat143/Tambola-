@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useTambola } from '../../context/TambolaContext';
 import { captureReferralCodeFromUrl } from '../../services/authService';
+import { ApnaTambolaLogo } from '../ApnaTambolaLogo';
 import {
   Sparkles,
   User,
@@ -232,6 +233,10 @@ export const UserRegisterPage: React.FC<UserRegisterPageProps> = ({ onNavigate }
       <div className="w-full max-w-xl">
         {/* Top Branding Card Header */}
         <div className="text-center mb-8">
+          <div className="flex justify-center mb-3">
+            <ApnaTambolaLogo size="md" showText={true} />
+          </div>
+
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-xs font-bold mb-3 shadow-sm">
             <Sparkles className="w-3.5 h-3.5" />
             <span>INSTANT ₹10 WITHDRAWAL BONUS ON REGISTRATION</span>
@@ -241,7 +246,7 @@ export const UserRegisterPage: React.FC<UserRegisterPageProps> = ({ onNavigate }
             CREATE YOUR APNA TAMBOLA ACCOUNT
           </h1>
           <p className="text-xs sm:text-sm text-slate-400 mt-1 max-w-md mx-auto">
-            Play live 90-ball Tambola tournaments, win verified cash prizes, and earn up to 8 levels of referral income.
+            Play live 90-ball Tambola tournaments, win verified cash prizes, and earn up to 8 levels of referral income on ticket sales.
           </p>
         </div>
 
@@ -249,11 +254,14 @@ export const UserRegisterPage: React.FC<UserRegisterPageProps> = ({ onNavigate }
         {registeredUserData ? (
           <div className="bg-[#0e102d]/95 backdrop-blur-xl border border-emerald-500/50 rounded-3xl p-6 sm:p-8 shadow-2xl shadow-emerald-950/40 relative overflow-hidden space-y-6 animate-fade-in">
             <div className="text-center space-y-2">
-              <div className="w-16 h-16 mx-auto rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/40 flex items-center justify-center text-3xl font-black">
+              <div className="flex justify-center mb-2">
+                <ApnaTambolaLogo size="lg" showText={false} />
+              </div>
+              <div className="w-12 h-12 mx-auto rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/40 flex items-center justify-center text-2xl font-black">
                 ✓
               </div>
               <h2 className="text-2xl font-black text-white">WELCOME TO APNA TAMBOLA!</h2>
-              <p className="text-xs text-emerald-400 font-bold">Your Account is Active & ₹10 Withdrawal Bonus Credited</p>
+              <p className="text-xs text-emerald-400 font-bold">Your Account is Active &amp; ₹10 Withdrawal Bonus Credited</p>
             </div>
 
             {/* Account Details Box */}

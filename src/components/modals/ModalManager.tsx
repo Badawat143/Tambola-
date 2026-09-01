@@ -4,6 +4,7 @@ import { LiveGameModal } from './LiveGameModal';
 import { BuyTicketModal } from './BuyTicketModal';
 import { MyTicketsModal } from './MyTicketsModal';
 import { ReferralModal } from './ReferralModal';
+import { ReferralShareModal } from './ReferralShareModal';
 import { PrizesModal } from './PrizesModal';
 import { WinnersModal } from './WinnersModal';
 import { SupportModal } from './SupportModal';
@@ -41,6 +42,8 @@ export const ModalManager: React.FC = () => {
         return <MyTicketsModal />;
       case 'referral':
         return <ReferralModal />;
+      case 'shareReferral':
+        return <ReferralShareModal />;
       case 'prizes':
         return <PrizesModal />;
       case 'winners':

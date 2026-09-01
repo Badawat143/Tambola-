@@ -71,6 +71,7 @@ import { WinningPatternCode, User as UserType } from '../../types/tambola';
 import { clearUserSession } from '../../services/authService';
 import { isDirectlyReferredBy } from '../../utils/referralEngine';
 import { DownlineTreeView } from '../dashboard/DownlineTreeView';
+import { ApnaTambolaLogo } from '../ApnaTambolaLogo';
 
 interface UserDashboardModalProps {
   isPageMode?: boolean;
@@ -1311,16 +1312,31 @@ export const UserDashboardModal: React.FC<UserDashboardModalProps> = ({ isPageMo
                   </div>
                 </div>
 
-                {/* Column 2: My Referral Link */}
+                {/* Column 2: My Referral Link with Logo & Ticket Commission Rule */}
                 <div className="rounded-2xl p-4 sm:p-5 bg-[#0e112d] border border-indigo-500/30 flex flex-col justify-between shadow-xl space-y-3">
-                  <h3 className="text-xs sm:text-sm font-black text-white">My Referral Link</h3>
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <ApnaTambolaLogo size="sm" showText={false} />
+                      <div>
+                        <h3 className="text-xs sm:text-sm font-black text-white">My Referral Link</h3>
+                        <p className="text-[9px] text-amber-300 font-semibold">कमाएं 8 लेवल टिकट कमीशन (डिपॉजिट पर नहीं)</p>
+                      </div>
+                    </div>
+                    <button
+                      onClick={() => setActiveModal('shareReferral')}
+                      className="px-2 py-1 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/40 text-[10px] font-bold flex items-center gap-1 cursor-pointer"
+                    >
+                      <Sparkles className="w-3 h-3 text-amber-400" />
+                      <span>लोगो पोस्टर</span>
+                    </button>
+                  </div>
 
                   {/* URL Box */}
                   <div className="p-2.5 rounded-xl bg-black/40 border border-white/10 text-[11px] font-mono text-slate-300 truncate select-all">
                     {downlineStats?.referralLink || `${typeof window !== 'undefined' ? window.location.origin : ''}/register?ref=${currentUser.referralCode || currentUser.id || 'APNA100'}`}
                   </div>
 
-                  {/* Action Buttons: Copy, Share, WhatsApp */}
+                  {/* Action Buttons: Copy, Poster, WhatsApp */}
                   <div className="grid grid-cols-3 gap-2">
                     <button
                       onClick={handleCopyRef}
@@ -1331,29 +1347,18 @@ export const UserDashboardModal: React.FC<UserDashboardModalProps> = ({ isPageMo
                     </button>
 
                     <button
-                      onClick={() => {
-                        const linkToShare = downlineStats?.referralLink || `${window.location.origin}/register?ref=${currentUser.referralCode || currentUser.id || 'APNA100'}`;
-                        if (navigator.share) {
-                          navigator.share({
-                            title: 'APNA TAMBOLA',
-                            text: `Join APNA TAMBOLA with my referral code ${currentUser.referralCode || currentUser.id || 'APNA100'}!`,
-                            url: linkToShare,
-                          });
-                        } else {
-                          handleCopyRef();
-                        }
-                      }}
-                      className="py-2 px-2 rounded-xl bg-[#7c3aed] hover:bg-[#6d28d9] text-white text-[11px] font-bold flex items-center justify-center gap-1 shadow-md cursor-pointer"
+                      onClick={() => setActiveModal('shareReferral')}
+                      className="py-2 px-2 rounded-xl bg-gradient-to-r from-amber-500 to-yellow-600 hover:brightness-110 text-slate-950 text-[11px] font-black flex items-center justify-center gap-1 shadow-md cursor-pointer"
                     >
                       <Share2 className="w-3 h-3" />
-                      <span>Share</span>
+                      <span>लोगो कार्ड</span>
                     </button>
 
                     <button
                       onClick={() => {
                         const linkToShare = downlineStats?.referralLink || `${window.location.origin}/register?ref=${currentUser.referralCode || currentUser.id || 'APNA100'}`;
                         const url = `https://api.whatsapp.com/send?text=${encodeURIComponent(
-                          `🎱 Join APNA TAMBOLA now! Play live games & win real prizes! Click here: ${linkToShare}`
+                          `🎱 *APNA TAMBOLA* 👑\n\nनमस्ते! मेरे साथ अपना तंबोला खेलें और 8-लेवल टीम कमीशन पाएं!\n\n👉 *ज्वाइन लिंक:* ${linkToShare}\n🔑 *रेफरल कोड:* ${currentUser.referralCode || currentUser.id || 'APNA100'}\n\n(नोट: डिपॉजिट पर नहीं, टीम के टिकट खरीदकर गेम खेलने पर 8 लेवल तक लाइफटाइम कमीशन मिलेगा!)`
                         )}`;
                         window.open(url, '_blank');
                       }}
