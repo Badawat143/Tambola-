@@ -305,8 +305,9 @@ export async function registerUserWithFirestoreTransaction(
         sponsorName: sponsorName,
         depositWallet: 0,
         ticketWallet: 0,
-        winningWallet: 10, // ₹10 Signup Bonus
-        walletBalance: 10,
+        winningWallet: 0, // ₹0 on registration (₹10 Bonus is awarded on first deposit)
+        walletBalance: 0,
+        firstDepositBonusClaimed: false,
         referralEarnings: 0,
         directIncomeEarnings: 0,
         gameWinnings: 0,

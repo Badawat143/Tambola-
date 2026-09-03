@@ -1807,6 +1807,21 @@ export const UserDashboardModal: React.FC<UserDashboardModalProps> = ({ isPageMo
                     </div>
                   )}
 
+                  {/* First Deposit Bonus Banner */}
+                  {(!currentUser.firstDepositBonusClaimed && (!currentUser.totalDeposited || currentUser.totalDeposited === 0)) ? (
+                    <div className="p-3.5 rounded-2xl bg-gradient-to-r from-amber-500/20 via-yellow-500/15 to-orange-500/20 border border-amber-400/50 flex items-center gap-3 text-amber-200">
+                      <div className="w-10 h-10 rounded-xl bg-amber-400/20 text-amber-300 flex items-center justify-center shrink-0 text-xl">
+                        🎁
+                      </div>
+                      <div className="text-xs">
+                        <span className="font-black text-amber-300 text-sm block">पहला डिपॉज़िट स्पेशल बोनस (+₹10 EXTRA)</span>
+                        <span className="text-slate-300">
+                          इस पहले डिपॉज़िट के अप्रूव होते ही आपके वॉलेट में डिपॉज़िट राशि के साथ <strong className="text-amber-300">₹10 एक्स्ट्रा बोनस</strong> स्वतः जुड़ जाएगा!
+                        </span>
+                      </div>
+                    </div>
+                  ) : null}
+
                   {/* QR & Official UPI Presentation */}
                   <div className="p-5 rounded-2xl bg-black/60 border border-white/10 flex flex-col sm:flex-row items-center gap-6">
                     <div className="p-3 rounded-2xl bg-white text-slate-950 shadow-xl flex flex-col items-center">
@@ -3146,7 +3161,7 @@ export const UserDashboardModal: React.FC<UserDashboardModalProps> = ({ isPageMo
                         </button>
                         <button
                           onClick={() => {
-                            const msg = `🎉 Join Apna Tambola with my Referral Link & get ₹10 Free Withdrawal Bonus! Register here: ${myRefLink}`;
+                            const msg = `🎉 Join Apna Tambola with my Referral Link & get ₹10 Bonus on your First Deposit! Register here: ${myRefLink}`;
                             window.open(`https://wa.me/?text=${encodeURIComponent(msg)}`, '_blank');
                           }}
                           className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs flex items-center gap-1.5 cursor-pointer shadow-md transition-all active:scale-95"

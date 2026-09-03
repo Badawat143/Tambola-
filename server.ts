@@ -1369,8 +1369,9 @@ app.post('/api/auth/register', async (req: Request, res: Response) => {
       sponsorName: sponsorName,
       depositWallet: 0,
       ticketWallet: 0,
-      winningWallet: 10, // ₹10 Registration Bonus directly into Withdrawal / Winning Wallet
-      walletBalance: 10,
+      winningWallet: 0, // ₹0 on registration (₹10 Bonus is awarded on first deposit)
+      walletBalance: 0,
+      firstDepositBonusClaimed: false,
       referralEarnings: 0,
       directIncomeEarnings: 0,
       gameWinnings: 0,
@@ -1469,7 +1470,7 @@ app.post('/api/auth/register', async (req: Request, res: Response) => {
       adminId: 'SYSTEM_AUTH',
       adminName: 'Registration Gateway',
       action: 'USER_REGISTERED',
-      details: `New User registered: ${newUser.name} (ID: ${newUser.id}) referred by ${verifiedReferrerId || 'Direct Registration'} (${sponsorName || 'None'}). ₹10 Registration Bonus added to Withdrawal Wallet.`,
+      details: `New User registered: ${newUser.name} (ID: ${newUser.id}) referred by ${verifiedReferrerId || 'Direct Registration'} (${sponsorName || 'None'}). Welcome bonus: ₹10 on first deposit.`,
       category: 'USER_MGMT',
       createdAt: new Date().toISOString(),
     });
@@ -1478,7 +1479,7 @@ app.post('/api/auth/register', async (req: Request, res: Response) => {
 
     res.status(201).json({
       success: true,
-      message: `Account created successfully! Welcome to APNA TAMBOLA, ${newUser.name}. ₹10 Registration Bonus has been credited directly to your Withdrawal Wallet! Your User ID is ${newUser.id}.`,
+      message: `Account created successfully! Welcome to APNA TAMBOLA, ${newUser.name}. Get ₹10 Extra Bonus on your first deposit! Your User ID is ${newUser.id}.`,
       user: safeNewUser,
       token,
       sponsor: verifiedReferrerId ? {
@@ -2495,14 +2496,33 @@ app.post('/api/admin/deposit/action', (req: Request, res: Response) => {
       dep.verifiedAt = new Date().toISOString();
       dep.verifiedBy = adminName || adminId || 'Super Admin';
 
-      // Credit user's depositWallet
+      // Check if this is the user's first approved deposit
       let user = state.users.find((u) => u.id === dep.userId);
+      let firstDepositBonus = 0;
       if (user) {
-        user.depositWallet = Math.round(((user.depositWallet || 0) + dep.amount) * 100) / 100;
+        const isFirstDeposit = !user.firstDepositBonusClaimed && (!user.totalDeposited || user.totalDeposited === 0);
+        if (isFirstDeposit) {
+          firstDepositBonus = 10;
+          user.firstDepositBonusClaimed = true;
+        }
+
+        user.depositWallet = Math.round(((user.depositWallet || 0) + dep.amount + firstDepositBonus) * 100) / 100;
         user.totalDeposited = Math.round(((user.totalDeposited || 0) + dep.amount) * 100) / 100;
         user.walletBalance = Math.round(
           (user.depositWallet + (user.ticketWallet || 0) + (user.winningWallet || 0)) * 100
         ) / 100;
+
+        if (firstDepositBonus > 0) {
+          state.notifications.unshift({
+            id: `NOTIF-FDEP-${Date.now()}`,
+            title: '🎁 First Deposit Bonus Credited!',
+            message: `🎉 ₹10 First Deposit Bonus has been credited to your Main/Deposit Wallet along with your deposit of ₹${dep.amount}! (Total credited: ₹${dep.amount + firstDepositBonus})`,
+            type: 'deposit',
+            userId: user.id,
+            isRead: false,
+            createdAt: new Date().toISOString(),
+          });
+        }
       }
 
       state.auditLogs.unshift({
@@ -2510,7 +2530,7 @@ app.post('/api/admin/deposit/action', (req: Request, res: Response) => {
         adminId: adminId || 'ADM-MASTER',
         adminName: adminName || 'Super Admin',
         action: 'APPROVE_DEPOSIT',
-        details: `Approved ₹${dep.amount} deposit for ${dep.userName} (${dep.userId}). UTR: ${dep.utrRef}. Credited to Deposit Wallet.`,
+        details: `Approved ₹${dep.amount} deposit for ${dep.userName} (${dep.userId}). UTR: ${dep.utrRef}.${firstDepositBonus > 0 ? ' [Applied ₹10 First Deposit Bonus]' : ''} Credited to Deposit Wallet.`,
         category: 'FINANCE',
         createdAt: new Date().toISOString(),
       });
@@ -2520,7 +2540,8 @@ app.post('/api/admin/deposit/action', (req: Request, res: Response) => {
       return res.json({
         success: true,
         deposit: dep,
-        message: `₹${dep.amount} deposit approved and credited to ${dep.userName}'s wallet.`,
+        bonusAwarded: firstDepositBonus,
+        message: `₹${dep.amount} deposit approved and credited to ${dep.userName}'s wallet.${firstDepositBonus > 0 ? ' (Includes ₹10 First Deposit Bonus)' : ''}`,
       });
     } else if (action === 'reject') {
       dep.status = 'rejected';

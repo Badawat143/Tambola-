@@ -240,7 +240,7 @@ export const AuthModal: React.FC = () => {
                 : 'text-slate-400 hover:text-white'
             }`}
           >
-            Register (+₹10 Bonus)
+            Register (1st Dep +₹10)
           </button>
           <button
             onClick={() => {
@@ -360,7 +360,7 @@ export const AuthModal: React.FC = () => {
               {referralCode && referralCode.trim().length >= 3 && (
                 <p className="text-[10px] text-emerald-400 font-medium mt-1 flex items-center gap-1">
                   <CheckCircle className="w-3 h-3 text-emerald-400 shrink-0" />
-                  <span>Sponsor code active (+₹10 bonus upon registration)</span>
+                  <span>Sponsor code active (Get ₹10 Bonus on First Deposit)</span>
                 </p>
               )}
             </div>
@@ -415,7 +415,7 @@ export const AuthModal: React.FC = () => {
               disabled={loading}
               className="w-full py-3 rounded-xl bg-gradient-to-r from-pink-500 via-purple-600 to-indigo-600 hover:from-pink-600 hover:to-indigo-700 text-white font-black text-xs shadow-lg shadow-pink-500/25 mt-3 cursor-pointer disabled:opacity-50"
             >
-              {loading ? 'CREATING ACCOUNT...' : 'CREATE ACCOUNT & GET ₹10 WITHDRAWAL BONUS'}
+              {loading ? 'CREATING ACCOUNT...' : 'CREATE ACCOUNT (GET ₹10 FIRST DEPOSIT BONUS)'}
             </button>
 
             <div className="relative flex py-2 items-center">

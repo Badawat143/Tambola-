@@ -27,7 +27,7 @@ export const ReferralShareModal: React.FC = () => {
     downlineStats?.referralLink ||
     `${origin}/register?ref=${currentUser.referralCode || currentUser.id || 'APNA100'}`;
 
-  const shareText = `🎱 *APNA TAMBOLA - LIVE FUN • LIVE WIN* 👑\n\nनमस्ते! मेरे साथ अपना तंबोला (Apna Tambola) खेलें और हर गेम में 70% तक ईनाम जीतें!\n\n🎟️ *8-लेवल टीम कमीशन:* जब भी टीम टिकट खरीदेगी, आपको 8 लेवल तक लाइफटाइम कमीशन मिलेगा!\n🚫 *डिपॉजिट पर कोई कमीशन नहीं* - केवल टिकट खरीद पर सुरक्षित व रियल इनकम!\n\n👉 *ज्वाइन लिंक:* ${myRefLink}\n🔑 *रेफरल कोड:* ${currentUser.referralCode || currentUser.id}\n\nअभी रजिस्टर करें और ₹10 फ्री वेलकम बोनस पाएं! 🚀`;
+  const shareText = `🎱 *APNA TAMBOLA - LIVE FUN • LIVE WIN* 👑\n\nनमस्ते! मेरे साथ अपना तंबोला (Apna Tambola) खेलें और हर गेम में 70% तक ईनाम जीतें!\n\n🎟️ *8-लेवल टीम कमीशन:* जब भी टीम टिकट खरीदेगी, आपको 8 लेवल तक लाइफटाइम कमीशन मिलेगा!\n🚫 *डिपॉजिट पर कोई कमीशन नहीं* - केवल टिकट खरीद पर सुरक्षित व रियल इनकम!\n\n👉 *ज्वाइन लिंक:* ${myRefLink}\n🔑 *रेफरल कोड:* ${currentUser.referralCode || currentUser.id}\n\nअभी रजिस्टर करें और पहले डिपॉज़िट पर ₹10 फ्री बोनस पाएं! 🚀`;
 
   const handleCopyLink = () => {
     navigator.clipboard.writeText(myRefLink);

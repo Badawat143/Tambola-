@@ -224,7 +224,7 @@ export const UserRegisterPage: React.FC<UserRegisterPageProps> = ({ onNavigate }
 
   const handleShareWhatsApp = () => {
     if (!registeredUserData) return;
-    const msg = `🎉 Play Apna Tambola with me and get ₹10 Free Withdrawal Bonus! Register here: ${registeredUserData.referralLink}`;
+    const msg = `🎉 Play Apna Tambola with me and get ₹10 Bonus on your First Deposit! Register here: ${registeredUserData.referralLink}`;
     window.open(`https://wa.me/?text=${encodeURIComponent(msg)}`, '_blank');
   };
 
@@ -237,9 +237,9 @@ export const UserRegisterPage: React.FC<UserRegisterPageProps> = ({ onNavigate }
             <ApnaTambolaLogo size="md" showText={true} />
           </div>
 
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-xs font-bold mb-3 shadow-sm">
+          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-amber-500/10 border border-amber-500/30 text-amber-400 text-xs font-bold mb-3 shadow-sm">
             <Sparkles className="w-3.5 h-3.5" />
-            <span>INSTANT ₹10 WITHDRAWAL BONUS ON REGISTRATION</span>
+            <span>GET ₹10 EXTRA BONUS ON YOUR FIRST DEPOSIT</span>
           </div>
 
           <h1 className="text-2xl sm:text-3xl font-black tracking-tight text-white font-['Outfit']">
@@ -261,7 +261,7 @@ export const UserRegisterPage: React.FC<UserRegisterPageProps> = ({ onNavigate }
                 ✓
               </div>
               <h2 className="text-2xl font-black text-white">WELCOME TO APNA TAMBOLA!</h2>
-              <p className="text-xs text-emerald-400 font-bold">Your Account is Active &amp; ₹10 Withdrawal Bonus Credited</p>
+              <p className="text-xs text-emerald-400 font-bold">Your Account is Active • Recharge Wallet to Claim ₹10 First Deposit Bonus</p>
             </div>
 
             {/* Account Details Box */}
@@ -284,9 +284,9 @@ export const UserRegisterPage: React.FC<UserRegisterPageProps> = ({ onNavigate }
                   {registeredUserData.sponsorName} ({registeredUserData.sponsorId})
                 </span>
               </div>
-              <div className="flex justify-between items-center pt-1 text-emerald-400 font-bold">
-                <span>Registration Bonus Credited:</span>
-                <span>₹10 (Instant Withdrawal Wallet)</span>
+              <div className="flex justify-between items-center pt-1 text-amber-400 font-bold">
+                <span>First Deposit Offer:</span>
+                <span>Get ₹10 Bonus on 1st Deposit</span>
               </div>
             </div>
 
@@ -507,7 +507,7 @@ export const UserRegisterPage: React.FC<UserRegisterPageProps> = ({ onNavigate }
                 {referralId && referralId.trim().length >= 3 ? (
                   <p className="text-[11px] text-emerald-400 font-semibold mt-1.5 flex items-center gap-1.5">
                     <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
-                    <span>Referral link active! You and your sponsor will receive ₹10 registration bonus.</span>
+                    <span>Referral link active! Get ₹10 Bonus on your First Deposit.</span>
                   </p>
                 ) : (
                   <p className="text-[10px] text-slate-400 mt-1">
@@ -567,7 +567,7 @@ export const UserRegisterPage: React.FC<UserRegisterPageProps> = ({ onNavigate }
                 ) : (
                   <>
                     <Zap className="w-4 h-4 fill-current" />
-                    <span>CREATE ACCOUNT & CLAIM ₹10 WITHDRAWAL BONUS</span>
+                    <span>CREATE ACCOUNT (GET ₹10 FIRST DEPOSIT BONUS)</span>
                     <ArrowRight className="w-4 h-4" />
                   </>
                 )}

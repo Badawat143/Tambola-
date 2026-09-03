@@ -1101,7 +1101,7 @@ export const TambolaProvider: React.FC<{ children: React.ReactNode }> = ({ child
       // Welcome Notification
       addNotification(
         '🎉 Welcome to APNA TAMBOLA!',
-        `₹10 Registration Bonus has been credited to your Withdrawal Wallet. Your User ID is ${serverUser.id}. Recharge wallet to book tournament tickets.`,
+        `Your Account has been created successfully. Your User ID is ${serverUser.id}. Recharge wallet to book tournament tickets and get ₹10 First Deposit Bonus!`,
         'system',
         serverUser.id
       );
@@ -1152,8 +1152,9 @@ export const TambolaProvider: React.FC<{ children: React.ReactNode }> = ({ child
         referredBy: verifiedReferredBy,
         depositWallet: 0,
         ticketWallet: 0,
-        winningWallet: 10,
-        walletBalance: 10,
+        winningWallet: 0, // ₹0 on registration (₹10 Bonus is awarded on first deposit)
+        walletBalance: 0,
+        firstDepositBonusClaimed: false,
         referralEarnings: 0,
         directIncomeEarnings: 0,
         gameWinnings: 0,
@@ -1176,7 +1177,7 @@ export const TambolaProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
       addNotification(
         '🎉 Welcome to APNA TAMBOLA!',
-        `₹10 Registration Bonus has been credited to your Withdrawal Wallet. Your User ID is ${newUser.id}. Recharge wallet to book tournament tickets.`,
+        `Your Account has been created successfully. Your User ID is ${newUser.id}. Recharge wallet to book tournament tickets and get ₹10 First Deposit Bonus!`,
         'system',
         newUser.id
       );
@@ -1319,7 +1320,7 @@ export const TambolaProvider: React.FC<{ children: React.ReactNode }> = ({ child
       if (regResult.success && regResult.user) {
         return {
           success: true,
-          message: `Welcome, ${userName}! Your account has been created via Google with ₹10 Bonus.`,
+          message: `Welcome, ${userName}! Your account has been created via Google. Recharge wallet to get ₹10 First Deposit Bonus!`,
           user: regResult.user,
         };
       }
@@ -1475,16 +1476,24 @@ export const TambolaProvider: React.FC<{ children: React.ReactNode }> = ({ child
       }),
     }).catch((err) => console.warn('[Backend Deposit Action Warn]:', err));
 
-    // Credit user's depositWallet
+    // Check if target user is eligible for First Deposit Bonus
+    const targetUserObj = allUsers.find((u) => u.id === dep.userId);
+    const isFirstDeposit = targetUserObj
+      ? !targetUserObj.firstDepositBonusClaimed && (!targetUserObj.totalDeposited || targetUserObj.totalDeposited === 0)
+      : false;
+    const firstDepositBonus = isFirstDeposit ? 10 : 0;
+
+    // Credit user's depositWallet (includes ₹10 first deposit bonus if applicable)
     setAllUsers((prev) =>
       prev.map((u) => {
         if (u.id === dep.userId) {
-          const newDep = Math.round(((u.depositWallet || 0) + dep.amount) * 100) / 100;
+          const newDep = Math.round(((u.depositWallet || 0) + dep.amount + firstDepositBonus) * 100) / 100;
           const newBal = Math.round((newDep + (u.ticketWallet || 0) + (u.winningWallet || 0)) * 100) / 100;
           return {
             ...u,
             depositWallet: newDep,
             walletBalance: newBal,
+            firstDepositBonusClaimed: true,
             totalDeposited: Math.round(((u.totalDeposited || 0) + dep.amount) * 100) / 100,
           };
         }
@@ -1494,12 +1503,13 @@ export const TambolaProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
     if (currentUser.id === dep.userId) {
       setCurrentUser((prev) => {
-        const newDep = Math.round(((prev.depositWallet || 0) + dep.amount) * 100) / 100;
+        const newDep = Math.round(((prev.depositWallet || 0) + dep.amount + firstDepositBonus) * 100) / 100;
         const newBal = Math.round((newDep + (prev.ticketWallet || 0) + (prev.winningWallet || 0)) * 100) / 100;
         return {
           ...prev,
           depositWallet: newDep,
           walletBalance: newBal,
+          firstDepositBonusClaimed: true,
           totalDeposited: Math.round(((prev.totalDeposited || 0) + dep.amount) * 100) / 100,
         };
       });
@@ -1511,7 +1521,7 @@ export const TambolaProvider: React.FC<{ children: React.ReactNode }> = ({ child
         adminId,
         adminName: 'Super Admin',
         action: 'APPROVE_DEPOSIT',
-        details: `Approved ₹${dep.amount} deposit for ${dep.userName} (${dep.userId}). UTR: ${dep.utrRef}. Credited to Deposit Wallet.`,
+        details: `Approved ₹${dep.amount} deposit for ${dep.userName} (${dep.userId}). UTR: ${dep.utrRef}.${firstDepositBonus > 0 ? ' [Applied ₹10 First Deposit Bonus]' : ''} Credited to Deposit Wallet.`,
         category: 'FINANCE',
         createdAt: new Date().toISOString(),
       },
@@ -1520,13 +1530,18 @@ export const TambolaProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
     addNotification(
       '✅ Deposit Approved!',
-      `₹${dep.amount} has been verified and added to your Main/Deposit wallet.`,
+      firstDepositBonus > 0
+        ? `₹${dep.amount} deposit verified + ₹10 First Deposit Bonus credited to your Deposit Wallet! Total added: ₹${dep.amount + firstDepositBonus}.`
+        : `₹${dep.amount} has been verified and added to your Main/Deposit wallet.`,
       'deposit',
       dep.userId
     );
 
     soundFx.playNumberCalled();
-    return { success: true, message: `Deposit of ₹${dep.amount} approved and credited.` };
+    return {
+      success: true,
+      message: `Deposit of ₹${dep.amount} approved and credited.${firstDepositBonus > 0 ? ' (Includes ₹10 First Deposit Bonus)' : ''}`,
+    };
   };
 
   // Admin Reject Deposit

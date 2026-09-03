@@ -94,6 +94,7 @@ export interface User {
   isDeleted?: boolean;
   deletedAt?: string;
   isKycVerified?: boolean;
+  firstDepositBonusClaimed?: boolean;
 }
 
 export interface AuthSession {
