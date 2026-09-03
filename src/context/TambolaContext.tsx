@@ -272,12 +272,17 @@ interface TambolaContextType {
   toggleBlockUser: (userId: string) => void;
   softDeleteUser: (userId: string, isDeleted?: boolean) => void;
   deleteUserPermanently: (userId: string) => Promise<{ success: boolean; message: string }>;
+  deleteDummyTestUsers: () => Promise<{ success: boolean; count: number; message: string }>;
   resetUserPassword: (userId: string, newPassword: string) => { success: boolean; message: string };
   verifyUserKyc: (userId: string) => void;
   addNotification: (title: string, message: string, type: NotificationItem['type'], userId?: string) => void;
   markNotificationAsRead: (id: string) => void;
   deleteNotification: (id: string) => void;
   clearAllNotifications: (userId?: string) => void;
+  deleteDeposit: (depositId: string) => void;
+  deleteWithdrawal: (withdrawalId: string) => void;
+  deleteTransfer: (transferId: string) => void;
+  deleteCommission: (commissionId: string) => void;
   clearTransactionHistory: () => void;
   clearTicketHistory: () => void;
   clearAllUserHistory: () => void;
@@ -3281,6 +3286,80 @@ export const TambolaProvider: React.FC<{ children: React.ReactNode }> = ({ child
     }
   };
 
+  const deleteDummyTestUsers = async (): Promise<{ success: boolean; count: number; message: string }> => {
+    try {
+      // Find dummy test users (e.g. Simulated Users, Test accounts, or unwanted IDs)
+      const dummyUsers = allUsers.filter(
+        (u) =>
+          u.role !== 'admin' &&
+          u.role !== 'superadmin' &&
+          (u.name.toLowerCase().includes('simulated') ||
+            u.name.toLowerCase().includes('test') ||
+            u.id === 'AT915359' ||
+            u.id === 'AT392476' ||
+            u.id === 'AT338721' ||
+            u.id === 'AT147878' ||
+            u.id === 'AT999999' ||
+            u.id === 'AT888888' ||
+            u.id === 'AT811505')
+      );
+
+      if (dummyUsers.length === 0) {
+        return { success: false, count: 0, message: 'No dummy or test users found to delete.' };
+      }
+
+      const dummyIds = dummyUsers.map((u) => u.id);
+      setAllUsers((prev) => prev.filter((u) => !dummyIds.includes(u.id)));
+
+      // Call server batch delete
+      fetch('/api/admin/users/clean-test-users', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userIds: dummyIds, adminId: 'ADM-MASTER', adminName: 'Super Admin' }),
+      }).catch((err) => console.warn('Server test users clean error:', err));
+
+      setAuditLogs((prev) => [
+        {
+          id: `LOG-${Date.now()}`,
+          adminId: 'ADM-MASTER',
+          adminName: 'Super Admin',
+          action: 'DUMMY_USERS_CLEANED',
+          details: `Batch deleted ${dummyUsers.length} dummy/test user IDs: ${dummyIds.join(', ')}.`,
+          category: 'USER_MGMT',
+          createdAt: new Date().toISOString(),
+        },
+        ...prev,
+      ]);
+
+      return {
+        success: true,
+        count: dummyUsers.length,
+        message: `${dummyUsers.length} बेकार/टेस्ट IDs को सफलतापूर्वक हटा दिया गया है (${dummyUsers.length} dummy accounts deleted).`,
+      };
+    } catch (err: any) {
+      return { success: false, count: 0, message: err.message || 'Failed to delete dummy users.' };
+    }
+  };
+
+  const deleteDeposit = (depositId: string) => {
+    setDeposits((prev) => prev.filter((d) => d.id !== depositId));
+    fetch(`/api/admin/deposits/${depositId}`, { method: 'DELETE' }).catch(() => {});
+  };
+
+  const deleteWithdrawal = (withdrawalId: string) => {
+    setWithdrawals((prev) => prev.filter((w) => w.id !== withdrawalId));
+    fetch(`/api/admin/withdrawals/${withdrawalId}`, { method: 'DELETE' }).catch(() => {});
+  };
+
+  const deleteTransfer = (transferId: string) => {
+    setTransfers((prev) => prev.filter((t) => t.id !== transferId));
+    fetch(`/api/admin/transfers/${transferId}`, { method: 'DELETE' }).catch(() => {});
+  };
+
+  const deleteCommission = (commissionId: string) => {
+    setCommissionLedger((prev) => prev.filter((c) => c.id !== commissionId));
+  };
+
   const clearTransactionHistory = () => {
     setDeposits([]);
     setWithdrawals([]);
@@ -3288,6 +3367,7 @@ export const TambolaProvider: React.FC<{ children: React.ReactNode }> = ({ child
     setCommissionLedger([]);
     setPlatformFeeLedger([]);
     setPrizeLedger([]);
+    fetch('/api/admin/transactions/clear', { method: 'POST' }).catch(() => {});
   };
 
   const deleteTicket = (ticketId: string): { success: boolean; message: string } => {
@@ -3528,12 +3608,17 @@ export const TambolaProvider: React.FC<{ children: React.ReactNode }> = ({ child
         toggleBlockUser,
         softDeleteUser,
         deleteUserPermanently,
+        deleteDummyTestUsers,
         resetUserPassword,
         verifyUserKyc,
         addNotification,
         markNotificationAsRead,
         deleteNotification,
         clearAllNotifications,
+        deleteDeposit,
+        deleteWithdrawal,
+        deleteTransfer,
+        deleteCommission,
         clearTransactionHistory,
         clearTicketHistory,
         clearAllUserHistory,

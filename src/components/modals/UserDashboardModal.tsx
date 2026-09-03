@@ -112,6 +112,9 @@ export const UserDashboardModal: React.FC<UserDashboardModalProps> = ({ isPageMo
     markNotificationAsRead,
     deleteNotification,
     clearAllNotifications,
+    deleteDeposit,
+    deleteWithdrawal,
+    deleteCommission,
     clearTransactionHistory,
     clearTicketHistory,
     clearAllUserHistory,
@@ -3751,14 +3754,28 @@ export const UserDashboardModal: React.FC<UserDashboardModalProps> = ({ isPageMo
                                 {d.status}
                               </span>
                             </div>
-                            <button
-                              type="button"
-                              onClick={() => (isHistoryRecordArchived(d.id) ? unarchiveHistoryRecord(d.id) : archiveHistoryRecord(d.id))}
-                              title={isHistoryRecordArchived(d.id) ? 'Restore Record' : 'Archive / Hide Record'}
-                              className="p-2 rounded-lg bg-white/5 hover:bg-white/10 text-slate-400 hover:text-white transition-all text-xs"
-                            >
-                              {isHistoryRecordArchived(d.id) ? 'Unarchive' : 'Archive'}
-                            </button>
+                            <div className="flex items-center gap-1.5">
+                              <button
+                                type="button"
+                                onClick={() => (isHistoryRecordArchived(d.id) ? unarchiveHistoryRecord(d.id) : archiveHistoryRecord(d.id))}
+                                title={isHistoryRecordArchived(d.id) ? 'Restore Record' : 'Archive / Hide Record'}
+                                className="p-2 rounded-lg bg-white/5 hover:bg-white/10 text-slate-400 hover:text-white transition-all text-xs"
+                              >
+                                {isHistoryRecordArchived(d.id) ? 'Unarchive' : 'Archive'}
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  if (window.confirm('क्या आप इस डिपॉजिट रिकॉर्ड को हटाना चाहते हैं? / Delete this deposit record?')) {
+                                    deleteDeposit(d.id);
+                                  }
+                                }}
+                                title="Delete Record"
+                                className="p-2 rounded-lg bg-red-500/10 hover:bg-red-500/25 text-red-400 hover:text-red-300 transition-all text-xs"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
                           </div>
                         </div>
                       ))}
@@ -3800,14 +3817,28 @@ export const UserDashboardModal: React.FC<UserDashboardModalProps> = ({ isPageMo
                                   {w.status}
                                 </span>
                               </div>
-                              <button
-                                type="button"
-                                onClick={() => (isHistoryRecordArchived(w.id) ? unarchiveHistoryRecord(w.id) : archiveHistoryRecord(w.id))}
-                                title={isHistoryRecordArchived(w.id) ? 'Restore Record' : 'Archive / Hide Record'}
-                                className="p-2 rounded-lg bg-white/5 hover:bg-white/10 text-slate-400 hover:text-white transition-all text-xs"
-                              >
-                                {isHistoryRecordArchived(w.id) ? 'Unarchive' : 'Archive'}
-                              </button>
+                              <div className="flex items-center gap-1.5">
+                                <button
+                                  type="button"
+                                  onClick={() => (isHistoryRecordArchived(w.id) ? unarchiveHistoryRecord(w.id) : archiveHistoryRecord(w.id))}
+                                  title={isHistoryRecordArchived(w.id) ? 'Restore Record' : 'Archive / Hide Record'}
+                                  className="p-2 rounded-lg bg-white/5 hover:bg-white/10 text-slate-400 hover:text-white transition-all text-xs"
+                                >
+                                  {isHistoryRecordArchived(w.id) ? 'Unarchive' : 'Archive'}
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    if (window.confirm('क्या आप इस विथड्रॉवल रिकॉर्ड को हटाना चाहते हैं? / Delete this withdrawal record?')) {
+                                      deleteWithdrawal(w.id);
+                                    }
+                                  }}
+                                  title="Delete Record"
+                                  className="p-2 rounded-lg bg-red-500/10 hover:bg-red-500/25 text-red-400 hover:text-red-300 transition-all text-xs"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                </button>
+                              </div>
                             </div>
                           </div>
                         );
@@ -3836,14 +3867,28 @@ export const UserDashboardModal: React.FC<UserDashboardModalProps> = ({ isPageMo
                               <p className="font-mono font-black text-purple-300 text-sm">+ ₹{c.amount.toFixed(2)}</p>
                               <span className="text-[10px] text-slate-500">{c.createdAt ? c.createdAt.split('T')[0] : 'Recent'}</span>
                             </div>
-                            <button
-                              type="button"
-                              onClick={() => (isHistoryRecordArchived(c.id) ? unarchiveHistoryRecord(c.id) : archiveHistoryRecord(c.id))}
-                              title={isHistoryRecordArchived(c.id) ? 'Restore Record' : 'Archive / Hide Record'}
-                              className="p-2 rounded-lg bg-white/5 hover:bg-white/10 text-slate-400 hover:text-white transition-all text-xs"
-                            >
-                              {isHistoryRecordArchived(c.id) ? 'Unarchive' : 'Archive'}
-                            </button>
+                            <div className="flex items-center gap-1.5">
+                              <button
+                                type="button"
+                                onClick={() => (isHistoryRecordArchived(c.id) ? unarchiveHistoryRecord(c.id) : archiveHistoryRecord(c.id))}
+                                title={isHistoryRecordArchived(c.id) ? 'Restore Record' : 'Archive / Hide Record'}
+                                className="p-2 rounded-lg bg-white/5 hover:bg-white/10 text-slate-400 hover:text-white transition-all text-xs"
+                              >
+                                {isHistoryRecordArchived(c.id) ? 'Unarchive' : 'Archive'}
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  if (window.confirm('क्या आप इस कमीशन रिकॉर्ड को हटाना चाहते हैं? / Delete this commission record?')) {
+                                    deleteCommission(c.id);
+                                  }
+                                }}
+                                title="Delete Record"
+                                className="p-2 rounded-lg bg-red-500/10 hover:bg-red-500/25 text-red-400 hover:text-red-300 transition-all text-xs"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
                           </div>
                         </div>
                       ))}

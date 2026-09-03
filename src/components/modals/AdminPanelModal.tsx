@@ -190,6 +190,13 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({ isPageMode = f
     drawFreeTicketWinnersForGame,
     myTickets,
     deleteUserPermanently,
+    deleteDummyTestUsers,
+    deleteDeposit,
+    deleteWithdrawal,
+    deleteTransfer,
+    deleteNotification,
+    notifications,
+    clearTransactionHistory,
     clearAllNotifications,
     clearAuditLogs,
   } = useTambola();
@@ -844,15 +851,29 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({ isPageMode = f
                 <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pb-2">
                   <div>
                     <h3 className="text-xl font-black text-white">👥 USER MANAGEMENT</h3>
-                    <p className="text-xs text-slate-400">Search, inspect 3 wallets, block/unblock, soft delete, reset passwords, and verify KYC</p>
+                    <p className="text-xs text-slate-400">Search, inspect 3 wallets, block/unblock, delete IDs, reset passwords, and verify KYC</p>
                   </div>
 
-                  <div className="flex items-center gap-2 w-full sm:w-auto">
-                    <div className="relative flex-1 sm:w-72">
+                  <div className="flex items-center gap-2 w-full sm:w-auto flex-wrap">
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        if (window.confirm('क्या आप सभी बेकार और टेस्ट IDs को सिस्टम से हमेशा के लिए हटाना चाहते हैं? / Are you sure you want to clean all dummy and test accounts?')) {
+                          const res = await deleteDummyTestUsers();
+                          alert(res.message);
+                        }
+                      }}
+                      className="px-3 py-2 rounded-xl bg-gradient-to-r from-red-600 to-pink-600 hover:brightness-110 text-white text-xs font-black flex items-center gap-1.5 shadow-md shadow-red-500/20 cursor-pointer"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                      <span>🧹 बेकार / टेस्ट ID हटाएं (Clean Test IDs)</span>
+                    </button>
+
+                    <div className="relative flex-1 sm:w-64">
                       <Search className="w-4 h-4 absolute left-3 top-3 text-slate-400" />
                       <input
                         type="text"
-                        placeholder="Search by Name, Phone, ID, or Code..."
+                        placeholder="Search by Name, Phone, ID..."
                         value={userSearchQuery}
                         onChange={(e) => setUserSearchQuery(e.target.value)}
                         className="w-full pl-9 pr-4 py-2 rounded-xl bg-black/50 border border-white/10 text-xs text-white focus:outline-none focus:border-amber-400"
@@ -956,11 +977,33 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({ isPageMode = f
                             </div>
                           </div>
 
-                          <div className="text-right">
-                            <p className="text-sm font-black text-emerald-400 font-mono">
-                              ₹{(user.depositWallet || user.walletBalance || 0) + (user.ticketWallet || 0) + (user.winningWallet || 0)}
-                            </p>
-                            <span className="text-[10px] text-slate-400">Total Funds</span>
+                          <div className="flex items-center gap-3">
+                            <div className="text-right">
+                              <p className="text-sm font-black text-emerald-400 font-mono">
+                                ₹{(user.depositWallet || user.walletBalance || 0) + (user.ticketWallet || 0) + (user.winningWallet || 0)}
+                              </p>
+                              <span className="text-[10px] text-slate-400">Total Funds</span>
+                            </div>
+
+                            {user.role !== 'admin' && user.role !== 'superadmin' && (
+                              <button
+                                type="button"
+                                onClick={async (e) => {
+                                  e.stopPropagation();
+                                  if (window.confirm(`क्या आप ${user.name} (ID: ${user.id}) को हमेशा के लिए डिलीट करना चाहते हैं?`)) {
+                                    const res = await deleteUserPermanently(user.id);
+                                    if (selectedUserForDetail?.id === user.id) {
+                                      setSelectedUserForDetail(null);
+                                    }
+                                    alert(res.message);
+                                  }
+                                }}
+                                title="Delete User Permanently (हमेशा के लिए हटाएं)"
+                                className="p-2 rounded-xl bg-red-500/10 hover:bg-red-500 text-red-400 hover:text-white border border-red-500/30 transition-all text-xs"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </button>
+                            )}
                           </div>
                         </div>
                       ))
@@ -1954,9 +1997,21 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({ isPageMode = f
                       Review UPI UTRs, verify payment screenshots, and approve or reject fund additions to Deposit Wallets
                     </p>
                   </div>
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (window.confirm('क्या आप सभी डिपॉजिट हिस्ट्री रिकॉर्ड्स को हटाना चाहते हैं? / Clear all deposits history?')) {
+                          deposits.forEach((d) => deleteDeposit(d.id));
+                        }
+                      }}
+                      className="px-3 py-1.5 rounded-xl bg-red-500/20 hover:bg-red-500 text-red-300 hover:text-white border border-red-500/40 text-xs font-bold flex items-center gap-1.5 cursor-pointer transition-all"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                      <span>सभी डिपॉजिट हटाएं (Clear All)</span>
+                    </button>
                     <span className="px-3.5 py-1 rounded-full bg-amber-400/20 text-amber-300 text-xs font-bold font-mono border border-amber-400/30">
-                      Pending Approvals: {deposits.filter((d) => d.status === 'pending').length}
+                      Pending: {deposits.filter((d) => d.status === 'pending').length}
                     </span>
                   </div>
                 </div>
@@ -2166,6 +2221,19 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({ isPageMode = f
                               {dep.status === 'approved' || dep.status === 'completed' ? 'Credited to User Wallet' : 'Request Rejected'}
                             </span>
                           )}
+
+                          <button
+                            type="button"
+                            onClick={() => {
+                              if (window.confirm(`क्या आप डिपॉजिट ID ${dep.id} (₹${dep.amount}) को हटाना चाहते हैं?`)) {
+                                deleteDeposit(dep.id);
+                              }
+                            }}
+                            title="Delete Deposit Record"
+                            className="p-2 rounded-xl bg-red-500/10 hover:bg-red-500 text-red-400 hover:text-white border border-red-500/30 transition-all text-xs cursor-pointer"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
                         </div>
                       </div>
                     ))}
@@ -2184,14 +2252,28 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({ isPageMode = f
             {/* ================================================================= */}
             {activeTab === 'withdrawals' && (
               <div className="max-w-5xl mx-auto space-y-6 animate-fade-in">
-                <div className="flex items-center justify-between pb-2">
+                <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pb-2 border-b border-white/10">
                   <div>
                     <h3 className="text-xl font-black text-white">💸 WITHDRAWAL APPROVALS &amp; PAYOUTS</h3>
                     <p className="text-xs text-slate-400">Disburse verified player earnings to Bank / UPI</p>
                   </div>
-                  <span className="px-3 py-1 rounded-full bg-amber-400/20 text-amber-300 text-xs font-bold font-mono">
-                    Pending: {withdrawals.filter((w) => w.status === 'pending').length}
-                  </span>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (window.confirm('क्या आप सभी विथड्रॉवल हिस्ट्री रिकॉर्ड्स को हटाना चाहते हैं? / Clear all withdrawals history?')) {
+                          withdrawals.forEach((w) => deleteWithdrawal(w.id));
+                        }
+                      }}
+                      className="px-3 py-1.5 rounded-xl bg-red-500/20 hover:bg-red-500 text-red-300 hover:text-white border border-red-500/40 text-xs font-bold flex items-center gap-1.5 cursor-pointer transition-all"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                      <span>सभी विथड्रॉवल हटाएं (Clear All)</span>
+                    </button>
+                    <span className="px-3 py-1 rounded-full bg-amber-400/20 text-amber-300 text-xs font-bold font-mono border border-amber-400/30">
+                      Pending: {withdrawals.filter((w) => w.status === 'pending').length}
+                    </span>
+                  </div>
                 </div>
 
                 <div className="space-y-3">
@@ -2221,22 +2303,37 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({ isPageMode = f
                         </p>
                       </div>
 
-                      {w.status === 'pending' && (
-                        <div className="flex items-center gap-2">
-                          <button
-                            onClick={() => approveWithdrawal(w.id)}
-                            className="px-4 py-2 rounded-xl bg-amber-400 hover:bg-amber-300 text-slate-950 font-black text-xs shadow-lg shadow-amber-400/20 cursor-pointer"
-                          >
-                            ✓ APPROVE &amp; MARK PAID
-                          </button>
-                          <button
-                            onClick={() => rejectWithdrawal(w.id, 'Account details mismatch')}
-                            className="px-3 py-2 rounded-xl bg-red-500/20 hover:bg-red-500/30 text-red-300 border border-red-500/30 font-bold text-xs cursor-pointer"
-                          >
-                            ✕ REJECT
-                          </button>
-                        </div>
-                      )}
+                      <div className="flex items-center gap-2">
+                        {w.status === 'pending' && (
+                          <>
+                            <button
+                              onClick={() => approveWithdrawal(w.id)}
+                              className="px-4 py-2 rounded-xl bg-amber-400 hover:bg-amber-300 text-slate-950 font-black text-xs shadow-lg shadow-amber-400/20 cursor-pointer"
+                            >
+                              ✓ APPROVE &amp; MARK PAID
+                            </button>
+                            <button
+                              onClick={() => rejectWithdrawal(w.id, 'Account details mismatch')}
+                              className="px-3 py-2 rounded-xl bg-red-500/20 hover:bg-red-500/30 text-red-300 border border-red-500/30 font-bold text-xs cursor-pointer"
+                            >
+                              ✕ REJECT
+                            </button>
+                          </>
+                        )}
+
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (window.confirm(`क्या आप विथड्रॉवल ID ${w.id} (₹${w.amount}) को हटाना चाहते हैं?`)) {
+                              deleteWithdrawal(w.id);
+                            }
+                          }}
+                          title="Delete Withdrawal Record"
+                          className="p-2 rounded-xl bg-red-500/10 hover:bg-red-500 text-red-400 hover:text-white border border-red-500/30 transition-all text-xs cursor-pointer"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
                     </div>
                   ))}
                 </div>
@@ -2822,6 +2919,70 @@ export const AdminPanelModal: React.FC<AdminPanelModalProps> = ({ isPageMode = f
                       SEND BROADCAST ANNOUNCEMENT
                     </button>
                   </form>
+
+                  {/* Active / Sent Notifications List */}
+                  <div className="pt-4 border-t border-white/10 space-y-3">
+                    <div className="flex items-center justify-between">
+                      <h4 className="text-sm font-bold text-white flex items-center gap-1.5">
+                        <Bell className="w-4 h-4 text-amber-400" />
+                        <span>सक्रिय एवं पूर्व सूचनाएं ({notifications.length})</span>
+                      </h4>
+                      {notifications.length > 0 && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (window.confirm('क्या आप सभी नोटिफिकेशन हटाना चाहते हैं? / Clear all broadcast notifications?')) {
+                              clearAllNotifications();
+                            }
+                          }}
+                          className="px-3 py-1 rounded-xl bg-red-500/20 hover:bg-red-500 text-red-300 hover:text-white border border-red-500/30 text-xs font-bold flex items-center gap-1.5 cursor-pointer transition-all"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                          <span>सब नोटिफिकेशन हटाएं (Clear All)</span>
+                        </button>
+                      )}
+                    </div>
+
+                    {notifications.length === 0 ? (
+                      <p className="text-xs text-slate-500 italic p-4 text-center bg-black/30 rounded-xl">
+                        कोई नोटिफिकेशन नहीं है (No notifications in system).
+                      </p>
+                    ) : (
+                      <div className="space-y-2 max-h-72 overflow-y-auto pr-1">
+                        {notifications.map((n) => (
+                          <div
+                            key={n.id}
+                            className="p-3.5 rounded-2xl bg-black/40 border border-white/5 flex items-start justify-between gap-3 text-xs"
+                          >
+                            <div className="flex-1">
+                              <div className="flex items-center justify-between">
+                                <p className="font-bold text-white">{n.title}</p>
+                                <span className="text-[10px] text-slate-500 font-mono">
+                                  {n.createdAt ? new Date(n.createdAt).toLocaleDateString() : 'Recent'}
+                                </span>
+                              </div>
+                              <p className="text-slate-300 mt-1">{n.message}</p>
+                              {n.userId && (
+                                <p className="text-[10px] text-amber-400 mt-1 font-mono">Recipient: User ID {n.userId}</p>
+                              )}
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                if (window.confirm('क्या आप इस नोटिफिकेशन को हटाना चाहते हैं?')) {
+                                  deleteNotification(n.id);
+                                }
+                              }}
+                              className="p-1.5 rounded-lg text-slate-500 hover:text-red-400 hover:bg-red-500/10 cursor-pointer transition-all"
+                              title="Delete Notification"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
                 </div>
               </div>
             )}

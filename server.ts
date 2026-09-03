@@ -49,6 +49,7 @@ interface ServerState {
   withdrawals: any[];
   transfers: any[];
   commissionLedger: any[];
+  platformFeeLedger?: any[];
   prizeLedger: any[];
   freeTicketWinners: any[];
   notifications: any[];
@@ -3827,8 +3828,8 @@ app.post('/api/admin/users/delete-permanent', (req: Request, res: Response) => {
     }
 
     const targetUser = state.users[userIndex];
-    if (targetUser.role === 'superadmin') {
-      return res.status(403).json({ error: 'Super Admin accounts cannot be deleted.' });
+    if (targetUser.role === 'superadmin' || targetUser.role === 'admin') {
+      return res.status(403).json({ error: 'Super Admin / Admin accounts cannot be deleted.' });
     }
 
     // Terminate all sessions
@@ -3860,6 +3861,152 @@ app.post('/api/admin/users/delete-permanent', (req: Request, res: Response) => {
       userId,
       message: `User ID ${targetUser.id} (${targetUser.name}) has been PERMANENTLY deleted from the system.`,
     });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// 15C. Admin User Management: Clean / Batch Delete Dummy & Test Users
+app.post('/api/admin/users/clean-test-users', (req: Request, res: Response) => {
+  try {
+    const { userIds, adminId, adminName } = req.body;
+    let deletedCount = 0;
+    const deletedNames: string[] = [];
+
+    if (Array.isArray(userIds) && userIds.length > 0) {
+      state.users = state.users.filter((u) => {
+        if (userIds.includes(u.id) && u.role !== 'admin' && u.role !== 'superadmin') {
+          deletedCount++;
+          deletedNames.push(`${u.name} (${u.id})`);
+          return false;
+        }
+        return true;
+      });
+    } else {
+      // Auto-identify dummy/test users
+      state.users = state.users.filter((u) => {
+        const isDummy =
+          u.role !== 'admin' &&
+          u.role !== 'superadmin' &&
+          (u.name.toLowerCase().includes('simulated') ||
+            u.name.toLowerCase().includes('test') ||
+            ['AT915359', 'AT392476', 'AT338721', 'AT147878', 'AT999999', 'AT888888', 'AT811505'].includes(u.id));
+        if (isDummy) {
+          deletedCount++;
+          deletedNames.push(`${u.name} (${u.id})`);
+          return false;
+        }
+        return true;
+      });
+    }
+
+    state.auditLogs.unshift({
+      id: `LOG-${Date.now()}`,
+      adminId: adminId || 'ADM-MASTER',
+      adminName: adminName || 'Super Admin',
+      action: 'DUMMY_USERS_CLEANED',
+      details: `Cleaned ${deletedCount} dummy/test user accounts: ${deletedNames.join(', ')}.`,
+      category: 'USER_MGMT',
+      createdAt: new Date().toISOString(),
+    });
+    saveStateToDisk();
+
+    res.json({
+      success: true,
+      count: deletedCount,
+      message: `Successfully deleted ${deletedCount} dummy/test users.`,
+    });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// DELETE User by ID route
+app.delete('/api/admin/users/:userId', (req: Request, res: Response) => {
+  try {
+    const { userId } = req.params;
+    const userIndex = state.users.findIndex((u) => u.id === userId);
+    if (userIndex === -1) {
+      return res.status(404).json({ error: 'User not found.' });
+    }
+    const targetUser = state.users[userIndex];
+    if (targetUser.role === 'admin' || targetUser.role === 'superadmin') {
+      return res.status(403).json({ error: 'Admin accounts cannot be deleted.' });
+    }
+    state.users.splice(userIndex, 1);
+    saveStateToDisk();
+    res.json({ success: true, message: `User ${targetUser.name} (${targetUser.id}) deleted successfully.` });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Transaction removal routes
+app.delete('/api/admin/deposits/:id', (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    state.deposits = (state.deposits || []).filter((d) => d.id !== id);
+    saveStateToDisk();
+    res.json({ success: true, message: `Deposit ${id} removed.` });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.delete('/api/admin/withdrawals/:id', (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    state.withdrawals = (state.withdrawals || []).filter((w) => w.id !== id);
+    saveStateToDisk();
+    res.json({ success: true, message: `Withdrawal ${id} removed.` });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.delete('/api/admin/transfers/:id', (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    state.transfers = (state.transfers || []).filter((t) => t.id !== id);
+    saveStateToDisk();
+    res.json({ success: true, message: `Transfer ${id} removed.` });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.post('/api/admin/transactions/clear', (req: Request, res: Response) => {
+  try {
+    state.deposits = [];
+    state.withdrawals = [];
+    state.transfers = [];
+    state.commissionLedger = [];
+    state.platformFeeLedger = [];
+    state.prizeLedger = [];
+    saveStateToDisk();
+    res.json({ success: true, message: 'All transaction history cleared successfully.' });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Notification removal routes
+app.delete('/api/admin/notifications/:id', (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    state.notifications = (state.notifications || []).filter((n: any) => n.id !== id);
+    saveStateToDisk();
+    res.json({ success: true, message: `Notification ${id} removed.` });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.post('/api/admin/notifications/clear', (req: Request, res: Response) => {
+  try {
+    state.notifications = [];
+    saveStateToDisk();
+    res.json({ success: true, message: 'All notifications cleared successfully.' });
   } catch (err: any) {
     res.status(500).json({ error: err.message });
   }
