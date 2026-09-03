@@ -12,7 +12,7 @@ import {
 } from '../../services/appwrite';
 
 export const AuthModal: React.FC = () => {
-  const { activeModal, setActiveModal, registerUser, loginUser, loginWithGoogle } = useTambola();
+  const { activeModal, setActiveModal, registerUser, loginUser, loginWithGoogle, allUsers } = useTambola();
 
   const [mode, setMode] = useState<'login' | 'register' | 'appwrite'>(
     activeModal === 'register' ? 'register' : 'login'
@@ -42,6 +42,9 @@ export const AuthModal: React.FC = () => {
   const [stateOfResidence, setStateOfResidence] = useState('Maharashtra');
   const [ageConfirmed, setAgeConfirmed] = useState(true);
   const [loginInput, setLoginInput] = useState('');
+  const [loginPassword, setLoginPassword] = useState('');
+  const [showQuickUsers, setShowQuickUsers] = useState(false);
+  const [userSearchTerm, setUserSearchTerm] = useState('');
   const [errorMsg, setErrorMsg] = useState('');
   const [successMsg, setSuccessMsg] = useState('');
   const [loading, setLoading] = useState(false);
@@ -116,11 +119,11 @@ export const AuthModal: React.FC = () => {
     setSuccessMsg('');
 
     if (!loginInput.trim()) {
-      setErrorMsg('Please enter your mobile number, email, or referral code.');
+      setErrorMsg('Please enter your mobile number, email, user ID, or referral code.');
       return;
     }
 
-    const res = loginUser(loginInput);
+    const res = loginUser(loginInput, loginPassword);
     if (res.success) {
       setSuccessMsg(res.message);
       setTimeout(() => {
@@ -458,24 +461,135 @@ export const AuthModal: React.FC = () => {
           <form onSubmit={handleLogin} className="space-y-4">
             <div>
               <label className="text-[11px] font-bold text-slate-300 block mb-1">
-                Mobile Number, Email or Referral Code
+                Mobile Number, Email, User ID or Referral Code
               </label>
               <input
                 type="text"
                 required
-                placeholder="e.g. 9876543210 or APNA100 or USR-101"
+                placeholder="e.g. 7385427570, ashuk2968@gmail.com, APNA100 or USR-101"
                 value={loginInput}
                 onChange={(e) => setLoginInput(e.target.value)}
                 className="w-full bg-[#080918] border border-white/15 rounded-xl px-3.5 py-2.5 text-sm text-white placeholder:text-slate-500 focus:border-pink-500"
               />
             </div>
 
+            <div>
+              <div className="flex items-center justify-between mb-1">
+                <label className="text-[11px] font-bold text-slate-300">Password</label>
+                <span className="text-[10px] text-slate-400">Default: Password@123 or 123456</span>
+              </div>
+              <input
+                type="password"
+                placeholder="Enter password (optional for instant login)"
+                value={loginPassword}
+                onChange={(e) => setLoginPassword(e.target.value)}
+                className="w-full bg-[#080918] border border-white/15 rounded-xl px-3.5 py-2.5 text-sm text-white placeholder:text-slate-500 focus:border-pink-500"
+              />
+            </div>
+
             <button
               type="submit"
-              className="w-full py-3 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-black text-xs shadow-lg shadow-blue-500/25 cursor-pointer uppercase tracking-wider"
+              className="w-full py-3 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-black text-xs shadow-lg shadow-blue-500/25 cursor-pointer uppercase tracking-wider transition-all hover:scale-[1.01]"
             >
               LOGIN TO ACCOUNT
             </button>
+
+            {/* Quick Demo / Imported Users Picker */}
+            <div className="pt-1">
+              <button
+                type="button"
+                onClick={() => setShowQuickUsers(!showQuickUsers)}
+                className="w-full text-center text-xs text-indigo-400 hover:text-indigo-300 font-bold flex items-center justify-center gap-1 cursor-pointer py-1"
+              >
+                <span>{showQuickUsers ? '▲ Hide Registered Accounts' : '▼ Select from Registered / Imported Accounts'}</span>
+              </button>
+
+              {showQuickUsers && (
+                <div className="mt-2 p-2.5 bg-black/40 border border-indigo-500/30 rounded-xl space-y-2 max-h-60 overflow-y-auto custom-scrollbar text-xs">
+                  <div className="flex items-center justify-between">
+                    <p className="text-[10px] font-bold text-indigo-300 uppercase tracking-wider">
+                      All Users ({(allUsers || []).length}):
+                    </p>
+                    <span className="text-[10px] text-slate-400">Click any user to login</span>
+                  </div>
+
+                  <input
+                    type="text"
+                    placeholder="Search by Name, Mobile, ID, Referral..."
+                    value={userSearchTerm}
+                    onChange={(e) => setUserSearchTerm(e.target.value)}
+                    className="w-full bg-[#0d1026] border border-white/10 rounded-lg px-2.5 py-1.5 text-xs text-white placeholder:text-slate-500 focus:border-indigo-400 mb-1"
+                  />
+
+                  <div className="space-y-1.5">
+                    {((allUsers && allUsers.length > 0) ? allUsers : [
+                      { id: 'USR-101', name: 'Rajesh Sharma', phone: '9876543210', referralCode: 'APNA100', role: 'user', email: 'rajesh.sharma@example.com' },
+                      { id: 'USR-102', name: 'Pooja Verma', phone: '9876543211', referralCode: 'APNA200', role: 'user', email: 'pooja.verma@example.com' },
+                      { id: 'USR-103', name: 'Amit Patel', phone: '9876543212', referralCode: 'APNA300', role: 'user', email: 'amit.patel@example.com' },
+                      { id: 'USR-104', name: 'Sneha Roy', phone: '9876543213', referralCode: 'APNA400', role: 'user', email: 'sneha.roy@example.com' },
+                      { id: 'USR-105', name: 'Vikas Kumar', phone: '9876543214', referralCode: 'APNA500', role: 'user', email: 'vikas.kumar@example.com' },
+                      { id: 'USR-106', name: 'Kiran Gupta', phone: '9876543215', referralCode: 'APNA600', role: 'user', email: 'kiran.gupta@example.com' },
+                      { id: 'AT10245', name: 'Ramesh Kumar', phone: '9876543216', referralCode: 'AT10245', role: 'user', email: 'ramesh@example.com' },
+                      { id: 'AT10001', name: 'Super Admin', phone: '9999999999', referralCode: 'AT10001', role: 'superadmin', email: 'admin@apnatambola.com' },
+                      { id: 'USR-ADMIN', name: 'Apna Tambola Super Admin', phone: '+91 99999 88888', referralCode: 'APNA999', role: 'admin', email: 'admin@apnatambola.com' },
+                      { id: 'AT597167', name: 'Apna', phone: '7385427570', referralCode: 'APNAX28', role: 'user', email: 'ashuk2968@gmail.com' },
+                      { id: 'AT578579', name: 'Ashutosh', phone: '7385427571', referralCode: 'AT578579', role: 'user', email: 'ashutosh@apnatambola.com' },
+                      { id: 'AT711434', name: 'Ravi', phone: '6532145678', referralCode: 'APNA6KX', role: 'user', email: 'ravi1@gmail.com' },
+                      { id: 'AT749842', name: 'Rav', phone: '8529637410', referralCode: 'APNAHDV', role: 'user', email: 'ravi@gmail.com' },
+                      { id: 'AT983624', name: 'Ravik', phone: '2369857410', referralCode: 'APNA6X9', role: 'user', email: 'ravi3@gmail.com' },
+                      { id: 'AT204986', name: 'Jesus', phone: '8654321798', referralCode: 'APNARRT', role: 'user', email: 'jesus@gmail.com' },
+                      { id: 'AT962581', name: 'Aniket', phone: '7841817431', referralCode: 'APNAN6S', role: 'user', email: 'aniketblessy@gmail.com' },
+                      { id: 'AT718792', name: 'Arjun Verma', phone: '9811223344', referralCode: 'APNA72L', role: 'user', email: 'arjun.verma@example.com' },
+                      { id: 'AT359097', name: 'Karan Singh', phone: '9822334455', referralCode: 'APNAXZJ', role: 'user', email: 'karan.singh@example.com' },
+                      { id: 'AT999999', name: 'Self Refer Test', phone: '9833445566', referralCode: 'APNATXY', role: 'user', email: 'selfrefer@example.com' },
+                      { id: 'AT888888', name: 'Direct User', phone: '9844556677', referralCode: 'APNAYMS', role: 'user', email: 'direct@example.com' },
+                      { id: 'AT811505', name: 'Firebase Test User', phone: '9871122334', referralCode: 'APNA6LE', role: 'user', email: 'fbtest@example.com' },
+                      { id: 'AT915359', name: 'Simulated User B', phone: '9876500001', referralCode: 'APNAK5V', role: 'user', email: 'sim_b@example.com' },
+                      { id: 'AT392476', name: 'Simulated User C', phone: '9876500002', referralCode: 'APNA8VF', role: 'user', email: 'sim_c@example.com' },
+                      { id: 'AT338721', name: 'Simulated User B', phone: '9876590522', referralCode: 'APNAUG5', role: 'user', email: 'sim_b_1788210018273@example.com' },
+                      { id: 'AT147878', name: 'Simulated User C', phone: '9876514073', referralCode: 'APNAJJD', role: 'user', email: 'sim_c_1788210018273@example.com' },
+                    ])
+                      .filter((u) => {
+                        if (!userSearchTerm.trim()) return true;
+                        const s = userSearchTerm.toLowerCase();
+                        return (
+                          (u.name || '').toLowerCase().includes(s) ||
+                          (u.phone || '').toLowerCase().includes(s) ||
+                          (u.id || '').toLowerCase().includes(s) ||
+                          (u.referralCode || '').toLowerCase().includes(s) ||
+                          (u.email || '').toLowerCase().includes(s)
+                        );
+                      })
+                      .map((u) => (
+                        <button
+                          key={u.id}
+                          type="button"
+                          onClick={() => {
+                            setLoginInput(u.phone || u.id);
+                            loginUser(u.phone || u.id);
+                            setSuccessMsg(`Welcome, ${u.name}! Logging in...`);
+                            setTimeout(() => setActiveModal(null), 1000);
+                          }}
+                          className="w-full flex items-center justify-between p-2 rounded-lg bg-white/5 hover:bg-indigo-600/30 hover:border-indigo-500/50 border border-white/5 text-left transition-colors cursor-pointer"
+                        >
+                          <div>
+                            <div className="font-bold text-white text-xs flex items-center gap-1.5">
+                              {u.name}
+                              <span className="text-[9px] font-normal px-1.5 py-0.2 rounded bg-indigo-500/20 text-indigo-300">
+                                {u.role === 'admin' || u.role === 'superadmin' ? 'Admin' : 'Player'}
+                              </span>
+                            </div>
+                            <div className="text-[10px] text-slate-400">
+                              Mob: {u.phone} | ID: {u.id} | Code: {u.referralCode}
+                            </div>
+                          </div>
+                          <span className="text-[10px] font-bold text-indigo-400 bg-indigo-500/10 px-2 py-1 rounded">Login →</span>
+                        </button>
+                      ))}
+                  </div>
+                </div>
+              )}
+            </div>
 
             <div className="relative flex py-1 items-center">
               <div className="flex-grow border-t border-white/10"></div>

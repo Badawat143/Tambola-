@@ -4,6 +4,19 @@ import { X, Users, UserCheck, Shield, Award, Wallet } from 'lucide-react';
 
 export const UserSwitcherModal: React.FC = () => {
   const { allUsers, currentUser, switchUser, setActiveModal } = useTambola();
+  const [search, setSearch] = React.useState('');
+
+  const filteredUsers = (allUsers || []).filter((u) => {
+    if (!search.trim()) return true;
+    const q = search.toLowerCase();
+    return (
+      (u.name || '').toLowerCase().includes(q) ||
+      (u.phone || '').toLowerCase().includes(q) ||
+      (u.id || '').toLowerCase().includes(q) ||
+      (u.referralCode || '').toLowerCase().includes(q) ||
+      (u.email || '').toLowerCase().includes(q)
+    );
+  });
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-md overflow-y-auto">
@@ -15,8 +28,8 @@ export const UserSwitcherModal: React.FC = () => {
               <Users className="w-5 h-5" />
             </div>
             <div>
-              <h2 className="text-lg font-black text-white">ACCOUNT SWITCHER</h2>
-              <p className="text-xs text-slate-400">Switch test users to verify downline hierarchy</p>
+              <h2 className="text-lg font-black text-white">ACCOUNT SWITCHER ({allUsers.length} Users)</h2>
+              <p className="text-xs text-slate-400">Switch any registered user to inspect downline & wallet</p>
             </div>
           </div>
 
@@ -28,9 +41,20 @@ export const UserSwitcherModal: React.FC = () => {
           </button>
         </div>
 
+        {/* Search Bar */}
+        <div className="pt-3">
+          <input
+            type="text"
+            placeholder="Search by Name, Mobile, User ID, Referral Code..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="w-full bg-[#131538] border border-purple-500/30 rounded-xl px-3.5 py-2 text-xs text-white placeholder:text-slate-500 focus:border-purple-400"
+          />
+        </div>
+
         {/* User List */}
-        <div className="py-4 space-y-3 max-h-[60vh] overflow-y-auto pr-1">
-          {allUsers.map((u) => {
+        <div className="py-3 space-y-2.5 max-h-[55vh] overflow-y-auto pr-1 custom-scrollbar">
+          {filteredUsers.map((u) => {
             const isCurrent = u.id === currentUser.id;
             return (
               <div
